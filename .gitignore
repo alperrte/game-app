@@ -1,0 +1,132 @@
+# =========================
+# Java / Spring Boot
+# =========================
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven Wrapper dışında gereksiz dosyalar
+.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+logs/
+*.log
+
+# Spring Boot
+*.pid
+*.seed
+*.pid.lock
+
+# Application config secrets
+application-local.yml
+application-local.properties
+application-dev.yml
+application-dev.properties
+application-prod.yml
+application-prod.properties
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# =========================
+# IntelliJ IDEA
+# =========================
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# =========================
+# Eclipse / STS
+# =========================
+.project
+.classpath
+.settings/
+.springBeans
+.sts4-cache/
+
+# =========================
+# NetBeans
+# =========================
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# =========================
+# React / Vite / TypeScript
+# =========================
+node_modules/
+dist/
+build/
+.vite/
+
+# Frontend env files
+frontend/**/.env
+frontend/**/.env.*
+!frontend/**/.env.example
+
+# npm / yarn / pnpm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package manager cache
+.pnpm-store/
+
+# TypeScript
+*.tsbuildinfo
+
+# =========================
+# Tailwind / PostCSS cache
+# =========================
+.cache/
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# Docker volumes / local db files
+data/
+mssql_data/
+*.bak
+*.mdf
+*.ldf
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Test / Coverage
+# =========================
+coverage/
+.nyc_output/
+surefire-reports/
+failsafe-reports/
+
+# =========================
+# Misc
+# =========================
+*.tmp
+*.temp
+*.swp
+*.swo
