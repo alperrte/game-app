@@ -72,7 +72,7 @@ LobbyTwoZero, oyuncuların topluluklara katılmasını, oyun geceleri düzenleme
 
 This project is not open-source.
 
-All rights reserved by the QResto contributors.  
+All rights reserved by the LobbyTwoZero contributors.
 No permission is granted to use, copy, modify, distribute, publish, deploy or present this project without explicit written approval from the project contributors.
 
 <p align="center">
