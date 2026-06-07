@@ -1,0 +1,126 @@
+version: "3.9"
+
+services:
+  # -------------------------------
+  # 🐳 MSSQL DATABASE SERVER
+  # -------------------------------
+
+  mssql:
+    platform: linux/amd64
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ${MSSQL_CONTAINER}
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+      SA_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${MSSQL_PORT}:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U ${DB_USER} -P ${DB_PASSWORD} -C -Q 'SELECT 1'"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+
+  # -------------------------------
+  # 🗃️ DATABASE INITIALIZER
+  # -------------------------------
+
+
+# Buraya Her Servis için database'ini eklemeyi unutmayın.
+  database-init:
+    platform: linux/amd64
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ltz-database-init
+    depends_on:
+      mssql:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-lc"]
+    command: >
+      "/opt/mssql-tools18/bin/sqlcmd
+      -S ${DB_HOST}
+      -U ${DB_USER}
+      -P \"$DB_PASSWORD\"
+      -C
+      -Q \"
+      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME]; 
+      \""
+    env_file:
+      - .env
+    restart: "no"
+
+
+  # -------------------------------
+  # 🔐 AUTH SERVICE
+  # -------------------------------
+
+  auth-service:
+    build: ./backend/auth-service
+    container_name: ltz-auth-service
+    env_file:
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${SERVER_PORT_AUTH}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${AUTH_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      REFRESH_TOKEN_EXPIRATION: ${REFRESH_TOKEN_EXPIRATION}
+    ports:
+      - "${SERVER_PORT_AUTH}:${SERVER_PORT_AUTH}"
+    restart: unless-stopped
+
+
+
+
+  # -------------------------------
+  # 🚪 API GATEWAY
+  # -------------------------------
+
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: ltz-api-gateway
+    env_file:
+      - .env
+    depends_on:
+      auth-service:
+        condition: service_started
+    environment:
+      SERVER_PORT: ${SERVER_PORT_GATEWAY}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+# SERVİSLERİN APİ GATEWAY İÇİN KENDİ URLLERİ BURAYA EKLENECEK
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "${SERVER_PORT_GATEWAY}:${SERVER_PORT_GATEWAY}"
+    restart: unless-stopped
+
+
+# -------------------------------
+# 💾 VOLUMES
+# -------------------------------
+
+volumes:
+  mssql_data:
