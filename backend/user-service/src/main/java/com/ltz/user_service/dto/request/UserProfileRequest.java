@@ -20,4 +20,7 @@ public class UserProfileRequest {
     private String gamerType;
 
     private String favoriteCategories;
+
+    @Size(max = 255, message = "Profile theme URL cannot exceed 255 characters")
+    private String profileThemeUrl;
 }

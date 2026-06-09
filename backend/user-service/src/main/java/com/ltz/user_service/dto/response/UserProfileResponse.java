@@ -21,6 +21,7 @@ public class UserProfileResponse {
     private String coverUrl;
     private String gamerType;
     private String favoriteCategories;
+    private String profileThemeUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -49,6 +49,9 @@ public class UserProfile {
     @Column(name = "favorite_categories")
     private String favoriteCategories;
 
+    @Column(name = "profile_theme_url")
+    private String profileThemeUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
