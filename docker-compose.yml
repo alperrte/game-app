@@ -52,6 +52,7 @@ services:
       -C
       -Q \"
       IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME]; 
+      IF DB_ID('$USER_DB_NAME') IS NULL CREATE DATABASE [$USER_DB_NAME];
       \""
     env_file:
       - .env
@@ -89,6 +90,36 @@ services:
       - "${SERVER_PORT_AUTH}:${SERVER_PORT_AUTH}"
     restart: unless-stopped
 
+  # -------------------------------
+  # 🔐 USER SERVICE
+  # -------------------------------
+
+  user-service:
+    build: ./backend/user-service
+    container_name: ltz-user-service
+    env_file: 
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${SERVER_PORT_USER}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${USER_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      REFRESH_TOKEN_EXPIRATION: ${REFRESH_TOKEN_EXPIRATION}
+    ports:
+      - "${SERVER_PORT_USER}:${SERVER_PORT_USER}"
+    restart: unless-stopped
 
 
 
