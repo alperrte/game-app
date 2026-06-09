@@ -34,8 +34,7 @@ services:
   # 🗃️ DATABASE INITIALIZER
   # -------------------------------
 
-
-# Buraya Her Servis için database'ini eklemeyi unutmayın.
+  # Buraya her servis için database eklemeyi unutmayın.
   database-init:
     platform: linux/amd64
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -51,7 +50,8 @@ services:
       -P \"$DB_PASSWORD\"
       -C
       -Q \"
-      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME]; 
+      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME];
+      IF DB_ID('$SOCIAL_DB_NAME') IS NULL CREATE DATABASE [$SOCIAL_DB_NAME];
       \""
     env_file:
       - .env
@@ -90,6 +90,36 @@ services:
     restart: unless-stopped
 
 
+  # -------------------------------
+  # 👥 SOCIAL SERVICE
+  # -------------------------------
+
+  social-service:
+    build: ./backend/social-service
+    container_name: ltz-social-service
+    env_file:
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${SERVER_PORT_SOCIAL}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${SOCIAL_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      REFRESH_TOKEN_EXPIRATION: ${REFRESH_TOKEN_EXPIRATION}
+    ports:
+      - "${SERVER_PORT_SOCIAL}:${SERVER_PORT_SOCIAL}"
+    restart: unless-stopped
 
 
   # -------------------------------
@@ -104,12 +134,15 @@ services:
     depends_on:
       auth-service:
         condition: service_started
+      social-service:
+        condition: service_started
     environment:
       SERVER_PORT: ${SERVER_PORT_GATEWAY}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
 
-# SERVİSLERİN APİ GATEWAY İÇİN KENDİ URLLERİ BURAYA EKLENECEK
+      # SERVİSLERİN API GATEWAY İÇİN KENDİ URL'LERİ
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+      SOCIAL_SERVICE_URL: ${SOCIAL_SERVICE_URL}
 
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
