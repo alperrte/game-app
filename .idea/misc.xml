@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/backend/api-gateway/pom.xml" />
         <option value="$PROJECT_DIR$/backend/auth-service/pom.xml" />
         <option value="$PROJECT_DIR$/backend/user-service/pom.xml" />
+        <option value="$PROJECT_DIR$/backend/social-service/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

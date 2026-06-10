@@ -1,0 +1,14 @@
+package com.ltz.user_service.repository;
+
+import com.ltz.user_service.entity.ConnectedAccount;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ConnectedAccountRepository extends JpaRepository<ConnectedAccount, Long> {
+    List<ConnectedAccount> findByUserId(String userId);
+    Optional<ConnectedAccount> findByUserIdAndPlatformName(String userId, String platformName);
+}
