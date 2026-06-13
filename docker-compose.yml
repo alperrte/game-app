@@ -51,7 +51,8 @@ services:
       -P \"$DB_PASSWORD\"
       -C
       -Q \"
-      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME]; 
+      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME];
+      IF DB_ID('$GAME_DB_NAME') IS NULL CREATE DATABASE [$GAME_DB_NAME]; 
       \""
     env_file:
       - .env
@@ -89,8 +90,35 @@ services:
       - "${SERVER_PORT_AUTH}:${SERVER_PORT_AUTH}"
     restart: unless-stopped
 
+  # -------------------------------
+  # 🔐 GAME SERVICE
+  # -------------------------------
 
+  game-service:
+    build: ./backend/game-service
+    container_name: game-app-game-service
+    env_file:
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${SERVER_PORT_GAME}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
 
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${GAME_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+
+    ports:
+      - "${SERVER_PORT_GAME}:${SERVER_PORT_GAME}"
+    restart: unless-stopped
 
   # -------------------------------
   # 🚪 API GATEWAY
@@ -110,7 +138,7 @@ services:
 
 # SERVİSLERİN APİ GATEWAY İÇİN KENDİ URLLERİ BURAYA EKLENECEK
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
-
+      GAME_SERVICE_URL: ${GAME_SERVICE_URL}
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
     ports:
