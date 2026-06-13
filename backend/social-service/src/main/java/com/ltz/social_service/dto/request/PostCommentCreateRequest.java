@@ -12,7 +12,6 @@ public class PostCommentCreateRequest {
 
     private Long postId;
 
-    @NotNull(message = "User id is required")
     private Long userId;
 
     @NotBlank(message = "Comment content is required")

@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @Setter
 public class LookingForPlayerPostCreateRequest {
 
-    @NotNull(message = "User id is required")
     private Long userId;
 
     @NotNull(message = "Game id is required")

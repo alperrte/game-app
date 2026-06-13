@@ -8,7 +8,6 @@ import lombok.Setter;
 @Setter
 public class FriendRequestCreateRequest {
 
-    @NotNull(message = "Sender user id is required")
     private Long senderUserId;
 
     @NotNull(message = "Receiver user id is required")
