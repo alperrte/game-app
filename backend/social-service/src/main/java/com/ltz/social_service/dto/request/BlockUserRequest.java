@@ -8,7 +8,6 @@ import lombok.Setter;
 @Setter
 public class BlockUserRequest {
 
-    @NotNull(message = "Blocker user id is required")
     private Long blockerUserId;
 
     @NotNull(message = "Blocked user id is required")

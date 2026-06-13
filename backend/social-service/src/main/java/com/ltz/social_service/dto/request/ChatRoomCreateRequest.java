@@ -16,6 +16,5 @@ public class ChatRoomCreateRequest {
     @NotNull(message = "Room type is required")
     private ChatRoomType roomType;
 
-    @NotNull(message = "Created by user id is required")
     private Long createdByUserId;
 }

@@ -116,6 +116,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
 
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
 
     ports:
       - "${SERVER_PORT_GAME}:${SERVER_PORT_GAME}"
@@ -145,6 +146,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
 
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
     ports:
       - "${SERVER_PORT_USER}:${SERVER_PORT_USER}"
     restart: unless-stopped
@@ -174,6 +176,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
 
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
     ports:
       - "${SERVER_PORT_SOCIAL}:${SERVER_PORT_SOCIAL}"
     restart: unless-stopped
@@ -190,6 +193,10 @@ services:
     depends_on:
       auth-service:
         condition: service_started
+      game-service:
+        condition: service_started
+      user-service:
+        condition: service_started
       social-service:
         condition: service_started
     environment:
@@ -199,9 +206,11 @@ services:
       # SERVİSLERİN API GATEWAY İÇİN KENDİ URL'LERİ
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
       GAME_SERVICE_URL: ${GAME_SERVICE_URL}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
       SOCIAL_SERVICE_URL: ${SOCIAL_SERVICE_URL}
 
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
       FRONTEND_URL: ${FRONTEND_URL}
     ports:
       - "${SERVER_PORT_GATEWAY}:${SERVER_PORT_GATEWAY}"
