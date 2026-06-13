@@ -5,8 +5,9 @@
     <option name="originalFiles">
       <list>
         <option value="$PROJECT_DIR$/backend/test-service/pom.xml" />
-        <option value="$PROJECT_DIR$/backend/api-gateway/pom.xml" />
+        <option value="$PROJECT_DIR$/backend/game-service/pom.xml" />
         <option value="$PROJECT_DIR$/backend/auth-service/pom.xml" />
+        <option value="$PROJECT_DIR$/backend/api-gateway/pom.xml" />
         <option value="$PROJECT_DIR$/backend/user-service/pom.xml" />
         <option value="$PROJECT_DIR$/backend/social-service/pom.xml" />
       </list>

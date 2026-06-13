@@ -50,7 +50,8 @@ services:
       -P \"$DB_PASSWORD\"
       -C
       -Q \"
-      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME]; 
+      IF DB_ID('$AUTH_DB_NAME') IS NULL CREATE DATABASE [$AUTH_DB_NAME];
+      IF DB_ID('$GAME_DB_NAME') IS NULL CREATE DATABASE [$GAME_DB_NAME]; 
       IF DB_ID('$USER_DB_NAME') IS NULL CREATE DATABASE [$USER_DB_NAME];
       IF DB_ID('$SOCIAL_DB_NAME') IS NULL CREATE DATABASE [$SOCIAL_DB_NAME];
       \""
@@ -91,6 +92,35 @@ services:
     restart: unless-stopped
 
   # -------------------------------
+  # 🔐 GAME SERVICE
+  # -------------------------------
+
+  game-service:
+    build: ./backend/game-service
+    container_name: game-app-game-service
+    env_file:
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${SERVER_PORT_GAME}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${GAME_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+
+    ports:
+      - "${SERVER_PORT_GAME}:${SERVER_PORT_GAME}"
+    restart: unless-stopped
+    
   # 🔐 USER SERVICE
   # -------------------------------
 
@@ -115,8 +145,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
 
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION}
-      REFRESH_TOKEN_EXPIRATION: ${REFRESH_TOKEN_EXPIRATION}
     ports:
       - "${SERVER_PORT_USER}:${SERVER_PORT_USER}"
     restart: unless-stopped
@@ -146,12 +174,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
 
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION}
-      REFRESH_TOKEN_EXPIRATION: ${REFRESH_TOKEN_EXPIRATION}
     ports:
       - "${SERVER_PORT_SOCIAL}:${SERVER_PORT_SOCIAL}"
     restart: unless-stopped
-
 
   # -------------------------------
   # 🚪 API GATEWAY
@@ -173,6 +198,7 @@ services:
 
       # SERVİSLERİN API GATEWAY İÇİN KENDİ URL'LERİ
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+      GAME_SERVICE_URL: ${GAME_SERVICE_URL}
       SOCIAL_SERVICE_URL: ${SOCIAL_SERVICE_URL}
 
       JWT_SECRET: ${JWT_SECRET}
