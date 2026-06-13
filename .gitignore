@@ -130,3 +130,9 @@ failsafe-reports/
 *.temp
 *.swp
 *.swo
+
+# =========================
+# Agentlar
+# =========================
+
+.agents
