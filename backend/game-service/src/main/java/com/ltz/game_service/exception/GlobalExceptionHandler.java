@@ -14,6 +14,18 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(UnsupportedOperationException.class)
+    public ResponseEntity<Map<String, Object>> handleUnsupportedOperationException(
+            UnsupportedOperationException exception
+    ) {
+        Map<String, Object> response = createErrorResponse(
+                HttpStatus.NOT_IMPLEMENTED,
+                exception.getMessage()
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(response);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException exception) {
         HttpStatus status = HttpStatus.BAD_REQUEST;
