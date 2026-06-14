@@ -22,7 +22,10 @@ public class JwtService {
     }
 
     public String extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", String.class));
+        return extractClaim(token, claims -> {
+            Object userId = claims.get("userId");
+            return userId != null ? String.valueOf(userId) : null;
+        });
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -47,6 +50,8 @@ public class JwtService {
         try {
             return !isTokenExpired(token);
         } catch (Exception e) {
+            System.err.println("JWT Verification Error for token: '" + token + "' (length: " + (token != null ? token.length() : 0) + "). Message: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }

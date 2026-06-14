@@ -7,11 +7,16 @@ import com.ltz.user_service.dto.response.ConnectedAccountResponse;
 import com.ltz.user_service.dto.response.PrivacySettingsResponse;
 import com.ltz.user_service.dto.response.UserProfileResponse;
 import com.ltz.user_service.service.UserProfileService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import com.ltz.user_service.exception.BadRequestException;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -22,26 +27,21 @@ import java.util.List;
  * 📌 GÜVENLİK VE ROL ENJEKSİYONU:
  * - `@AuthenticationPrincipal`: API Gateway'den gelen ve JWT doğrulamasından geçen
  *   kullanıcının kimlik bilgisini (userId) doğrudan metot parametresine bağlar.
- * - Bu sayede Frontend'den gelen taklit edilebilecek "ben buyum" id parametrelerine güvenilmez.
- * 
- * 🚀 GELECEK GELİŞTİRME ÖNERİLERİ:
- * - Swagger / OpenAPI anotasyonları (`@Operation`, `@ApiResponse`) eklenerek API dokümantasyonu
- *   otomatik olarak zenginleştirilebilir.
  */
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
 
     private final UserProfileService userProfileService;
+    private final HttpServletRequest httpServletRequest;
 
-    // Bağımlılık enjeksiyonu constructor aracılığıyla yapılmıştır.
-    public UserController(UserProfileService userProfileService) {
+    public UserController(UserProfileService userProfileService, HttpServletRequest httpServletRequest) {
         this.userProfileService = userProfileService;
+        this.httpServletRequest = httpServletRequest;
     }
 
     /**
      * 💚 Sağlık Kontrolü (Health Check)
-     * Token gerektirmeden çalışır (CORS/SecurityConfig izinlidir).
      */
     @GetMapping("/health")
     public ResponseEntity<String> healthCheck() {
@@ -50,7 +50,6 @@ public class UserController {
 
     /**
      * 🔍 Profil Çekme
-     * Belirli bir kullanıcının profil bilgilerini getirir.
      */
     @GetMapping("/profile/{userId}")
     public ResponseEntity<UserProfileResponse> getProfile(@PathVariable String userId) {
@@ -59,7 +58,6 @@ public class UserController {
 
     /**
      * 🆕 Profil Kurulumu (İlk Giriş)
-     * Kullanıcı ilk kez sisteme üye olduğunda adını, emailini ve varsayılan profilini oluşturmak için tetiklenir.
      */
     @PostMapping("/profile/setup")
     public ResponseEntity<UserProfileResponse> setupProfile(
@@ -68,21 +66,19 @@ public class UserController {
             @RequestParam String email,
             @Valid @RequestBody(required = false) UserProfileRequest request
     ) {
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, username, email, request));
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, username, email, request, getClientIp()));
     }
 
     /**
      * ✏️ Profil Güncelleme
-     * `@Valid`: UserProfileRequest içindeki `@Size` kısıtlarının (bio < 1000) kontrol edilmesini sağlar.
      */
     @PutMapping("/profile")
     public ResponseEntity<UserProfileResponse> updateProfile(
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody UserProfileRequest request
     ) {
-        // Mevcut kullanıcıyı çekip username/email değerlerini koruyarak profil alanlarını günceller
         UserProfileResponse existing = userProfileService.getProfile(userId);
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request));
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientIp()));
     }
 
     /**
@@ -101,7 +97,7 @@ public class UserController {
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody PrivacySettingsRequest request
     ) {
-        return ResponseEntity.ok(userProfileService.updatePrivacySettings(userId, request));
+        return ResponseEntity.ok(userProfileService.updatePrivacySettings(userId, request, getClientIp()));
     }
 
     /**
@@ -120,7 +116,7 @@ public class UserController {
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody ConnectedAccountRequest request
     ) {
-        return ResponseEntity.ok(userProfileService.connectAccount(userId, request));
+        return ResponseEntity.ok(userProfileService.connectAccount(userId, request, getClientIp()));
     }
 
     /**
@@ -131,7 +127,74 @@ public class UserController {
             @AuthenticationPrincipal String userId,
             @PathVariable Long id
     ) {
-        userProfileService.disconnectAccount(userId, id);
+        userProfileService.disconnectAccount(userId, id, getClientIp());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 📁 Profil Resmi / Tema GIF Yükleme Uç Noktası
+     * Resimleri uploads/ dizinine kaydeder ve veri tabanına bağlar.
+     */
+    @PostMapping("/profile/upload")
+    public ResponseEntity<UserProfileResponse> uploadProfileFile(
+            @AuthenticationPrincipal String userId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("type") String type // "avatar" | "cover" | "theme"
+    ) {
+        if (file.isEmpty()) {
+            throw new BadRequestException("Uploaded file cannot be empty.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.startsWith("image/") && !contentType.equals("image/gif"))) {
+            throw new BadRequestException("Only image and GIF uploads are allowed.");
+        }
+
+        try {
+            String uploadsDir = "uploads/";
+            File directory = new File(uploadsDir);
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            String extension = originalFilename != null && originalFilename.contains(".") 
+                    ? originalFilename.substring(originalFilename.lastIndexOf(".")) 
+                    : ".bin";
+            
+            String newFilename = userId + "_" + type + "_" + System.currentTimeMillis() + extension;
+            File destFile = new File(directory, newFilename);
+            file.transferTo(destFile);
+
+            String fileUrl = "/api/users/uploads/" + newFilename;
+
+            UserProfileResponse existing = userProfileService.getProfile(userId);
+            UserProfileRequest request = new UserProfileRequest();
+            if ("avatar".equalsIgnoreCase(type)) {
+                request.setAvatarUrl(fileUrl);
+            } else if ("cover".equalsIgnoreCase(type)) {
+                request.setCoverUrl(fileUrl);
+            } else if ("theme".equalsIgnoreCase(type)) {
+                request.setProfileThemeUrl(fileUrl);
+            } else {
+                throw new BadRequestException("Invalid upload type: " + type);
+            }
+
+            UserProfileResponse updated = userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientIp());
+            return ResponseEntity.ok(updated);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to save uploaded file locally.", e);
+        }
+    }
+
+    /**
+     * API Gateway arkasındaki gerçek istemci IP adresini döner.
+     */
+    private String getClientIp() {
+        String xForwardedFor = httpServletRequest.getHeader("X-Forwarded-For");
+        if (xForwardedFor == null || xForwardedFor.isEmpty()) {
+            return httpServletRequest.getRemoteAddr();
+        }
+        return xForwardedFor.split(",")[0].trim();
     }
 }
