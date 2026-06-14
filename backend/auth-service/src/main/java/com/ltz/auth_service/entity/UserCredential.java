@@ -1,6 +1,7 @@
 package com.ltz.auth_service.entity;
 
 import com.ltz.auth_service.entity.enums.AccountStatus;
+import com.ltz.auth_service.entity.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,9 +40,27 @@ public class UserCredential {
      * Dikkat:
      * Burada düz şifre tutulmaz.
      * Register sırasında BCrypt ile hashlenmiş değer tutulur.
+     *
+     * OAuth (STEAM/DISCORD) kullanıcılarının şifresi olmadığı için NULL olabilir.
      */
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
+
+    /*
+     * Kullanıcının kimlik doğrulama sağlayıcısı.
+     * LOCAL (varsayılan), STEAM veya DISCORD.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false, length = 20)
+    private AuthProvider provider;
+
+    /*
+     * Sağlayıcı tarafındaki benzersiz kullanıcı kimliği.
+     * STEAM için SteamID64, DISCORD için Discord user id.
+     * LOCAL kullanıcılarda NULL'dır.
+     */
+    @Column(name = "provider_id", length = 100)
+    private String providerId;
 
     /*
      * Kullanıcının rolü.
@@ -92,6 +111,10 @@ public class UserCredential {
 
         if (this.emailVerified == null) {
             this.emailVerified = false;
+        }
+
+        if (this.provider == null) {
+            this.provider = AuthProvider.LOCAL;
         }
     }
 

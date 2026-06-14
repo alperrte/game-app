@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/*
+ * LTZ tasarım tokenları (Tailwind v4 @theme).
+ * Bu değerler bg-ltz-bg, text-ltz-muted, animate-float gibi class'lar üretir.
+ */
+@theme {
+    --color-ltz-bg: #03040d;
+    --color-ltz-panel: #050816;
+    --color-ltz-card: #070818;
+
+    --color-ltz-violet: #7c3aed;
+    --color-ltz-purple: #9333ea;
+    --color-ltz-fuchsia: #d946ef;
+    --color-ltz-cyan: #22d3ee;
+    --color-ltz-blue: #2563eb;
+
+    --animate-float: float 6s ease-in-out infinite;
+    --animate-pulse-slow: pulseSlow 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+@keyframes pulseSlow {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.55;
+    }
+}
+
+/*
+ * Genel tasarım zemini.
+ * Component tasarımları buraya yazılmaz; sadece global temel stiller.
+ */
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background-color: var(--color-ltz-bg);
+    color: #ffffff;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Neon temalı ince scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-ltz-panel);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(124, 58, 237, 0.45);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(217, 70, 239, 0.6);
+}
+
+/* Seçim rengi */
+::selection {
+    background: rgba(217, 70, 239, 0.35);
+    color: #ffffff;
+}

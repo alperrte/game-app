@@ -19,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import org.springframework.web.client.RestClient;
 import java.util.List;
 
 @Configuration
@@ -66,7 +66,11 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/refresh-token",
                                 "/api/auth/logout",
-                                "/api/auth/validate-token"
+                                "/api/auth/validate-token",
+                                "/api/auth/steam",
+                                "/api/auth/steam/callback",
+                                "/api/auth/discord",
+                                "/api/auth/discord/callback"
                         ).permitAll()
 
                         /*
@@ -180,5 +184,10 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
+    }
+
+    @Bean
+    public RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
     }
 }

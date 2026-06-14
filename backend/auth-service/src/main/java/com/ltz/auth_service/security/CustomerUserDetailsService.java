@@ -48,9 +48,18 @@ public class CustomerUserDetailsService implements UserDetailsService {
          * Security tarafında:
          * ROLE_USER
          */
+        /*
+         * OAuth (STEAM/DISCORD) kullanıcılarının şifresi NULL'dır.
+         * Spring Security'nin User nesnesi null şifre kabul etmediği için boş string veriyoruz.
+         * Bu kullanıcılar zaten şifreyle giriş yapamaz; doğrulama JWT üzerinden yürür.
+         */
+        String password = userCredential.getPasswordHash() != null
+                ? userCredential.getPasswordHash()
+                : "";
+
         return new User(
                 userCredential.getEmail(),
-                userCredential.getPasswordHash(),
+                password,
                 enabled,
                 true,
                 true,
