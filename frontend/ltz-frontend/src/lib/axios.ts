@@ -1,16 +1,19 @@
-import { API_BASE_URL } from "./constants";
+import axios from "axios";
+import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+import { API_BASE_URL, AUTH_ENDPOINTS, ROUTES } from "./constants";
+import {
+  clearAuthStorage,
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+} from "./token";
+import type { AuthResponse } from "../features/auth/types/auth.types";
 
 export type QueryParams = Record<
   string,
   string | number | boolean | null | undefined
 >;
-
-type ApiClientOptions = {
-  body?: unknown;
-  query?: QueryParams;
-};
 
 export class ApiError extends Error {
   status: number;
@@ -24,60 +27,147 @@ export class ApiError extends Error {
   }
 }
 
-const buildUrl = (endpoint: string, query?: QueryParams) => {
-  const url = new URL(endpoint, API_BASE_URL);
+export const axiosClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-  Object.entries(query ?? {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, String(value));
+axiosClient.interceptors.request.use((config) => {
+  const token = getAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+/*
+ * Aynı anda birden fazla 401 gelirse tek bir refresh isteği yapılması için kilit.
+ * Bekleyen istekler aynı refresh sonucunu paylaşır (single-flight).
+ */
+let refreshPromise: Promise<string> | null = null;
+
+/*
+ * refresh-token isteğini axiosClient DIŞINDA, ham axios ile yapar.
+ * Böylece interceptor'a yeniden girip sonsuz döngü oluşmaz.
+ */
+async function requestNewAccessToken(): Promise<string> {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    throw new Error("Refresh token bulunamadı.");
+  }
+
+  const { data } = await axios.post<AuthResponse>(
+    `${API_BASE_URL}${AUTH_ENDPOINTS.refreshToken}`,
+    { refreshToken },
+    { headers: { "Content-Type": "application/json" } }
+  );
+
+  setTokens(data.accessToken, data.refreshToken);
+  return data.accessToken;
+}
+
+function isAuthEndpoint(url?: string): boolean {
+  if (!url) return false;
+
+  return (
+    url.includes(AUTH_ENDPOINTS.login) ||
+    url.includes(AUTH_ENDPOINTS.register) ||
+    url.includes(AUTH_ENDPOINTS.refreshToken)
+  );
+}
+
+axiosClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & { _retry?: boolean })
+      | undefined;
+
+    const status = error.response?.status;
+
+    /*
+     * Sadece 401 + daha önce denenmemiş + auth endpoint'i olmayan istekleri yenile.
+     * Login/register/refresh 401'leri olduğu gibi forma iletilir.
+     */
+    if (
+      status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthEndpoint(originalRequest.url) &&
+      getRefreshToken()
+    ) {
+      originalRequest._retry = true;
+
+      try {
+        if (!refreshPromise) {
+          refreshPromise = requestNewAccessToken().finally(() => {
+            refreshPromise = null;
+          });
+        }
+
+        const newToken = await refreshPromise;
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axiosClient(originalRequest);
+      } catch (refreshError) {
+        /*
+         * Refresh başarısız: oturumu temizle ve login'e yönlendir.
+         */
+        clearAuthStorage();
+
+        if (window.location.pathname !== ROUTES.login) {
+          window.location.href = ROUTES.login;
+        }
+
+        return Promise.reject(refreshError);
+      }
     }
-  });
 
-  return url.toString();
+    return Promise.reject(error);
+  }
+);
+
+const cleanQueryParams = (query?: QueryParams) => {
+  if (!query) return undefined;
+
+  return Object.fromEntries(
+    Object.entries(query).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ""
+    )
+  );
 };
 
-const parseResponseBody = async (response: Response) => {
-  const contentType = response.headers.get("content-type");
-
-  if (response.status === 204) {
-    return undefined;
-  }
-
-  if (contentType?.includes("application/json")) {
-    return response.json();
-  }
-
-  return response.text();
-};
-
-const request = async <TResponse>(
-  method: HttpMethod,
-  endpoint: string,
-  options: ApiClientOptions = {}
-): Promise<TResponse> => {
-  const response = await fetch(buildUrl(endpoint, options.query), {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
-
-  const responseBody = await parseResponseBody(response);
-
-  if (!response.ok) {
-    throw new ApiError("API request failed", response.status, responseBody);
-  }
-
-  return responseBody as TResponse;
-};
-
+/*
+ * Feature service dosyalarında sade kullanım için küçük apiClient wrapper'ı.
+ * Altta yine merkezi axiosClient kullanılır; token ve refresh sistemi bozulmaz.
+ */
 export const apiClient = {
-  get: <TResponse>(endpoint: string, query?: QueryParams) =>
-    request<TResponse>("GET", endpoint, { query }),
-  post: <TResponse>(endpoint: string, body: unknown) =>
-    request<TResponse>("POST", endpoint, { body }),
-  put: <TResponse>(endpoint: string, body: unknown) =>
-    request<TResponse>("PUT", endpoint, { body }),
-  delete: (endpoint: string) => request<void>("DELETE", endpoint),
+  get: async <TResponse>(endpoint: string, query?: QueryParams) => {
+    const { data } = await axiosClient.get<TResponse>(endpoint, {
+      params: cleanQueryParams(query),
+    });
+
+    return data;
+  },
+
+  post: async <TResponse, TBody = unknown>(endpoint: string, body: TBody) => {
+    const { data } = await axiosClient.post<TResponse>(endpoint, body);
+    return data;
+  },
+
+  put: async <TResponse, TBody = unknown>(endpoint: string, body: TBody) => {
+    const { data } = await axiosClient.put<TResponse>(endpoint, body);
+    return data;
+  },
+
+  delete: async (endpoint: string) => {
+    await axiosClient.delete<void>(endpoint);
+  },
 };
+
+export default axiosClient;

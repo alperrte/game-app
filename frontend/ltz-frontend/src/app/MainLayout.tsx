@@ -1,84 +1,79 @@
-import type { MouseEvent, ReactNode } from "react";
+import { useState } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 
-type NavigationItem = {
-  label: string;
-  to: string;
-};
+import { Button } from "../components/ui/Button";
+import { APP_NAME, ROUTES } from "../lib/constants";
+import { getRefreshToken } from "../lib/token";
+import { clearAuth, useAuthStore } from "../store/authStore";
+import { authService } from "../features/auth/services/authService";
 
-type MainLayoutProps = {
-  children: ReactNode;
-  currentPath: string;
-  navigationItems: NavigationItem[];
-};
+/*
+ * MainLayout: Login / register dışındaki ana uygulama ekranlarının ortak kabuğu.
+ * Giriş sonrası sayfalar bu layout içindeki <Outlet /> alanında açılır.
+ *
+ * Game-service sayfalarında sidebar kullanılmaz.
+ * Game-service sayfalarının kendi yatay navbar yapısı feature içinde yönetilir.
+ */
 
-const isActivePath = (currentPath: string, itemPath: string) => {
-  if (itemPath === "/games") {
-    return currentPath === "/" || currentPath === "/games";
+export function MainLayout() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+
+    const refreshToken = getRefreshToken();
+
+    try {
+      /*
+       * Refresh token'ı backend'de iptal et. Hata olsa bile
+       * istemci tarafında oturumu yine de temizleriz.
+       */
+      if (refreshToken) {
+        await authService.logout({ refreshToken });
+      }
+    } catch {
+      /* logout hatası kullanıcıyı engellememeli */
+    } finally {
+      clearAuth();
+      navigate(ROUTES.login, { replace: true });
+    }
   }
 
-  return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
-};
-
-const navigate = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-    return;
-  }
-
-  event.preventDefault();
-  window.history.pushState({}, "", to);
-  window.dispatchEvent(new Event("popstate"));
-};
-
-const MainLayout = ({
-  children,
-  currentPath,
-  navigationItems,
-}: MainLayoutProps) => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-950/95 px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <a
-            className="text-lg font-semibold tracking-wide"
-            href="/games"
-            onClick={(event) => navigate(event, "/games")}
-          >
-            LTZ Game Service
-          </a>
-          <span className="text-sm text-slate-400">API Gateway</span>
+    <div className="min-h-screen bg-ltz-bg text-white">
+      <header className="border-b border-white/10 bg-ltz-panel/60 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+          <span className="text-sm font-bold tracking-widest text-fuchsia-300">
+            {APP_NAME}
+          </span>
+
+          <div className="flex items-center gap-3">
+            {user && (
+              <span className="text-sm text-zinc-300">
+                {user.username}
+              </span>
+            )}
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 px-3 text-xs"
+              isLoading={isLoggingOut}
+              leftIcon={<LogOut size={15} />}
+              onClick={handleLogout}
+            >
+              Çıkış
+            </Button>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[240px_1fr]">
-        <aside className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-          <nav className="space-y-1">
-            {navigationItems.map((item) => {
-              const active = isActivePath(currentPath, item.to);
-
-              return (
-                <a
-                  className={`block rounded-md px-3 py-2 text-sm transition ${
-                    active
-                      ? "bg-cyan-500 text-slate-950"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  }`}
-                  href={item.to}
-                  key={item.to}
-                  onClick={(event) => navigate(event, item.to)}
-                >
-                  {item.label}
-                </a>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <main className="min-w-0 rounded-lg border border-slate-800 bg-slate-900/40 p-6">
-          {children}
-        </main>
-      </div>
+      <main className="min-h-[calc(100vh-57px)]">
+        <Outlet />
+      </main>
     </div>
   );
-};
-
-export default MainLayout;
+}

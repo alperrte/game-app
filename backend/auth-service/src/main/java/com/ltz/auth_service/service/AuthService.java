@@ -10,6 +10,7 @@ import com.ltz.auth_service.entity.RefreshToken;
 import com.ltz.auth_service.entity.Role;
 import com.ltz.auth_service.entity.UserCredential;
 import com.ltz.auth_service.entity.enums.AccountStatus;
+import com.ltz.auth_service.entity.enums.AuthProvider;
 import com.ltz.auth_service.exception.*;
 import com.ltz.auth_service.repository.RefreshTokenRepository;
 import com.ltz.auth_service.repository.RoleRepository;
@@ -81,6 +82,13 @@ public class AuthService {
                 .orElseThrow(() -> new InvalidCredentialsException("E-posta/kullanıcı adı veya şifre hatalı."));
 
         validateAccountStatus(userCredential);
+
+        /*
+         * OAuth (STEAM) hesaplarının şifresi yoktur; şifreyle giriş yapamazlar.
+         */
+        if (userCredential.getPasswordHash() == null) {
+            throw new InvalidCredentialsException("E-posta/kullanıcı adı veya şifre hatalı.");
+        }
 
         boolean passwordMatches = passwordEncoder.matches(
                 request.getPassword(),
@@ -184,6 +192,104 @@ public class AuthService {
                     .message("Token geçersiz.")
                     .build();
         }
+    }
+
+    /*
+     * Harici sağlayıcı (STEAM) ile giriş yapar.
+     *
+     * provider + providerId ile mevcut kullanıcı bulunur; yoksa yeni OAuth kullanıcısı oluşturulur.
+     * Ardından bizim kendi access/refresh token'larımız üretilir.
+     *
+     * email STEAM için null gelir (Steam e-posta vermez); bu durumda placeholder üretilir.
+     */
+    public AuthResponse loginWithProvider(
+            AuthProvider provider,
+            String providerId,
+            String displayName,
+            String email
+    ) {
+        UserCredential userCredential = userCredentialRepository
+                .findByProviderAndProviderId(provider, providerId)
+                .orElseGet(() -> createOAuthUser(provider, providerId, displayName, email));
+
+        validateAccountStatus(userCredential);
+
+        userCredential.setLastLoginAt(LocalDateTime.now());
+        userCredentialRepository.save(userCredential);
+
+        String accessToken = jwtService.generateAccessToken(userCredential);
+        RefreshToken refreshToken = createRefreshToken(userCredential);
+
+        return buildAuthResponse(userCredential, accessToken, refreshToken.getToken());
+    }
+
+    /*
+     * Yeni bir OAuth kullanıcısı oluşturur.
+     * Şifresi yoktur (passwordHash = null), rolü USER, durumu ACTIVE'dir.
+     */
+    private UserCredential createOAuthUser(
+            AuthProvider provider,
+            String providerId,
+            String displayName,
+            String email
+    ) {
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new RoleNotFoundException("Varsayılan USER rolü bulunamadı."));
+
+        UserCredential userCredential = UserCredential.builder()
+                .email(resolveEmail(provider, providerId, email))
+                .username(generateUniqueUsername(provider, providerId, displayName))
+                .passwordHash(null)
+                .role(userRole)
+                .accountStatus(AccountStatus.ACTIVE)
+                .emailVerified(false)
+                .provider(provider)
+                .providerId(providerId)
+                .build();
+
+        return userCredentialRepository.save(userCredential);
+    }
+
+    /*
+     * OAuth kullanıcısı için e-posta belirler.
+     * Sağlayıcı e-posta vermediyse ya da e-posta zaten kullanılıyorsa placeholder üretir.
+     */
+    private String resolveEmail(AuthProvider provider, String providerId, String email) {
+
+        if (email != null && !email.isBlank() && !userCredentialRepository.existsByEmail(email)) {
+            return email;
+        }
+
+        String providerKey = provider.name().toLowerCase();
+        return providerKey + "_" + providerId + "@" + providerKey + ".local";
+    }
+
+    /*
+     * OAuth kullanıcısı için benzersiz kullanıcı adı üretir.
+     * Sağlayıcı görünen adı temel alınır; çakışma olursa sonuna sayı eklenir.
+     */
+    private String generateUniqueUsername(
+            AuthProvider provider,
+            String providerId,
+            String displayName
+    ) {
+        String base = (displayName != null && !displayName.isBlank())
+                ? displayName.trim().replaceAll("\\s+", "_")
+                : provider.name().toLowerCase() + "_" + providerId;
+
+        if (base.length() > 90) {
+            base = base.substring(0, 90);
+        }
+
+        String candidate = base;
+        int suffix = 1;
+
+        while (userCredentialRepository.existsByUsername(candidate)) {
+            candidate = base + "_" + suffix;
+            suffix++;
+        }
+
+        return candidate;
     }
 
     /*

@@ -1,1 +1,974 @@
 @import "tailwindcss";
+
+/*
+ * LTZ tasarım tokenları (Tailwind v4 @theme).
+ * Bu değerler bg-ltz-bg, text-ltz-muted, animate-float gibi class'lar üretir.
+ */
+@theme {
+    --color-ltz-bg: #03040d;
+    --color-ltz-panel: #050816;
+    --color-ltz-card: #070818;
+
+    --color-ltz-violet: #7c3aed;
+    --color-ltz-purple: #9333ea;
+    --color-ltz-fuchsia: #d946ef;
+    --color-ltz-cyan: #22d3ee;
+    --color-ltz-blue: #2563eb;
+
+    --animate-float: float 6s ease-in-out infinite;
+    --animate-pulse-slow: pulseSlow 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+@keyframes pulseSlow {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes authNeonFlicker {
+    0%,
+    87%,
+    91%,
+    100% {
+        opacity: 0.18;
+    }
+    88% {
+        opacity: 0.42;
+    }
+    89% {
+        opacity: 0.1;
+    }
+    92% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes onlinePulse {
+    0% {
+        opacity: 0.75;
+        transform: scale(1);
+    }
+    75%,
+    100% {
+        opacity: 0;
+        transform: scale(2.25);
+    }
+}
+
+@property --auth-border-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+}
+
+@keyframes authBorderOrbit {
+    to {
+        --auth-border-angle: 360deg;
+    }
+}
+
+@keyframes authLogoHeartbeat {
+    0%,
+    7%,
+    18%,
+    100% {
+        transform: scale(1);
+        filter:
+            brightness(1)
+            contrast(1.02)
+            drop-shadow(0 0 7px rgba(124, 58, 237, 0.42))
+            drop-shadow(0 0 17px rgba(217, 70, 239, 0.16));
+    }
+    10% {
+        transform: scale(1.035);
+        filter:
+            brightness(1.08)
+            contrast(1.05)
+            drop-shadow(0 0 10px rgba(124, 58, 237, 0.58))
+            drop-shadow(0 0 23px rgba(34, 211, 238, 0.2));
+    }
+    14% {
+        transform: scale(1.018);
+        filter:
+            brightness(1.04)
+            contrast(1.03)
+            drop-shadow(0 0 8px rgba(124, 58, 237, 0.5))
+            drop-shadow(0 0 19px rgba(217, 70, 239, 0.18));
+    }
+}
+
+@keyframes authLogoGlowBreath {
+    0%,
+    100% {
+        opacity: 0.24;
+        transform: scale(0.92);
+    }
+    50% {
+        opacity: 0.48;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes authSubtitlePulse {
+    0%,
+    100% {
+        opacity: 0.65;
+        box-shadow: 0 0 5px rgba(34, 211, 238, 0.55);
+        transform: scale(0.9);
+    }
+    50% {
+        opacity: 1;
+        box-shadow:
+            0 0 8px rgba(34, 211, 238, 0.95),
+            0 0 14px rgba(168, 85, 247, 0.52);
+        transform: scale(1.15);
+    }
+}
+
+/*
+ * Genel tasarım zemini.
+ * Component tasarımları buraya yazılmaz; sadece global temel stiller.
+ */
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background-color: var(--color-ltz-bg);
+    color: #ffffff;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+    --auth-surface:
+        linear-gradient(rgba(3, 4, 18, 0.94), rgba(3, 4, 16, 0.96));
+}
+
+.auth-backdrop-image {
+    transform-origin: 35% 50%;
+    will-change: opacity, transform;
+}
+
+.auth-atmosphere,
+.auth-city-lights,
+.auth-particles,
+.auth-neon-flicker,
+.auth-scanlines,
+.auth-rim-light {
+    pointer-events: none;
+}
+
+.auth-atmosphere {
+    inset: -6%;
+    background:
+        radial-gradient(circle at 22% 42%, rgba(34, 211, 238, 0.08), transparent 25%),
+        radial-gradient(circle at 72% 30%, rgba(217, 70, 239, 0.11), transparent 30%),
+        radial-gradient(circle at 58% 78%, rgba(124, 58, 237, 0.1), transparent 34%);
+    opacity: 0.4;
+    will-change: transform, opacity;
+}
+
+.auth-city-lights {
+    inset: -3%;
+    background:
+        radial-gradient(circle at 8% 36%, rgba(34, 211, 238, 0.18) 0 1px, transparent 3px),
+        radial-gradient(circle at 18% 58%, rgba(217, 70, 239, 0.16) 0 1px, transparent 3px),
+        radial-gradient(circle at 39% 29%, rgba(124, 58, 237, 0.14) 0 1.5px, transparent 4px),
+        radial-gradient(circle at 62% 42%, rgba(34, 211, 238, 0.11) 0 1px, transparent 3px),
+        radial-gradient(circle at 76% 22%, rgba(217, 70, 239, 0.13) 0 1px, transparent 3px),
+        linear-gradient(100deg, transparent 10%, rgba(34, 211, 238, 0.025) 45%, transparent 72%);
+    background-size:
+        170px 120px,
+        230px 160px,
+        290px 190px,
+        210px 145px,
+        260px 175px,
+        100% 100%;
+    opacity: 0.42;
+    will-change: transform;
+}
+
+.auth-particles {
+    right: 28%;
+    background-image:
+        radial-gradient(circle, rgba(165, 243, 252, 0.52) 0 1px, transparent 1.8px),
+        radial-gradient(circle, rgba(216, 180, 254, 0.4) 0 1px, transparent 1.7px);
+    background-position:
+        0 0,
+        0 0;
+    background-size:
+        150px 135px,
+        215px 190px;
+    opacity: 0.22;
+}
+
+.auth-neon-flicker {
+    right: 24%;
+    background:
+        radial-gradient(circle at 15% 24%, rgba(34, 211, 238, 0.24), transparent 7%),
+        radial-gradient(circle at 42% 19%, rgba(217, 70, 239, 0.2), transparent 5%),
+        radial-gradient(circle at 72% 34%, rgba(124, 58, 237, 0.16), transparent 6%);
+    opacity: 0.14;
+    animation: authNeonFlicker 8.5s steps(1, end) infinite;
+}
+
+.auth-scanlines {
+    opacity: 0.12;
+    background-image: repeating-linear-gradient(
+        180deg,
+        transparent 0,
+        transparent 3px,
+        rgba(139, 92, 246, 0.08) 4px
+    );
+    mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+}
+
+.auth-rim-light {
+    background:
+        radial-gradient(
+            ellipse at 27% 48%,
+            transparent 0 24%,
+            rgba(168, 85, 247, 0.055) 34%,
+            transparent 49%
+        ),
+        linear-gradient(105deg, transparent 54%, rgba(34, 211, 238, 0.025), transparent 68%);
+}
+
+/* Tarayıcı otomatik doldurması inputları açık renge çevirmesin. */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus,
+.auth-input:-webkit-autofill:active {
+    -webkit-text-fill-color: #ffffff !important;
+    -webkit-box-shadow: 0 0 0 1000px var(--color-ltz-panel) inset !important;
+    caret-color: #ffffff;
+    transition: background-color 9999s ease-out 0s;
+}
+
+/* Login feature kartları: kesik köşe, çift neon kontur. */
+.feature-card {
+    position: relative;
+    isolation: isolate;
+    clip-path: polygon(
+        14px 0,
+        calc(100% - 14px) 0,
+        100% 14px,
+        100% calc(100% - 14px),
+        calc(100% - 14px) 100%,
+        14px 100%,
+        0 calc(100% - 14px),
+        0 14px
+    );
+    background:
+        var(--auth-surface) padding-box,
+        linear-gradient(110deg, #7047ff, #e044ff 48%, #7d4cff) border-box;
+    border: 2px solid transparent;
+    box-shadow:
+        0 0 10px rgba(119, 68, 255, 0.8),
+        0 0 28px rgba(168, 42, 255, 0.38),
+        inset 0 0 22px rgba(71, 32, 178, 0.2);
+    backdrop-filter: blur(6px);
+    transition:
+        transform 220ms ease,
+        filter 220ms ease,
+        box-shadow 220ms ease;
+}
+
+.feature-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 6px;
+    clip-path: inherit;
+    border: 1px solid rgba(225, 66, 255, 0.48);
+    pointer-events: none;
+}
+
+.feature-card::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: -25%;
+    bottom: -25%;
+    left: -42%;
+    width: 28%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(216, 180, 254, 0.18),
+        rgba(103, 232, 249, 0.12),
+        transparent
+    );
+    opacity: 0;
+    transform: skewX(-16deg);
+    pointer-events: none;
+}
+
+.feature-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.feature-card:hover {
+    transform: translateX(6px);
+    filter: brightness(1.14);
+    box-shadow:
+        0 0 13px rgba(119, 68, 255, 0.92),
+        0 0 36px rgba(202, 55, 255, 0.5),
+        inset 0 0 26px rgba(71, 32, 178, 0.28);
+}
+
+.feature-card:hover::after {
+    opacity: 1;
+    left: 118%;
+    transition:
+        left 680ms ease,
+        opacity 180ms ease;
+}
+
+.feature-card:hover .feature-card__icon {
+    filter:
+        drop-shadow(0 0 6px rgba(244, 114, 255, 1))
+        drop-shadow(0 0 16px rgba(192, 59, 255, 0.92))
+        drop-shadow(0 0 22px rgba(34, 211, 238, 0.35));
+}
+
+.feature-card__icon {
+    filter:
+        drop-shadow(0 0 4px rgba(244, 114, 255, 0.95))
+        drop-shadow(0 0 11px rgba(192, 59, 255, 0.72));
+}
+
+.platform-activity {
+    position: relative;
+    overflow: hidden;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(103, 232, 249, 0.2);
+    border-radius: 0.85rem;
+    background:
+        linear-gradient(135deg, rgba(3, 8, 24, 0.82), rgba(14, 7, 31, 0.76));
+    box-shadow:
+        0 0 18px rgba(34, 211, 238, 0.08),
+        inset 0 0 20px rgba(124, 58, 237, 0.08);
+    transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease;
+}
+
+.platform-activity::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 12%;
+    width: 44%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #22d3ee, transparent);
+    opacity: 0.72;
+}
+
+.platform-activity:hover {
+    border-color: rgba(103, 232, 249, 0.38);
+    box-shadow:
+        0 0 22px rgba(34, 211, 238, 0.14),
+        inset 0 0 22px rgba(124, 58, 237, 0.1);
+}
+
+.platform-activity__header {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.65rem;
+    color: #a5f3fc;
+    font-size: 0.56rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+}
+
+.platform-activity__status {
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 9999px;
+    background: #34d399;
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+}
+
+.platform-activity__row {
+    display: flex;
+    min-height: 1.55rem;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.1rem;
+    font-size: 0.68rem;
+}
+
+.platform-activity__row + .platform-activity__row {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 0.35rem;
+}
+
+/* Login paneli: referanstaki kesik köşeli, çift neon konturlu kasa. */
+.login-panel {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 0;
+    clip-path: polygon(
+        16px 0,
+        calc(100% - 16px) 0,
+        100% 16px,
+        100% calc(100% - 16px),
+        calc(100% - 16px) 100%,
+        16px 100%,
+        0 calc(100% - 16px),
+        0 16px
+    );
+    background:
+        var(--auth-surface) padding-box,
+        linear-gradient(130deg, #7250ff, #d331ff 48%, #6238dc) border-box;
+    box-shadow:
+        0 0 16px rgba(104, 61, 255, 0.68),
+        0 0 46px rgba(118, 43, 226, 0.34),
+        inset 0 0 48px rgba(33, 21, 89, 0.32);
+    backdrop-filter: blur(9px);
+    transition:
+        box-shadow 280ms ease,
+        filter 280ms ease;
+}
+
+.login-panel:hover {
+    box-shadow:
+        0 0 18px rgba(104, 61, 255, 0.76),
+        0 0 54px rgba(180, 54, 235, 0.4),
+        inset 0 0 52px rgba(45, 28, 112, 0.38);
+}
+
+.login-panel::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 7px;
+    clip-path: polygon(
+        11px 0,
+        calc(100% - 11px) 0,
+        100% 11px,
+        100% calc(100% - 11px),
+        calc(100% - 11px) 100%,
+        11px 100%,
+        0 calc(100% - 11px),
+        0 11px
+    );
+    border: 1px solid rgba(178, 55, 255, 0.4);
+    pointer-events: none;
+}
+
+.login-panel::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    padding: 3px;
+    background: conic-gradient(
+        from var(--auth-border-angle),
+        transparent 0deg 224deg,
+        rgba(124, 58, 237, 0.05) 236deg,
+        rgba(124, 58, 237, 0.18) 250deg,
+        rgba(217, 70, 239, 0.46) 268deg,
+        rgba(255, 45, 246, 0.9) 286deg,
+        rgba(167, 139, 250, 1) 302deg,
+        #22d3ee 316deg,
+        #a5f3fc 323deg,
+        rgba(34, 211, 238, 0.82) 330deg,
+        rgba(34, 211, 238, 0.2) 342deg,
+        transparent 354deg 360deg
+    );
+    opacity: 1;
+    clip-path: inherit;
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.78));
+    pointer-events: none;
+    animation: authBorderOrbit 4.6s steps(92, end) infinite;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+}
+
+.login-panel > * {
+    position: relative;
+    z-index: 1;
+}
+
+.auth-logo-shell {
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+    border-radius: 1rem;
+}
+
+.auth-logo-shell::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 14% 8%;
+    border-radius: 50%;
+    background: radial-gradient(
+        ellipse,
+        rgba(124, 58, 237, 0.38),
+        rgba(34, 211, 238, 0.12) 42%,
+        transparent 72%
+    );
+    filter: blur(13px);
+    pointer-events: none;
+    animation: authLogoGlowBreath 3.8s ease-in-out infinite;
+    transition:
+        opacity 280ms ease,
+        transform 280ms ease,
+        filter 280ms ease;
+}
+
+.auth-logo {
+    position: relative;
+    z-index: 1;
+    filter:
+        brightness(1.02)
+        drop-shadow(0 0 7px rgba(124, 58, 237, 0.42))
+        drop-shadow(0 0 17px rgba(217, 70, 239, 0.16));
+    animation: authLogoHeartbeat 3.8s ease-in-out infinite;
+    transition:
+        filter 260ms ease,
+        transform 260ms ease;
+}
+
+.auth-logo-shell:hover::before {
+    opacity: 0.8;
+    transform: scale(1.12);
+    filter: blur(16px);
+}
+
+.auth-logo-shell:hover .auth-logo {
+    animation-play-state: paused;
+    transform: scale(1.035);
+    filter:
+        brightness(1.12)
+        contrast(1.06)
+        drop-shadow(0 0 12px rgba(216, 180, 254, 0.72))
+        drop-shadow(0 0 29px rgba(34, 211, 238, 0.3));
+}
+
+.auth-heading {
+    position: relative;
+}
+
+.auth-access-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.45rem;
+    padding: 0.2rem 0.65rem;
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 9999px;
+    background: linear-gradient(
+        90deg,
+        rgba(34, 211, 238, 0.08),
+        rgba(124, 58, 237, 0.14),
+        rgba(217, 70, 239, 0.08)
+    );
+    box-shadow:
+        0 0 13px rgba(34, 211, 238, 0.1),
+        inset 0 0 10px rgba(124, 58, 237, 0.08);
+    color: #a5f3fc;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+}
+
+.auth-title {
+    color: transparent;
+    background: linear-gradient(100deg, #ffffff 8%, #c4b5fd 46%, #67e8f9 88%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    filter: drop-shadow(0 0 12px rgba(124, 58, 237, 0.28));
+}
+
+.auth-subtitle {
+    color: #a1a1aa;
+    letter-spacing: 0.025em;
+}
+
+.auth-subtitle-pulse {
+    display: inline-block;
+    width: 0.36rem;
+    height: 0.36rem;
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    background: #67e8f9;
+    animation: authSubtitlePulse 1.9s ease-in-out infinite;
+}
+
+.auth-input-shell {
+    overflow: hidden;
+    border-radius: 0.45rem;
+}
+
+.auth-input-shell::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -45%;
+    width: 35%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(206, 92, 255, 0.13),
+        transparent
+    );
+    transform: skewX(-18deg);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.auth-input-shell:focus-within::after {
+    animation: authInputSweep 720ms ease-out;
+}
+
+.auth-input-icon {
+    transition:
+        color 200ms ease,
+        filter 200ms ease;
+}
+
+.auth-input-shell:hover .auth-input-icon {
+    color: #a78bfa;
+}
+
+.auth-input-shell:focus-within .auth-input-icon {
+    color: #c084fc;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.8));
+}
+
+.auth-password-toggle:hover,
+.auth-password-toggle:focus-visible {
+    filter:
+        drop-shadow(0 0 5px rgba(216, 180, 254, 0.85))
+        drop-shadow(0 0 10px rgba(168, 85, 247, 0.55));
+}
+
+@keyframes authInputSweep {
+    0% {
+        left: -45%;
+        opacity: 0;
+    }
+    18% {
+        opacity: 1;
+    }
+    100% {
+        left: 115%;
+        opacity: 0;
+    }
+}
+
+.login-form-input {
+    height: 2.75rem;
+    border-color: rgba(120, 87, 202, 0.2);
+    border-radius: 0.45rem;
+    background: rgba(2, 3, 16, 0.72);
+    font-size: 0.75rem;
+    transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        background-color 220ms ease,
+        transform 220ms ease;
+}
+
+.login-form-input:focus {
+    border-color: rgba(172, 75, 255, 0.7);
+    box-shadow:
+        0 0 0 1px rgba(135, 68, 255, 0.18),
+        0 0 18px rgba(121, 52, 225, 0.24);
+    background: rgba(8, 5, 28, 0.88);
+}
+
+.login-remember-control {
+    border-radius: 0.35rem;
+    padding: 0.2rem 0.35rem 0.2rem 0;
+    transition:
+        color 200ms ease,
+        text-shadow 200ms ease;
+}
+
+.login-remember-control:hover {
+    color: #d8b4fe;
+    text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+.login-remember {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    border: 1px solid rgba(168, 85, 247, 0.75);
+    border-radius: 0.2rem;
+    background: rgba(124, 58, 237, 0.18);
+    transition:
+        border-color 200ms ease,
+        background 200ms ease,
+        box-shadow 200ms ease;
+}
+
+.login-remember-control:hover .login-remember {
+    border-color: rgba(216, 180, 254, 0.95);
+    background: rgba(168, 85, 247, 0.28);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+.login-remember:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.4);
+}
+
+.login-remember::before {
+    content: "";
+    width: 0.55rem;
+    height: 0.3rem;
+    border-left: 2px solid white;
+    border-bottom: 2px solid white;
+    transform: rotate(-45deg) scale(0);
+    opacity: 0;
+    transition:
+        transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 140ms ease;
+}
+
+.login-remember:checked {
+    background: linear-gradient(135deg, #7146ff, #ba35ed);
+    box-shadow: 0 0 12px rgba(164, 70, 255, 0.6);
+}
+
+.login-remember:checked::before {
+    transform: rotate(-45deg) scale(1);
+    opacity: 1;
+}
+
+.login-submit {
+    position: relative;
+    height: 2.85rem;
+    border: 1px solid rgba(218, 92, 255, 0.9);
+    border-radius: 0.45rem;
+    background: linear-gradient(100deg, #4b11d8, #6814e8 48%, #a51fe7);
+    box-shadow:
+        0 0 8px rgba(139, 57, 255, 0.92),
+        0 0 28px rgba(150, 35, 255, 0.62),
+        inset 0 0 18px rgba(116, 64, 255, 0.7);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.login-submit > svg:last-child {
+    position: absolute;
+    right: 1rem;
+}
+
+.login-social {
+    height: 2.35rem;
+    border-color: rgba(129, 85, 209, 0.3);
+    border-radius: 0.45rem;
+    background: rgba(3, 4, 18, 0.72);
+    font-size: 0.75rem;
+    font-weight: 400;
+    transition:
+        transform 200ms ease,
+        border-color 200ms ease,
+        background 200ms ease,
+        box-shadow 200ms ease;
+}
+
+.login-social:hover,
+.login-social:focus-visible {
+    transform: scale(1.02);
+    border-color: rgba(218, 92, 255, 0.9);
+    background: linear-gradient(100deg, #4b11d8, #6814e8 48%, #a51fe7);
+    box-shadow:
+        0 0 8px rgba(139, 57, 255, 0.82),
+        0 0 28px rgba(150, 35, 255, 0.52),
+        inset 0 0 18px rgba(116, 64, 255, 0.6);
+    color: #ffffff;
+}
+
+.login-social:hover svg,
+.login-social:focus-visible svg {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.72));
+}
+
+.social-link {
+    transition:
+        color 200ms ease,
+        border-color 200ms ease,
+        background 200ms ease,
+        box-shadow 200ms ease,
+        transform 200ms ease;
+}
+
+.social-link:hover,
+.social-link:focus-visible {
+    outline: none;
+    color: #ffffff;
+    border-color: rgba(216, 92, 255, 0.8);
+    background: rgba(168, 85, 247, 0.16);
+    box-shadow: 0 0 14px rgba(168, 85, 247, 0.45);
+    transform: translateY(-2px);
+}
+
+.social-link::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 50%;
+    z-index: 30;
+    max-width: 12rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    border-radius: 0.35rem;
+    background: rgba(3, 4, 18, 0.92);
+    color: #e4e4e7;
+    font-size: 0.625rem;
+    line-height: 1.25;
+    text-align: center;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    pointer-events: none;
+    transition:
+        opacity 160ms ease,
+        transform 160ms ease;
+}
+
+.social-link:hover::after,
+.social-link:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.online-status-badge {
+    box-shadow:
+        0 0 20px rgba(124, 58, 237, 0.12),
+        inset 0 0 18px rgba(124, 58, 237, 0.08);
+    transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        background-color 220ms ease;
+}
+
+.online-status-badge:hover {
+    border-color: rgba(167, 139, 250, 0.56);
+    background-color: rgba(5, 8, 22, 0.74);
+    box-shadow:
+        0 0 25px rgba(124, 58, 237, 0.28),
+        inset 0 0 20px rgba(124, 58, 237, 0.12);
+}
+
+.online-status-pulse {
+    animation: onlinePulse 1.8s ease-out infinite;
+}
+
+.language-selector {
+    box-shadow:
+        0 0 18px rgba(124, 58, 237, 0.1),
+        inset 0 0 14px rgba(124, 58, 237, 0.06);
+}
+
+.language-selector:hover,
+.language-selector:focus-visible {
+    background-color: rgba(12, 9, 35, 0.72);
+    box-shadow:
+        0 0 22px rgba(168, 85, 247, 0.28),
+        inset 0 0 16px rgba(124, 58, 237, 0.12);
+    transform: translateY(-1px);
+}
+
+/* Neon temalı ince scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-ltz-panel);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(124, 58, 237, 0.45);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(217, 70, 239, 0.6);
+}
+
+/* Seçim rengi */
+::selection {
+    background: rgba(217, 70, 239, 0.35);
+    color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-atmosphere,
+    .auth-city-lights,
+    .auth-particles,
+    .auth-neon-flicker,
+    .online-status-pulse,
+    .login-panel::after,
+    .auth-logo,
+    .auth-logo-shell::before,
+    .auth-subtitle-pulse {
+        animation: none;
+    }
+
+    .feature-card,
+    .feature-card::after,
+    .login-panel,
+    .social-link,
+    .language-selector {
+        transition-duration: 0.01ms;
+    }
+
+    .feature-card:hover,
+    .social-link:hover,
+    .language-selector:hover,
+    .auth-logo-shell:hover .auth-logo {
+        transform: none;
+    }
+}
+
+@media (max-width: 1279px) {
+    .auth-particles,
+    .auth-city-lights {
+        display: none;
+    }
+
+    .auth-atmosphere {
+        inset: -3%;
+    }
+
+    .login-panel {
+        backdrop-filter: blur(6px);
+    }
+}

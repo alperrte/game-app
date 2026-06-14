@@ -109,6 +109,18 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(OAuthAuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleOAuthAuthentication(
+            OAuthAuthenticationException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.UNAUTHORIZED,
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
     /*
      * DTO validation hatalarını yakalar.
      *
