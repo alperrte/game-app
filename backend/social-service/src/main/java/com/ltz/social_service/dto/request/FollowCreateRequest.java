@@ -8,7 +8,6 @@ import lombok.Setter;
 @Setter
 public class FollowCreateRequest {
 
-    @NotNull(message = "Follower user id is required")
     private Long followerUserId;
 
     @NotNull(message = "Following user id is required")

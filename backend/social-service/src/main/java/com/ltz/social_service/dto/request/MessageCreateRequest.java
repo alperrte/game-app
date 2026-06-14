@@ -13,7 +13,6 @@ public class MessageCreateRequest {
     @NotNull(message = "Chat room id is required")
     private Long chatRoomId;
 
-    @NotNull(message = "Sender user id is required")
     private Long senderUserId;
 
     @NotBlank(message = "Message content is required")

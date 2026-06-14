@@ -11,7 +11,6 @@ import lombok.Setter;
 @Setter
 public class PostCreateRequest {
 
-    @NotNull(message = "User id is required")
     private Long userId;
 
     @NotBlank(message = "Post content is required")
