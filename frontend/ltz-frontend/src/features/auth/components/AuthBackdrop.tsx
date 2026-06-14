@@ -30,10 +30,10 @@ export function AuthBackdrop({ children }: AuthBackdropProps) {
 
             {/* Okunabilirlik overlay'leri (arka planı/karakteri öldürmeyecek şiddette) */}
             <div
-                className="absolute inset-0 bg-gradient-to-r from-ltz-bg/85 via-ltz-bg/40 to-ltz-bg/85"
+                className="absolute inset-0 bg-gradient-to-r from-ltz-bg/45 via-ltz-bg/10 to-ltz-bg/50"
                 aria-hidden="true"
             />
-            <div className="absolute inset-0 bg-ltz-bg/20" aria-hidden="true" />
+            <div className="absolute inset-0 bg-ltz-bg/5" aria-hidden="true" />
 
             {/* Sağ üst: dil seçici */}
             <div className="absolute right-6 top-6 z-20">

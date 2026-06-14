@@ -3,8 +3,6 @@ package com.ltz.auth_service.controller;
 import com.ltz.auth_service.dto.response.AuthResponse;
 import com.ltz.auth_service.entity.enums.AuthProvider;
 import com.ltz.auth_service.service.AuthService;
-import com.ltz.auth_service.service.DiscordOAuthService;
-import com.ltz.auth_service.service.DiscordOAuthService.DiscordUser;
 import com.ltz.auth_service.service.SteamOAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +30,6 @@ import java.util.Map;
 public class OAuthController {
 
     private final SteamOAuthService steamOAuthService;
-    private final DiscordOAuthService discordOAuthService;
     private final AuthService authService;
 
     @Value("${app.frontend-url}")
@@ -67,40 +64,6 @@ public class OAuthController {
                 steamId,
                 personaName,
                 null
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.FOUND)
-                .location(buildFrontendRedirect(authResponse))
-                .build();
-    }
-
-    /*
-     * Kullanıcıyı Discord authorize sayfasına yönlendirir.
-     */
-    @GetMapping("/discord")
-    public ResponseEntity<Void> discordLogin() {
-        String redirectUrl = discordOAuthService.buildLoginRedirectUrl();
-
-        return ResponseEntity
-                .status(HttpStatus.FOUND)
-                .location(URI.create(redirectUrl))
-                .build();
-    }
-
-    /*
-     * Discord dönüşünü işler: code -> token -> kullanıcı bilgisi -> giriş -> frontend'e yönlendirme.
-     */
-    @GetMapping("/discord/callback")
-    public ResponseEntity<Void> discordCallback(@RequestParam("code") String code) {
-
-        DiscordUser discordUser = discordOAuthService.exchangeCodeForUser(code);
-
-        AuthResponse authResponse = authService.loginWithProvider(
-                AuthProvider.DISCORD,
-                discordUser.id(),
-                discordUser.username(),
-                discordUser.email()
         );
 
         return ResponseEntity

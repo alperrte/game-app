@@ -19,12 +19,14 @@ import { ArrowRight, AtSign, Lock, Mail } from "lucide-react";
 import ltzLogo from "../../../assets/ltz-yazi.png";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { ROUTES } from "../../../lib/constants";
+import { API_BASE_URL, ROUTES } from "../../../lib/constants";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { validateRegisterForm } from "../../../utils/validation";
 import type { RegisterFormErrors } from "../../../utils/validation";
 import { setAuthFromResponse } from "../../../store/authStore";
 import { authService } from "../services/authService";
+import { SocialLoginButton } from "./SocialLoginButton";
+import { SteamIcon } from "./BrandIcons";
 
 export function RegisterForm() {
     const navigate = useNavigate();
@@ -41,6 +43,17 @@ export function RegisterForm() {
         setFieldErrors((prev) =>
             prev[field] ? { ...prev, [field]: undefined } : prev,
         );
+    }
+
+    function goToLogin() {
+        navigate(ROUTES.login);
+    }
+
+    /*
+     * Steam ile kayıt/giriş: OAuth ucuna yönlendirir (kullanıcı yoksa otomatik oluşturulur).
+     */
+    function startSteamLogin() {
+        window.location.href = `${API_BASE_URL}/api/auth/steam`;
     }
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -77,18 +90,18 @@ export function RegisterForm() {
     }
 
     return (
-        <div className="w-full max-w-md">
-            <div className="mb-7 flex justify-center">
+        <div className="login-form w-full">
+            <div className="mb-3 flex justify-center">
                 <img
                     src={ltzLogo}
                     alt="LobbyTwoZero"
-                    className="h-16 w-auto drop-shadow-[0_0_24px_rgba(217,70,239,0.55)]"
+                    className="h-20 max-w-full object-contain drop-shadow-[0_0_28px_rgba(125,68,255,0.6)]"
                 />
             </div>
 
-            <div className="mb-7 text-center">
-                <h1 className="text-2xl font-bold text-white">Lobine katıl!</h1>
-                <p className="mt-1 text-sm text-zinc-400">
+            <div className="mb-5 text-center">
+                <h1 className="text-2xl font-semibold text-white">Lobine katıl!</h1>
+                <p className="mt-1 text-xs text-zinc-500">
                     Hesabını oluştur ve oyuna başla.
                 </p>
             </div>
@@ -100,6 +113,7 @@ export function RegisterForm() {
                     placeholder="ornek@lobbytwozero.com"
                     autoComplete="email"
                     icon={<Mail size={18} />}
+                    className="login-form-input"
                     value={email}
                     onChange={(e) => {
                         setEmail(e.target.value);
@@ -114,6 +128,7 @@ export function RegisterForm() {
                     placeholder="oyuncu_adi"
                     autoComplete="username"
                     icon={<AtSign size={18} />}
+                    className="login-form-input"
                     value={username}
                     onChange={(e) => {
                         setUsername(e.target.value);
@@ -129,6 +144,7 @@ export function RegisterForm() {
                     placeholder="En az 6 karakter"
                     autoComplete="new-password"
                     icon={<Lock size={18} />}
+                    className="login-form-input"
                     value={password}
                     onChange={(e) => {
                         setPassword(e.target.value);
@@ -144,6 +160,7 @@ export function RegisterForm() {
                     placeholder="Şifreni tekrar gir"
                     autoComplete="new-password"
                     icon={<Lock size={18} />}
+                    className="login-form-input"
                     value={confirmPassword}
                     onChange={(e) => {
                         setConfirmPassword(e.target.value);
@@ -165,7 +182,7 @@ export function RegisterForm() {
                 <Button
                     type="submit"
                     variant="primary"
-                    className="w-full"
+                    className="login-submit w-full"
                     isLoading={isLoading}
                     rightIcon={<ArrowRight size={18} />}
                 >
@@ -173,11 +190,26 @@ export function RegisterForm() {
                 </Button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-zinc-400">
+            {/* Ayırıcı */}
+            <div className="my-4 flex items-center gap-4">
+                <span className="h-px flex-1 bg-white/10" />
+                <span className="text-xs text-zinc-600">veya</span>
+                <span className="h-px flex-1 bg-white/10" />
+            </div>
+
+            {/* Sosyal kayıt (yalnızca Steam) */}
+            <SocialLoginButton
+                icon={<SteamIcon size={18} />}
+                label="Steam ile Kayıt Ol"
+                className="login-social"
+                onClick={startSteamLogin}
+            />
+
+            <p className="mt-5 text-center text-sm text-zinc-500">
                 Zaten hesabın var mı?{" "}
                 <button
                     type="button"
-                    onClick={() => navigate(ROUTES.login)}
+                    onClick={goToLogin}
                     className="font-semibold text-fuchsia-300 transition-colors hover:text-fuchsia-200"
                 >
                     Giriş yap

@@ -68,9 +68,7 @@ public class SecurityConfig {
                                 "/api/auth/logout",
                                 "/api/auth/validate-token",
                                 "/api/auth/steam",
-                                "/api/auth/steam/callback",
-                                "/api/auth/discord",
-                                "/api/auth/discord/callback"
+                                "/api/auth/steam/callback"
                         ).permitAll()
 
                         /*

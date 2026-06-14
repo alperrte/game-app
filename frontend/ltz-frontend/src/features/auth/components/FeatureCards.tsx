@@ -3,12 +3,12 @@
  * Yalnızca xl ve üstü ekranlarda görünür (mobilde gizlenir).
  */
 
-import { Compass, Star, Users, UsersRound } from "lucide-react";
+import { Award, Navigation, UserRoundPlus, UsersRound } from "lucide-react";
 import { FeatureCard } from "./FeatureCard";
 
 const FEATURES = [
     {
-        icon: Users,
+        icon: UserRoundPlus,
         title: "Arkadaş Bul",
         description: "Oyuncularla eşleş",
     },
@@ -18,12 +18,12 @@ const FEATURES = [
         description: "Takımını oluştur",
     },
     {
-        icon: Star,
+        icon: Award,
         title: "İncele",
         description: "Oyunları değerlendir",
     },
     {
-        icon: Compass,
+        icon: Navigation,
         title: "Keşfet",
         description: "Yeni içerikler keşfet",
     },

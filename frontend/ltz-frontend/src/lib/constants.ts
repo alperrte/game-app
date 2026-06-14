@@ -15,6 +15,19 @@ export const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ?? "http://localhost:7070";
 
 /*
+ * Sosyal medya bağlantıları.
+ * Discord sunucu davet linki .env'den (VITE_DISCORD_INVITE_URL) gelir.
+ */
+export const SOCIAL_LINKS = {
+    discord:
+        import.meta.env.VITE_DISCORD_INVITE_URL ??
+        "https://discord.gg/aFc7HRBpfh",
+    instagram: "#",
+    x: "#",
+    youtube: "#",
+} as const;
+
+/*
  * Auth-service endpoint path'leri (Gateway üzerinden).
  */
 export const AUTH_ENDPOINTS = {

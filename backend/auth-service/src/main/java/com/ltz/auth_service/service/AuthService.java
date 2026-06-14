@@ -84,7 +84,7 @@ public class AuthService {
         validateAccountStatus(userCredential);
 
         /*
-         * OAuth (STEAM/DISCORD) hesaplarının şifresi yoktur; şifreyle giriş yapamazlar.
+         * OAuth (STEAM) hesaplarının şifresi yoktur; şifreyle giriş yapamazlar.
          */
         if (userCredential.getPasswordHash() == null) {
             throw new InvalidCredentialsException("E-posta/kullanıcı adı veya şifre hatalı.");
@@ -195,7 +195,7 @@ public class AuthService {
     }
 
     /*
-     * Harici sağlayıcı (STEAM/DISCORD) ile giriş yapar.
+     * Harici sağlayıcı (STEAM) ile giriş yapar.
      *
      * provider + providerId ile mevcut kullanıcı bulunur; yoksa yeni OAuth kullanıcısı oluşturulur.
      * Ardından bizim kendi access/refresh token'larımız üretilir.

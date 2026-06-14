@@ -9,6 +9,7 @@
 
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { MainLayout } from "./MainLayout";
+import { AuthLayout } from "./AuthLayout";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
@@ -65,8 +66,10 @@ export function AppRouter() {
         <Routes>
             {/* Public: yalnızca giriş yapılmamışken erişilebilir */}
             <Route element={<PublicOnlyRoute />}>
-                <Route path={ROUTES.login} element={<LoginPage />} />
-                <Route path={ROUTES.register} element={<RegisterPage />} />
+                <Route element={<AuthLayout />}>
+                    <Route path={ROUTES.login} element={<LoginPage />} />
+                    <Route path={ROUTES.register} element={<RegisterPage />} />
+                </Route>
             </Route>
 
             {/* OAuth dönüşü: oturumu kendisi başlatır, bu yüzden guard'sızdır */}

@@ -1,5 +1,5 @@
--- LobbyTwoZero Auth Service - OAuth Provider Columns (Steam / Discord ortak)
--- Yerel (LOCAL) kullanıcılar ile harici sağlayıcı (STEAM / DISCORD) kullanıcılarını ayırır.
+-- LobbyTwoZero Auth Service - OAuth Provider Columns (Steam)
+-- Yerel (LOCAL) kullanıcılar ile harici sağlayıcı (STEAM) kullanıcılarını ayırır.
 
 -- 1) Sağlayıcı kolonları
 ALTER TABLE user_credentials

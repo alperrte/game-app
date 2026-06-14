@@ -10,7 +10,7 @@ import java.util.Optional;
 public interface UserCredentialRepository extends JpaRepository<UserCredential, Long> {
 
     /*
-     * OAuth (STEAM/DISCORD) kullanıcısını sağlayıcı ve sağlayıcı kimliğine göre getirir.
+     * OAuth (STEAM) kullanıcısını sağlayıcı ve sağlayıcı kimliğine göre getirir.
      * OAuth giriş akışında kullanıcı bul/oluştur için kullanılır.
      */
     Optional<UserCredential> findByProviderAndProviderId(AuthProvider provider, String providerId);

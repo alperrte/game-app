@@ -58,6 +58,337 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+:root {
+    --auth-surface:
+        linear-gradient(rgba(3, 4, 18, 0.94), rgba(3, 4, 16, 0.96));
+}
+
+/* Tarayıcı otomatik doldurması inputları açık renge çevirmesin. */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus,
+.auth-input:-webkit-autofill:active {
+    -webkit-text-fill-color: #ffffff !important;
+    -webkit-box-shadow: 0 0 0 1000px var(--color-ltz-panel) inset !important;
+    caret-color: #ffffff;
+    transition: background-color 9999s ease-out 0s;
+}
+
+/* Login feature kartları: kesik köşe, çift neon kontur. */
+.feature-card {
+    position: relative;
+    isolation: isolate;
+    clip-path: polygon(
+        14px 0,
+        calc(100% - 14px) 0,
+        100% 14px,
+        100% calc(100% - 14px),
+        calc(100% - 14px) 100%,
+        14px 100%,
+        0 calc(100% - 14px),
+        0 14px
+    );
+    background:
+        var(--auth-surface) padding-box,
+        linear-gradient(110deg, #7047ff, #e044ff 48%, #7d4cff) border-box;
+    border: 2px solid transparent;
+    box-shadow:
+        0 0 10px rgba(119, 68, 255, 0.8),
+        0 0 28px rgba(168, 42, 255, 0.38),
+        inset 0 0 22px rgba(71, 32, 178, 0.2);
+    backdrop-filter: blur(14px);
+    transition:
+        transform 220ms ease,
+        filter 220ms ease;
+}
+
+.feature-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 6px;
+    clip-path: inherit;
+    border: 1px solid rgba(225, 66, 255, 0.48);
+    pointer-events: none;
+}
+
+.feature-card:hover {
+    transform: translateY(-3px);
+    filter: brightness(1.14);
+}
+
+.feature-card__icon {
+    filter:
+        drop-shadow(0 0 4px rgba(244, 114, 255, 0.95))
+        drop-shadow(0 0 11px rgba(192, 59, 255, 0.72));
+}
+
+/* Login paneli: referanstaki kesik köşeli, çift neon konturlu kasa. */
+.login-panel {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 0;
+    clip-path: polygon(
+        16px 0,
+        calc(100% - 16px) 0,
+        100% 16px,
+        100% calc(100% - 16px),
+        calc(100% - 16px) 100%,
+        16px 100%,
+        0 calc(100% - 16px),
+        0 16px
+    );
+    background:
+        var(--auth-surface) padding-box,
+        linear-gradient(130deg, #7250ff, #d331ff 48%, #6238dc) border-box;
+    box-shadow:
+        0 0 16px rgba(104, 61, 255, 0.68),
+        0 0 46px rgba(118, 43, 226, 0.34),
+        inset 0 0 48px rgba(33, 21, 89, 0.32);
+    backdrop-filter: blur(20px);
+}
+
+.login-panel::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 7px;
+    clip-path: polygon(
+        11px 0,
+        calc(100% - 11px) 0,
+        100% 11px,
+        100% calc(100% - 11px),
+        calc(100% - 11px) 100%,
+        11px 100%,
+        0 calc(100% - 11px),
+        0 11px
+    );
+    border: 1px solid rgba(178, 55, 255, 0.4);
+    pointer-events: none;
+}
+
+.login-panel > * {
+    position: relative;
+    z-index: 1;
+}
+
+.auth-input-shell {
+    overflow: hidden;
+    border-radius: 0.45rem;
+}
+
+.auth-input-shell::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -45%;
+    width: 35%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(206, 92, 255, 0.13),
+        transparent
+    );
+    transform: skewX(-18deg);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.auth-input-shell:focus-within::after {
+    animation: authInputSweep 720ms ease-out;
+}
+
+.auth-input-icon {
+    /* Konum (translateY -50%) Tailwind ile veriliyor; burada onu DEĞİŞTİRMİYORUZ
+       ki focus/hover'da ikon yerinden oynamasın. Sadece renk ve glow geçişi. */
+    transition:
+        color 200ms ease,
+        filter 200ms ease;
+}
+
+/* Mouse üzerine gelince: hafif mor vurgu (ikon hareket etmez). */
+.auth-input-shell:hover .auth-input-icon {
+    color: #a78bfa;
+}
+
+/* Focus'ta: belirgin mor + neon glow (yine hareket yok). */
+.auth-input-shell:focus-within .auth-input-icon {
+    color: #c084fc;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.8));
+}
+
+@keyframes authInputSweep {
+    0% {
+        left: -45%;
+        opacity: 0;
+    }
+    18% {
+        opacity: 1;
+    }
+    100% {
+        left: 115%;
+        opacity: 0;
+    }
+}
+
+.login-form-input {
+    height: 2.75rem;
+    border-color: rgba(120, 87, 202, 0.2);
+    border-radius: 0.45rem;
+    background: rgba(2, 3, 16, 0.72);
+    font-size: 0.75rem;
+    transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        background-color 220ms ease,
+        transform 220ms ease;
+}
+
+.login-form-input:focus {
+    border-color: rgba(172, 75, 255, 0.7);
+    box-shadow:
+        0 0 0 1px rgba(135, 68, 255, 0.18),
+        0 0 18px rgba(121, 52, 225, 0.24);
+    background: rgba(8, 5, 28, 0.88);
+}
+
+.login-remember-control {
+    border-radius: 0.35rem;
+    padding: 0.2rem 0.35rem 0.2rem 0;
+    /* Hareket yok: yalnızca yumuşak renk/glow geçişi. */
+    transition:
+        color 200ms ease,
+        text-shadow 200ms ease;
+}
+
+.login-remember-control:hover {
+    color: #d8b4fe;
+    text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+.login-remember {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    border: 1px solid rgba(168, 85, 247, 0.75);
+    border-radius: 0.2rem;
+    background: rgba(124, 58, 237, 0.18);
+    transition:
+        border-color 200ms ease,
+        background 200ms ease,
+        box-shadow 200ms ease;
+}
+
+/* Hover: kutu yerinden oynamadan yumuşak mor parıltı. */
+.login-remember-control:hover .login-remember {
+    border-color: rgba(216, 180, 254, 0.95);
+    background: rgba(168, 85, 247, 0.28);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+/* Klavye erişilebilirliği. */
+.login-remember:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.4);
+}
+
+.login-remember::before {
+    content: "";
+    width: 0.55rem;
+    height: 0.3rem;
+    border-left: 2px solid white;
+    border-bottom: 2px solid white;
+    /* Yumuşak, hafif yaylı (spring) çıkış + opacity geçişi. */
+    transform: rotate(-45deg) scale(0);
+    opacity: 0;
+    transition:
+        transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 140ms ease;
+}
+
+.login-remember:checked {
+    background: linear-gradient(135deg, #7146ff, #ba35ed);
+    box-shadow: 0 0 12px rgba(164, 70, 255, 0.6);
+}
+
+.login-remember:checked::before {
+    transform: rotate(-45deg) scale(1);
+    opacity: 1;
+}
+
+.login-submit {
+    position: relative;
+    height: 2.85rem;
+    border: 1px solid rgba(218, 92, 255, 0.9);
+    border-radius: 0.45rem;
+    background: linear-gradient(100deg, #4b11d8, #6814e8 48%, #a51fe7);
+    box-shadow:
+        0 0 8px rgba(139, 57, 255, 0.92),
+        0 0 28px rgba(150, 35, 255, 0.62),
+        inset 0 0 18px rgba(116, 64, 255, 0.7);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.login-submit > svg:last-child {
+    position: absolute;
+    right: 1rem;
+}
+
+.login-social {
+    height: 2.35rem;
+    border-color: rgba(129, 85, 209, 0.3);
+    border-radius: 0.45rem;
+    background: rgba(3, 4, 18, 0.72);
+    font-size: 0.75rem;
+    font-weight: 400;
+    transition:
+        transform 200ms ease,
+        border-color 200ms ease,
+        background 200ms ease,
+        box-shadow 200ms ease;
+}
+
+.login-social:hover,
+.login-social:focus-visible {
+    transform: scale(1.02);
+    border-color: rgba(218, 92, 255, 0.9);
+    background: linear-gradient(100deg, #4b11d8, #6814e8 48%, #a51fe7);
+    box-shadow:
+        0 0 8px rgba(139, 57, 255, 0.82),
+        0 0 28px rgba(150, 35, 255, 0.52),
+        inset 0 0 18px rgba(116, 64, 255, 0.6);
+    color: #ffffff;
+}
+
+.login-social:hover svg,
+.login-social:focus-visible svg {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.72));
+}
+
+/* Login altındaki sosyal medya (takip) ikonları */
+.social-link {
+    transition:
+        color 200ms ease,
+        border-color 200ms ease,
+        background 200ms ease,
+        box-shadow 200ms ease,
+        transform 200ms ease;
+}
+
+.social-link:hover,
+.social-link:focus-visible {
+    outline: none;
+    color: #ffffff;
+    border-color: rgba(216, 92, 255, 0.8);
+    background: rgba(168, 85, 247, 0.16);
+    box-shadow: 0 0 14px rgba(168, 85, 247, 0.45);
+    transform: translateY(-2px);
+}
+
 /* Neon temalı ince scrollbar */
 ::-webkit-scrollbar {
     width: 10px;

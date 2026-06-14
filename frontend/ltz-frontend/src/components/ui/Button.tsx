@@ -4,7 +4,7 @@
  * variant:
  *  - primary: ana CTA (mor/fuchsia gradient + neon glow)
  *  - ghost:   ince çerçeveli, arka planı şeffaf buton
- *  - social:  Steam/Discord gibi sosyal giriş butonları
+ *  - social:  Steam gibi sosyal giriş butonları
  */
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";

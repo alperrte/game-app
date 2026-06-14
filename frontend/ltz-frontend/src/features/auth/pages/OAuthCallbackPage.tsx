@@ -1,5 +1,5 @@
 /*
- * OAuth (Steam / Discord) dönüş sayfası.
+ * OAuth (Steam) dönüş sayfası.
  *
  * Backend, başarılı OAuth girişinden sonra tarayıcıyı şu adrese yönlendirir:
  *   /oauth/callback?accessToken=...&refreshToken=...
@@ -27,7 +27,8 @@ export function OAuthCallbackPage() {
 
     const accessToken = searchParams.get("accessToken");
     const refreshToken = searchParams.get("refreshToken");
-    const missingTokens = !accessToken || !refreshToken;
+    const providerError = searchParams.get("error");
+    const missingTokens = !providerError && (!accessToken || !refreshToken);
 
     /*
      * StrictMode altında effect iki kez çalışabileceği için tek seferlik koruma.
@@ -35,7 +36,14 @@ export function OAuthCallbackPage() {
     const handledRef = useRef(false);
 
     useEffect(() => {
-        if (missingTokens || handledRef.current) return;
+        if (
+            providerError ||
+            !accessToken ||
+            !refreshToken ||
+            handledRef.current
+        ) {
+            return;
+        }
         handledRef.current = true;
 
         async function completeLogin(access: string, refresh: string) {
@@ -65,14 +73,16 @@ export function OAuthCallbackPage() {
         }
 
         void completeLogin(accessToken, refreshToken);
-    }, [navigate, accessToken, refreshToken, missingTokens]);
+    }, [navigate, accessToken, refreshToken, providerError]);
 
     /*
      * Eksik token hatası render sırasında türetilir (effect içinde setState yok).
      */
-    const error = missingTokens
-        ? "Giriş bilgisi alınamadı. Lütfen tekrar deneyin."
-        : asyncError;
+    const error =
+        providerError ??
+        (missingTokens
+            ? "Giriş bilgisi alınamadı. Lütfen tekrar deneyin."
+            : asyncError);
 
     return (
         <AuthBackdrop>

@@ -1,8 +1,7 @@
 /*
- * Steam / Discord sosyal giriş butonu.
+ * Steam sosyal giriş butonu.
  *
- * NOT: auth-service içinde Steam/Discord OAuth endpoint'i YOKTUR.
- * Bu yüzden butonlar şimdilik yalnızca UI'dır (onClick TODO).
+ * Sağlayıcının OAuth endpoint'ine yönlendiren sosyal giriş butonu.
  */
 
 import type { ReactNode } from "react";
@@ -12,17 +11,22 @@ interface SocialLoginButtonProps {
     icon: ReactNode;
     label: string;
     onClick?: () => void;
+    className?: string;
 }
 
-export function SocialLoginButton({ icon, label, onClick }: SocialLoginButtonProps) {
+export function SocialLoginButton({
+    icon,
+    label,
+    onClick,
+    className,
+}: SocialLoginButtonProps) {
     return (
         <Button
             type="button"
             variant="social"
-            className="w-full"
+            className={`w-full ${className ?? ""}`}
             leftIcon={icon}
             onClick={onClick}
-            // TODO: auth-service OAuth endpoint'i eklendiğinde gerçek akışa bağlanacak.
         >
             {label}
         </Button>

@@ -41,14 +41,14 @@ public class UserCredential {
      * Burada düz şifre tutulmaz.
      * Register sırasında BCrypt ile hashlenmiş değer tutulur.
      *
-     * OAuth (STEAM/DISCORD) kullanıcılarının şifresi olmadığı için NULL olabilir.
+     * OAuth (STEAM) kullanıcılarının şifresi olmadığı için NULL olabilir.
      */
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
     /*
      * Kullanıcının kimlik doğrulama sağlayıcısı.
-     * LOCAL (varsayılan), STEAM veya DISCORD.
+     * LOCAL (varsayılan) veya STEAM.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "provider", nullable = false, length = 20)
@@ -56,7 +56,7 @@ public class UserCredential {
 
     /*
      * Sağlayıcı tarafındaki benzersiz kullanıcı kimliği.
-     * STEAM için SteamID64, DISCORD için Discord user id.
+     * STEAM için SteamID64.
      * LOCAL kullanıcılarda NULL'dır.
      */
     @Column(name = "provider_id", length = 100)

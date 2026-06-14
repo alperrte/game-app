@@ -54,9 +54,9 @@ export function Input({
                 </label>
             )}
 
-            <div className="relative">
+            <div className="auth-input-shell relative">
                 {icon && (
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
+                    <span className="auth-input-icon pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
                         {icon}
                     </span>
                 )}
@@ -65,7 +65,7 @@ export function Input({
                     id={inputId}
                     type={inputType}
                     className={cn(
-                        "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] text-white",
+                        "auth-input h-12 w-full rounded-xl border border-white/10 bg-ltz-panel/80 text-white",
                         "placeholder:text-zinc-500",
                         "transition-all duration-200 outline-none",
                         "focus:border-violet-400/70 focus:shadow-[0_0_24px_rgba(168,85,247,0.25)]",
