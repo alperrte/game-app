@@ -2,11 +2,18 @@ package com.ltz.auth_service.repository;
 
 import com.ltz.auth_service.entity.UserCredential;
 import com.ltz.auth_service.entity.enums.AccountStatus;
+import com.ltz.auth_service.entity.enums.AuthProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
 public interface UserCredentialRepository extends JpaRepository<UserCredential, Long> {
+
+    /*
+     * OAuth (STEAM) kullanıcısını sağlayıcı ve sağlayıcı kimliğine göre getirir.
+     * OAuth giriş akışında kullanıcı bul/oluştur için kullanılır.
+     */
+    Optional<UserCredential> findByProviderAndProviderId(AuthProvider provider, String providerId);
 
     /*
      * E-posta adresine göre kullanıcı giriş bilgisini getirir.
