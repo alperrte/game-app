@@ -16,13 +16,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 🔒 CustomAuthenticationEntryPoint
- * 
- * JWT doğrulaması başarısız olduğunda veya korumalı bir api ucuna tokensiz 
- * erişilmeye çalışıldığında tetiklenen, sunucunun 401 Unauthorized yanıtlarını
- * standart JSON formatında dönmesini sağlayan bileşendir.
- */
 @Component
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

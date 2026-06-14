@@ -16,13 +16,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 🔒 CustomAccessDeniedHandler
- * 
- * Giriş yapmış olan bir kullanıcının yetkisinin (rolünün) yetmediği bir API ucuna 
- * erişmeye çalışması durumunda tetiklenen, sunucunun 403 Forbidden yanıtını
- * standart JSON formatında dönmesini sağlayan bileşendir.
- */
 @Component
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
@@ -47,7 +40,7 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         body.put("timestamp", LocalDateTime.now().toString());
         body.put("status", HttpStatus.FORBIDDEN.value());
         body.put("error", HttpStatus.FORBIDDEN.getReasonPhrase());
-        body.put("message", "Access denied: You do not have permission to access this resource.");
+        body.put("message", "Access Denied: You do not have sufficient permissions to access this resource.");
         body.put("path", request.getRequestURI());
 
         objectMapper.writeValue(response.getOutputStream(), body);
