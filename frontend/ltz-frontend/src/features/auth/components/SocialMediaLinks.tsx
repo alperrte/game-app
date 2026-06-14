@@ -12,10 +12,26 @@ import { SOCIAL_LINKS } from "../../../lib/constants";
 import { DiscordIcon, XIcon } from "./BrandIcons";
 
 const SOCIALS = [
-    { label: "Instagram", href: SOCIAL_LINKS.instagram, icon: <Instagram size={17} /> },
-    { label: "X", href: SOCIAL_LINKS.x, icon: <XIcon size={14} /> },
-    { label: "YouTube", href: SOCIAL_LINKS.youtube, icon: <Youtube size={18} /> },
-    { label: "Discord", href: SOCIAL_LINKS.discord, icon: <DiscordIcon size={17} /> },
+    {
+        label: "Instagram paylaşımlarını keşfet",
+        href: SOCIAL_LINKS.instagram,
+        icon: <Instagram size={17} />,
+    },
+    {
+        label: "X duyurularını takip et",
+        href: SOCIAL_LINKS.x,
+        icon: <XIcon size={14} />,
+    },
+    {
+        label: "YouTube rehberlerini izle",
+        href: SOCIAL_LINKS.youtube,
+        icon: <Youtube size={18} />,
+    },
+    {
+        label: "Discord topluluğuna katıl",
+        href: SOCIAL_LINKS.discord,
+        icon: <DiscordIcon size={17} />,
+    },
 ];
 
 export function SocialMediaLinks() {
@@ -32,7 +48,8 @@ export function SocialMediaLinks() {
                         aria-label={social.label}
                         target={isExternal ? "_blank" : undefined}
                         rel={isExternal ? "noopener noreferrer" : undefined}
-                        className="social-link flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-zinc-400"
+                        data-tooltip={social.label}
+                        className="social-link relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-zinc-400"
                     >
                         {social.icon}
                     </a>

@@ -10,6 +10,7 @@
 import { useId, useState } from "react";
 import type { InputHTMLAttributes, ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cn } from "../../utils/cn";
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
@@ -39,12 +40,22 @@ export function Input({
 }: InputProps) {
     const generatedId = useId();
     const inputId = id ?? generatedId;
+    const errorId = `${inputId}-error`;
     const [showPassword, setShowPassword] = useState(false);
+    const shouldReduceMotion = useReducedMotion();
 
     const inputType = isPassword ? (showPassword ? "text" : "password") : type;
 
     return (
-        <div className="space-y-1.5">
+        <motion.div
+            className="space-y-1.5"
+            animate={
+                error && !shouldReduceMotion
+                    ? { x: [0, -3, 3, -2, 2, 0] }
+                    : { x: 0 }
+            }
+            transition={{ duration: 0.32, ease: "easeOut" }}
+        >
             {label && (
                 <label
                     htmlFor={inputId}
@@ -74,6 +85,8 @@ export function Input({
                         error && "border-red-500/60 focus:border-red-500/70",
                         className,
                     )}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     {...rest}
                 />
 
@@ -81,7 +94,7 @@ export function Input({
                     <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-fuchsia-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
+                        className="auth-password-toggle absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-all hover:text-fuchsia-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
                         aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
                     >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -89,7 +102,22 @@ export function Input({
                 )}
             </div>
 
-            {error && <p className="text-xs text-red-400">{error}</p>}
-        </div>
+            <AnimatePresence initial={false}>
+                {error && (
+                    <motion.p
+                        id={errorId}
+                        className="text-xs text-red-400"
+                        initial={
+                            shouldReduceMotion ? false : { opacity: 0, y: -4 }
+                        }
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -3 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
+                        {error}
+                    </motion.p>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
 }

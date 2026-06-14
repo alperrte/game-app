@@ -15,6 +15,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Lock, User } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import ltzLogo from "../../../assets/ltz-yazi.png";
 import { Button } from "../../../components/ui/Button";
@@ -31,6 +32,7 @@ import { SteamIcon } from "./BrandIcons";
 
 export function LoginForm() {
     const navigate = useNavigate();
+    const shouldReduceMotion = useReducedMotion();
 
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
@@ -81,21 +83,47 @@ export function LoginForm() {
     return (
         <div className="login-form w-full">
             {/* Logo */}
-            <div className="mb-4 flex justify-center">
-                <img
+            <div className="auth-logo-shell mb-4 flex justify-center">
+                <motion.img
                     src={ltzLogo}
                     alt="LobbyTwoZero"
-                    className="h-24 max-w-full object-contain drop-shadow-[0_0_28px_rgba(125,68,255,0.6)]"
+                    className="auth-logo h-24 max-w-full object-contain"
+                    initial={
+                        shouldReduceMotion
+                            ? false
+                            : { opacity: 0, scale: 0.92, y: -6 }
+                    }
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{
+                        delay: 0.08,
+                        duration: 0.5,
+                        ease: [0.22, 1, 0.36, 1],
+                    }}
                 />
             </div>
 
             {/* Başlık */}
-            <div className="mb-5 text-center">
-                <h1 className="text-2xl font-semibold text-white">Hoşgeldin Oyuncu</h1>
-                <p className="mt-1 text-xs text-zinc-500">
+            <motion.div
+                className="auth-heading mb-5 text-center"
+                initial={
+                    shouldReduceMotion ? false : { opacity: 0, y: 8 }
+                }
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                    delay: 0.18,
+                    duration: 0.46,
+                    ease: [0.22, 1, 0.36, 1],
+                }}
+            >
+                <span className="auth-access-badge">PLAYER ACCESS</span>
+                <h1 className="auth-title mt-2 text-3xl font-bold tracking-tight">
+                    Hoşgeldin Oyuncu
+                </h1>
+                <p className="auth-subtitle mt-2 inline-flex items-center gap-2 text-xs">
+                    <span className="auth-subtitle-pulse" aria-hidden="true" />
                     Lobine devam etmek için giriş yap.
                 </p>
-            </div>
+            </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <Input
@@ -154,14 +182,24 @@ export function LoginForm() {
                 </div>
 
                 {/* Hata mesajı */}
-                {error && (
-                    <p
-                        role="alert"
-                        className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300"
-                    >
-                        {error}
-                    </p>
-                )}
+                <AnimatePresence initial={false}>
+                    {error && (
+                        <motion.p
+                            role="alert"
+                            className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300"
+                            initial={
+                                shouldReduceMotion
+                                    ? false
+                                    : { opacity: 0, y: -6 }
+                            }
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.22, ease: "easeOut" }}
+                        >
+                            {error}
+                        </motion.p>
+                    )}
+                </AnimatePresence>
 
                 {/* Ana CTA */}
                 <Button
