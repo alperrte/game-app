@@ -1,3 +1,10 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../../lib/constants";
+import { getRefreshToken } from "../../../lib/token";
+import { authService } from "../../auth/services/authService";
+import { clearAuth } from "../../../store/authStore";
+
 type GameNavbarActiveItem =
   | "Categories"
   | "Developers"
@@ -25,6 +32,26 @@ const navItems = [
 ] as const;
 
 const GameNavbar = ({ activeItem }: GameNavbarProps) => {
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    const refreshToken = getRefreshToken();
+
+    try {
+      if (refreshToken) {
+        await authService.logout({ refreshToken });
+      }
+    } catch {
+      /* Logout hatasi kullaniciyi engellememeli. */
+    } finally {
+      clearAuth();
+      navigate(ROUTES.login, { replace: true });
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050b18]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-20 max-w-[1840px] items-center gap-8 px-8">
@@ -84,6 +111,16 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
             12
           </span>
+        </button>
+
+        <button
+          className="hidden h-11 items-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-4 text-sm font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
+          disabled={isLoggingOut}
+          onClick={() => void handleLogout()}
+          type="button"
+        >
+          <span className="text-lg">↪</span>
+          {isLoggingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
         </button>
 
         <div className="hidden items-center gap-3 lg:flex">
