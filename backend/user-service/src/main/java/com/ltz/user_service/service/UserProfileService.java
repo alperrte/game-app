@@ -45,14 +45,17 @@ public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final ConnectedAccountRepository connectedAccountRepository;
+    private final AuditLogService auditLogService;
 
     // Dependency Injection (Constructor Injection) kullanılmıştır.
     public UserProfileService(UserProfileRepository userProfileRepository,
                               PrivacySettingsRepository privacySettingsRepository,
-                              ConnectedAccountRepository connectedAccountRepository) {
+                              ConnectedAccountRepository connectedAccountRepository,
+                              AuditLogService auditLogService) {
         this.userProfileRepository = userProfileRepository;
         this.privacySettingsRepository = privacySettingsRepository;
         this.connectedAccountRepository = connectedAccountRepository;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -74,7 +77,9 @@ public class UserProfileService {
      *   arka planda otomatik olarak oluşturulur ve kaydedilir.
      */
     @Transactional
-    public UserProfileResponse createOrUpdateProfile(String userId, String username, String email, UserProfileRequest request) {
+    public UserProfileResponse createOrUpdateProfile(String userId, String username, String email, UserProfileRequest request, String ipAddress) {
+        boolean isNew = !userProfileRepository.findByUserId(userId).isPresent();
+
         // Profil varsa bul, yoksa veritabanına eklemek üzere yeni bir UserProfile modeli inşa et
         UserProfile profile = userProfileRepository.findByUserId(userId)
                 .orElse(UserProfile.builder().userId(userId).username(username).email(email).build());
@@ -97,6 +102,10 @@ public class UserProfileService {
             privacySettingsRepository.save(PrivacySettings.builder().userId(userId).build());
         }
 
+        // Asenkron Audit Loglama
+        String details = isNew ? "Profile initialized for user " + username : "Profile fields updated";
+        auditLogService.log(userId, isNew ? "CREATE_PROFILE" : "UPDATE_PROFILE", details, ipAddress);
+
         return mapToProfileResponse(saved);
     }
 
@@ -115,7 +124,7 @@ public class UserProfileService {
      * Kullanıcının gizlilik ayarlarını günceller.
      */
     @Transactional
-    public PrivacySettingsResponse updatePrivacySettings(String userId, PrivacySettingsRequest request) {
+    public PrivacySettingsResponse updatePrivacySettings(String userId, PrivacySettingsRequest request, String ipAddress) {
         PrivacySettings settings = privacySettingsRepository.findByUserId(userId)
                 .orElseGet(() -> PrivacySettings.builder().userId(userId).build());
 
@@ -125,6 +134,10 @@ public class UserProfileService {
         if (request.getFriendListVisibility() != null) settings.setFriendListVisibility(request.getFriendListVisibility());
 
         PrivacySettings saved = privacySettingsRepository.save(settings);
+
+        // Asenkron Audit Loglama
+        auditLogService.log(userId, "UPDATE_PRIVACY", "Privacy settings modified", ipAddress);
+
         return mapToPrivacyResponse(saved);
     }
 
@@ -146,11 +159,12 @@ public class UserProfileService {
      * - Eşsizlik kısıtlaması nedeniyle veritabanı duplicate kaydı reddeder ve GlobalExceptionHandler yakalar.
      */
     @Transactional
-    public ConnectedAccountResponse connectAccount(String userId, ConnectedAccountRequest request) {
+    public ConnectedAccountResponse connectAccount(String userId, ConnectedAccountRequest request, String ipAddress) {
         Optional<ConnectedAccount> existing = connectedAccountRepository
                 .findByUserIdAndPlatformName(userId, request.getPlatformName().toUpperCase());
 
         ConnectedAccount account;
+        boolean isNew = !existing.isPresent();
         if (existing.isPresent()) {
             // Hesap önceden bağlanmışsa bilgilerini güncelle
             account = existing.get();
@@ -167,6 +181,11 @@ public class UserProfileService {
         }
 
         ConnectedAccount saved = connectedAccountRepository.save(account);
+
+        // Asenkron Audit Loglama
+        auditLogService.log(userId, isNew ? "CONNECT_ACCOUNT" : "UPDATE_CONNECTED_ACCOUNT",
+                "Linked platform: " + request.getPlatformName().toUpperCase(), ipAddress);
+
         return mapToConnectedAccountResponse(saved);
     }
 
@@ -178,7 +197,7 @@ public class UserProfileService {
      * - Yetkisiz silme denemelerinde BadRequestException fırlatılır.
      */
     @Transactional
-    public void disconnectAccount(String userId, Long id) {
+    public void disconnectAccount(String userId, Long id, String ipAddress) {
         ConnectedAccount account = connectedAccountRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Connected account not found"));
 
@@ -188,6 +207,9 @@ public class UserProfileService {
         }
 
         connectedAccountRepository.delete(account);
+
+        // Asenkron Audit Loglama
+        auditLogService.log(userId, "DISCONNECT_ACCOUNT", "Disconnected platform: " + account.getPlatformName(), ipAddress);
     }
 
     // ==========================================
