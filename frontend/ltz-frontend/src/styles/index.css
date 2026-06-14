@@ -652,19 +652,15 @@ body {
 }
 
 .auth-input-icon {
-    /* Konum (translateY -50%) Tailwind ile veriliyor; burada onu DEĞİŞTİRMİYORUZ
-       ki focus/hover'da ikon yerinden oynamasın. Sadece renk ve glow geçişi. */
     transition:
         color 200ms ease,
         filter 200ms ease;
 }
 
-/* Mouse üzerine gelince: hafif mor vurgu (ikon hareket etmez). */
 .auth-input-shell:hover .auth-input-icon {
     color: #a78bfa;
 }
 
-/* Focus'ta: belirgin mor + neon glow (yine hareket yok). */
 .auth-input-shell:focus-within .auth-input-icon {
     color: #c084fc;
     filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.8));
@@ -715,7 +711,6 @@ body {
 .login-remember-control {
     border-radius: 0.35rem;
     padding: 0.2rem 0.35rem 0.2rem 0;
-    /* Hareket yok: yalnızca yumuşak renk/glow geçişi. */
     transition:
         color 200ms ease,
         text-shadow 200ms ease;
@@ -739,14 +734,12 @@ body {
         box-shadow 200ms ease;
 }
 
-/* Hover: kutu yerinden oynamadan yumuşak mor parıltı. */
 .login-remember-control:hover .login-remember {
     border-color: rgba(216, 180, 254, 0.95);
     background: rgba(168, 85, 247, 0.28);
     box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
 }
 
-/* Klavye erişilebilirliği. */
 .login-remember:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.4);
@@ -758,7 +751,6 @@ body {
     height: 0.3rem;
     border-left: 2px solid white;
     border-bottom: 2px solid white;
-    /* Yumuşak, hafif yaylı (spring) çıkış + opacity geçişi. */
     transform: rotate(-45deg) scale(0);
     opacity: 0;
     transition:
@@ -826,7 +818,6 @@ body {
     filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.72));
 }
 
-/* Login altındaki sosyal medya (takip) ikonları */
 .social-link {
     transition:
         color 200ms ease,

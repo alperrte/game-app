@@ -1,89 +1,118 @@
-/*
- * Uygulamanın merkezi route tanımları.
- *
- * - Public: /login (MainLayout dışında)
- * - Private: MainLayout içinde açılan, giriş gerektiren sayfalar
- *
- * Giriş kontrolü authStore üzerinden yapılır.
- */
-
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+
 import { MainLayout } from "./MainLayout";
 import { AuthLayout } from "./AuthLayout";
+
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
+
 import { useAuthStore } from "../store/authStore";
 import { ROUTES } from "../lib/constants";
+
+import GamesPage from "../features/game/pages/GamesPage";
+import GameCreatePage from "../features/game/pages/GameCreatePage";
+import GameDetailPage from "../features/game/pages/GameDetailPage";
+import GameEditPage from "../features/game/pages/GameEditPage";
+import GameCategoriesPage from "../features/game/pages/GameCategoriesPage";
+import GamePlatformsPage from "../features/game/pages/GamePlatformsPage";
+import GameDevelopersPage from "../features/game/pages/GameDevelopersPage";
+import GamePublishersPage from "../features/game/pages/GamePublishersPage";
+import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequirementsPage";
+
+const GAME_ROUTES = {
+  games: "/games",
+  createGame: "/games/create",
+  categories: "/games/categories",
+  platforms: "/games/platforms",
+  developers: "/games/developers",
+  publishers: "/games/publishers",
+  systemRequirements: "/games/system-requirements",
+};
 
 /*
  * Giriş yapılmamışsa login sayfasına yönlendiren koruma.
  */
 function ProtectedRoute() {
-    const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-    if (!isAuthenticated) {
-        return <Navigate to={ROUTES.login} replace />;
-    }
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
 
-    return <Outlet />;
+  return <Outlet />;
 }
 
 /*
- * Giriş yapılmışsa login sayfasını atlatıp ana uygulamaya yönlendirir.
+ * Giriş yapılmışsa login/register sayfalarını atlatıp ana uygulamaya yönlendirir.
  */
 function PublicOnlyRoute() {
-    const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-    if (isAuthenticated) {
-        return <Navigate to={ROUTES.home} replace />;
-    }
+  if (isAuthenticated) {
+    return <Navigate to={GAME_ROUTES.games} replace />;
+  }
 
-    return <Outlet />;
+  return <Outlet />;
 }
 
 /*
- * Giriş sonrası geçici ana sayfa placeholder'ı.
- * (Asıl ana sayfa bu görevin kapsamı dışındadır.)
+ * Giriş sonrası geçici ana sayfa yönlendirmesi.
  */
-function HomePlaceholder() {
-    const { user } = useAuthStore();
-
-    return (
-        <div className="space-y-2">
-            <h1 className="text-2xl font-semibold">
-                Lobiye hoş geldin{user ? `, ${user.username}` : ""}!
-            </h1>
-            <p className="text-zinc-400">
-                Giriş başarılı. Ana uygulama ekranları yakında burada olacak.
-            </p>
-        </div>
-    );
+function HomeRedirect() {
+  return <Navigate to={GAME_ROUTES.games} replace />;
 }
 
 export function AppRouter() {
-    return (
-        <Routes>
-            {/* Public: yalnızca giriş yapılmamışken erişilebilir */}
-            <Route element={<PublicOnlyRoute />}>
-                <Route element={<AuthLayout />}>
-                    <Route path={ROUTES.login} element={<LoginPage />} />
-                    <Route path={ROUTES.register} element={<RegisterPage />} />
-                </Route>
-            </Route>
+  return (
+    <Routes>
+      {/* Public: yalnızca giriş yapılmamışken erişilebilir */}
+      <Route element={<PublicOnlyRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route path={ROUTES.login} element={<LoginPage />} />
+          <Route path={ROUTES.register} element={<RegisterPage />} />
+        </Route>
+      </Route>
 
-            {/* OAuth dönüşü: oturumu kendisi başlatır, bu yüzden guard'sızdır */}
-            <Route path={ROUTES.oauthCallback} element={<OAuthCallbackPage />} />
+      {/* OAuth dönüşü: oturumu kendisi başlatır, bu yüzden guard'sızdır */}
+      <Route path={ROUTES.oauthCallback} element={<OAuthCallbackPage />} />
 
-            {/* Private: MainLayout içinde, giriş gerektirir */}
-            <Route element={<ProtectedRoute />}>
-                <Route element={<MainLayout />}>
-                    <Route path={ROUTES.home} element={<HomePlaceholder />} />
-                </Route>
-            </Route>
+      {/* Private: MainLayout içinde, giriş gerektirir */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<MainLayout />}>
+          <Route path={ROUTES.home} element={<HomeRedirect />} />
 
-            {/* Bilinmeyen yollar ana sayfaya */}
-            <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
-        </Routes>
-    );
+          <Route path={GAME_ROUTES.games} element={<GamesPage />} />
+          <Route path={GAME_ROUTES.createGame} element={<GameCreatePage />} />
+
+          <Route
+            path={GAME_ROUTES.categories}
+            element={<GameCategoriesPage />}
+          />
+          <Route
+            path={GAME_ROUTES.platforms}
+            element={<GamePlatformsPage />}
+          />
+          <Route
+            path={GAME_ROUTES.developers}
+            element={<GameDevelopersPage />}
+          />
+          <Route
+            path={GAME_ROUTES.publishers}
+            element={<GamePublishersPage />}
+          />
+          <Route
+            path={GAME_ROUTES.systemRequirements}
+            element={<GameSystemRequirementsPage />}
+          />
+
+          <Route path="/games/:id/edit" element={<GameEditPage />} />
+          <Route path="/games/:id" element={<GameDetailPage />} />
+        </Route>
+      </Route>
+
+      {/* Bilinmeyen yollar oyun listeleme sayfasına */}
+      <Route path="*" element={<Navigate to={GAME_ROUTES.games} replace />} />
+    </Routes>
+  );
 }

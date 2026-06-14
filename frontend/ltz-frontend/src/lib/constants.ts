@@ -1,8 +1,3 @@
-/*
- * Uygulama genelinde değişmeyen sabit değerler.
- * Route adresleri, localStorage key değerleri ve auth endpoint path'leri burada tutulur.
- */
-
 export const APP_NAME = "LobbyTwoZero";
 export const APP_SHORT_NAME = "LTZ";
 
@@ -12,66 +7,108 @@ export const APP_SHORT_NAME = "LTZ";
  * Değer .env içindeki VITE_API_BASE_URL'den gelir.
  */
 export const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:7070";
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:7070";
 
 /*
  * Sosyal medya bağlantıları.
  * Discord sunucu davet linki .env'den (VITE_DISCORD_INVITE_URL) gelir.
  */
 export const SOCIAL_LINKS = {
-    discord:
-        import.meta.env.VITE_DISCORD_INVITE_URL ??
-        "https://discord.gg/aFc7HRBpfh",
-    instagram: "#",
-    x: "#",
-    youtube: "#",
+  discord:
+    import.meta.env.VITE_DISCORD_INVITE_URL ??
+    "https://discord.gg/aFc7HRBpfh",
+  instagram: "#",
+  x: "#",
+  youtube: "#",
 } as const;
 
 /*
  * Auth-service endpoint path'leri (Gateway üzerinden).
  */
 export const AUTH_ENDPOINTS = {
-    login: "/api/auth/login",
-    register: "/api/auth/register",
-    refreshToken: "/api/auth/refresh-token",
-    logout: "/api/auth/logout",
-    validateToken: "/api/auth/validate-token",
+  login: "/api/auth/login",
+  register: "/api/auth/register",
+  refreshToken: "/api/auth/refresh-token",
+  logout: "/api/auth/logout",
+  validateToken: "/api/auth/validate-token",
 } as const;
 
 /*
  * Uygulama route adresleri.
  */
 export const ROUTES = {
-    login: "/login",
-    register: "/register",
-    oauthCallback: "/oauth/callback",
-    home: "/",
+  login: "/login",
+  register: "/register",
+  oauthCallback: "/oauth/callback",
+  home: "/",
+} as const;
+
+/*
+ * Game-service frontend route adresleri.
+ */
+export const GAME_ROUTES = {
+  games: "/games",
+  popularGames: "/games/popular",
+  gameDetail: (id: number | string) => `/games/${id}`,
+  createGame: "/games/create",
+  editGame: (id: number | string) => `/games/${id}/edit`,
+  gameSystemRequirements: (id: number | string) =>
+    `/games/${id}/system-requirements`,
+  systemRequirements: "/games/system-requirements",
+  categories: "/games/categories",
+  platforms: "/games/platforms",
+  developers: "/games/developers",
+  publishers: "/games/publishers",
+} as const;
+
+/*
+ * Game-service endpoint path'leri (Gateway üzerinden).
+ */
+export const GAME_API_ENDPOINTS = {
+  games: "/api/games",
+  filterGames: "/api/games/filter",
+  popularGames: "/api/games/popular",
+  gameById: (id: number | string) => `/api/games/${id}`,
+  gameSystemRequirements: (gameId: number | string) =>
+    `/api/games/${gameId}/system-requirements`,
+
+  categories: "/api/games/categories",
+  categoryById: (id: number | string) => `/api/games/categories/${id}`,
+
+  platforms: "/api/games/platforms",
+  platformById: (id: number | string) => `/api/games/platforms/${id}`,
+
+  developers: "/api/games/developers",
+  developerById: (id: number | string) => `/api/games/developers/${id}`,
+
+  publishers: "/api/games/publishers",
+  publisherById: (id: number | string) => `/api/games/publishers/${id}`,
 } as const;
 
 /*
  * Form doğrulama kuralları (backend RegisterRequest ile uyumlu).
  */
 export const VALIDATION = {
-    passwordMin: 6,
-    passwordMax: 100,
-    usernameMin: 3,
-    usernameMax: 100,
-    emailMax: 150,
+  passwordMin: 6,
+  passwordMax: 100,
+  usernameMin: 3,
+  usernameMax: 100,
+  emailMax: 150,
 } as const;
 
 /*
  * localStorage key değerleri.
  */
 export const STORAGE_KEYS = {
-    accessToken: "ltz_access_token",
-    refreshToken: "ltz_refresh_token",
-    user: "ltz_user",
+  accessToken: "ltz_access_token",
+  refreshToken: "ltz_refresh_token",
+  user: "ltz_user",
 } as const;
 
 /*
  * Kullanıcı rolleri.
  */
 export const ROLES = {
-    user: "USER",
-    admin: "ADMIN",
+  user: "USER",
+  admin: "ADMIN",
 } as const;
