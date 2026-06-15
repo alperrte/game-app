@@ -1,147 +1,143 @@
-import { useMemo, useState } from "react";
+import { isAxiosError } from "axios";
+import { useEffect, useMemo, useState } from "react";
 import GameNavbar from "../components/GameNavbar";
+import { gameService } from "../services/gameService";
+import { systemRequirementService } from "../services/systemRequirementService";
+import type { Game } from "../types/gameTypes";
+import type {
+  SystemRequirement,
+  SystemRequirementRequest,
+} from "../types/systemRequirementTypes";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
 
-type RequirementStatus = "active" | "compliant" | "warning";
+type RequirementFormMode = "create" | "edit";
 
-type RequirementSet = {
-  id: number;
-  contact: string;
-  founded: number;
-  game: string;
-  gamesCovered: number;
-  headquarters: string;
-  lastUpdated: string;
-  logo: string;
-  minCoverage: number;
-  notes: string;
-  platform: string;
-  recentGame: string;
-  recCoverage: number;
-  requirementSets: number;
-  status: RequirementStatus;
-  teamSize: string;
-  type: string;
-  website: string;
+const initialForm: SystemRequirementRequest = {
+  minimumOs: "",
+  minimumCpu: "",
+  minimumGpu: "",
+  minimumRam: "",
+  minimumStorage: "",
+  recommendedOs: "",
+  recommendedCpu: "",
+  recommendedGpu: "",
+  recommendedRam: "",
+  recommendedStorage: "",
+  notes: "",
 };
 
-const mockRequirements: RequirementSet[] = [
-  {
-    id: 1001,
-    game: "Aurora Interactive",
-    platform: "North America",
-    type: "PC",
-    lastUpdated: "2024-05-26T10:30:00",
-    minCoverage: 98,
-    recCoverage: 96,
-    status: "active",
-    logo: "A",
-    website: "aurorainteractive.com",
-    contact: "contact@aurorainteractive.com",
-    headquarters: "Seattle, Washington, USA",
-    founded: 2016,
-    teamSize: "51 - 100",
-    gamesCovered: 24,
-    requirementSets: 28,
-    recentGame: "Eclipse Frontier",
-    notes:
-      "Aurora Interactive is a leading independent publisher focused on narrative-driven RPGs and immersive sci-fi experiences for PC and next-gen consoles.",
-  },
-  {
-    id: 1002,
-    game: "Titan Realm Publishing",
-    platform: "Europe",
-    type: "PC",
-    lastUpdated: "2024-05-25T10:30:00",
-    minCoverage: 95,
-    recCoverage: 93,
-    status: "compliant",
-    logo: "T",
-    website: "titanrealm.com",
-    contact: "ops@titanrealm.com",
-    headquarters: "London, United Kingdom",
-    founded: 2014,
-    teamSize: "25 - 50",
-    gamesCovered: 18,
-    requirementSets: 22,
-    recentGame: "Myth of Anatolia",
-    notes: "European RPG and strategy publisher with strong PC coverage.",
-  },
-  {
-    id: 1003,
-    game: "Blue Nova",
-    platform: "Asia",
-    type: "PC",
-    lastUpdated: "2024-05-24T10:30:00",
-    minCoverage: 90,
-    recCoverage: 88,
-    status: "warning",
-    logo: "B",
-    website: "bluenova.games",
-    contact: "hello@bluenova.games",
-    headquarters: "Tokyo, Japan",
-    founded: 2018,
-    teamSize: "10 - 25",
-    gamesCovered: 12,
-    requirementSets: 16,
-    recentGame: "Cybernetica",
-    notes: "Some recommended requirement sets need review for newer GPUs.",
-  },
-  {
-    id: 1004,
-    game: "Emberline Media",
-    platform: "Europe",
-    type: "Console",
-    lastUpdated: "2024-05-23T10:30:00",
-    minCoverage: 92,
-    recCoverage: 90,
-    status: "compliant",
-    logo: "E",
-    website: "emberlinemedia.io",
-    contact: "support@emberlinemedia.io",
-    headquarters: "Berlin, Germany",
-    founded: 2019,
-    teamSize: "25 - 50",
-    gamesCovered: 16,
-    requirementSets: 19,
-    recentGame: "Forest Whisper",
-    notes: "Console and PC requirement records are aligned.",
-  },
-  {
-    id: 1005,
-    game: "North Arc",
-    platform: "Oceania",
-    type: "PC",
-    lastUpdated: "2024-05-22T10:30:00",
-    minCoverage: 89,
-    recCoverage: 85,
-    status: "warning",
-    logo: "N",
-    website: "northarc.gg",
-    contact: "contact@northarc.gg",
-    headquarters: "Sydney, Australia",
-    founded: 2020,
-    teamSize: "10 - 25",
-    gamesCovered: 9,
-    requirementSets: 11,
-    recentGame: "Last Haven",
-    notes: "Minimum requirements are complete; recommended coverage needs updates.",
-  },
-];
+const minimumFields = [
+  "minimumOs",
+  "minimumCpu",
+  "minimumGpu",
+  "minimumRam",
+  "minimumStorage",
+] as const;
 
-const formatDate = (value: string) => {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+const recommendedFields = [
+  "recommendedOs",
+  "recommendedCpu",
+  "recommendedGpu",
+  "recommendedRam",
+  "recommendedStorage",
+] as const;
+
+const emptyToNull = (value: string | null | undefined) => {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue : null;
+};
+
+const normalizeRequirementRequest = (
+  value: SystemRequirementRequest
+): SystemRequirementRequest => ({
+  minimumOs: emptyToNull(value.minimumOs),
+  minimumCpu: emptyToNull(value.minimumCpu),
+  minimumGpu: emptyToNull(value.minimumGpu),
+  minimumRam: emptyToNull(value.minimumRam),
+  minimumStorage: emptyToNull(value.minimumStorage),
+  recommendedOs: emptyToNull(value.recommendedOs),
+  recommendedCpu: emptyToNull(value.recommendedCpu),
+  recommendedGpu: emptyToNull(value.recommendedGpu),
+  recommendedRam: emptyToNull(value.recommendedRam),
+  recommendedStorage: emptyToNull(value.recommendedStorage),
+  notes: emptyToNull(value.notes),
+});
+
+const toRequirementFormValue = (
+  requirement: SystemRequirement
+): SystemRequirementRequest => ({
+  minimumOs: requirement.minimumOs ?? "",
+  minimumCpu: requirement.minimumCpu ?? "",
+  minimumGpu: requirement.minimumGpu ?? "",
+  minimumRam: requirement.minimumRam ?? "",
+  minimumStorage: requirement.minimumStorage ?? "",
+  recommendedOs: requirement.recommendedOs ?? "",
+  recommendedCpu: requirement.recommendedCpu ?? "",
+  recommendedGpu: requirement.recommendedGpu ?? "",
+  recommendedRam: requirement.recommendedRam ?? "",
+  recommendedStorage: requirement.recommendedStorage ?? "",
+  notes: requirement.notes ?? "",
+});
+
+const getFilledCount = (
+  requirement: SystemRequirement | null,
+  fields: readonly (keyof SystemRequirement)[]
+) => {
+  if (!requirement) {
+    return 0;
+  }
+
+  return fields.filter((field) => Boolean(requirement[field])).length;
+};
+
+const getCoverage = (
+  requirement: SystemRequirement | null,
+  fields: readonly (keyof SystemRequirement)[]
+) => {
+  return Math.round((getFilledCount(requirement, fields) / fields.length) * 100);
+};
+
+const getInitials = (title: string) => {
+  const initials = title
+    .split(" ")
+    .map((part) => part.trim().charAt(0))
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return initials || "SR";
+};
+
+const formatDate = (value: string | null) => {
+  if (!value) {
+    return "Yok";
+  }
+
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
   }).format(new Date(value));
 };
 
-const statusBadgeClass = (status: RequirementStatus) => {
-  if (status === "warning") {
-    return "border-amber-400/20 bg-amber-500/15 text-amber-200";
+const getRequirementErrorMessage = (error: unknown, fallback: string) => {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+
+    if (status === 401 || status === 403) {
+      return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
+    }
+
+    if (status === 409) {
+      return "Bu oyun için sistem gereksinimi zaten mevcut.";
+    }
   }
 
-  return "border-emerald-400/20 bg-emerald-500/15 text-emerald-200";
+  return fallback;
+};
+
+const isNotFoundError = (error: unknown) => {
+  return isAxiosError(error) && error.response?.status === 404;
 };
 
 const StatCard = ({
@@ -175,62 +171,303 @@ const StatCard = ({
   );
 };
 
+const RequirementValue = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) => (
+  <div className="grid grid-cols-[150px_1fr] gap-4">
+    <dt className="text-slate-400">{label}</dt>
+    <dd className="text-slate-100">{value || "Yok"}</dd>
+  </div>
+);
+
 const GameSystemRequirementsPage = () => {
-  const [requirements] = useState<RequirementSet[]>(mockRequirements);
-  const [selectedRequirement, setSelectedRequirement] = useState<RequirementSet>(
-    mockRequirements[0]
-  );
+  const [games, setGames] = useState<Game[]>([]);
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [requirement, setRequirement] = useState<SystemRequirement | null>(null);
   const [search, setSearch] = useState("");
-  const [platform, setPlatform] = useState("all");
-  const [type, setType] = useState("all");
+  const [loadingGames, setLoadingGames] = useState(true);
+  const [loadingRequirement, setLoadingRequirement] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState<RequirementFormMode>("create");
+  const [formGameId, setFormGameId] = useState<number | null>(null);
+  const [formValue, setFormValue] =
+    useState<SystemRequirementRequest>(initialForm);
 
-  const platforms = useMemo(() => {
-    return Array.from(new Set(requirements.map((requirement) => requirement.platform))).sort();
-  }, [requirements]);
+  const selectedGame = useMemo(() => {
+    return games.find((game) => game.id === selectedGameId) ?? null;
+  }, [games, selectedGameId]);
 
-  const types = useMemo(() => {
-    return Array.from(new Set(requirements.map((requirement) => requirement.type))).sort();
-  }, [requirements]);
+  const formGame = useMemo(() => {
+    return games.find((game) => game.id === formGameId) ?? null;
+  }, [formGameId, games]);
 
-  const stats = useMemo(() => {
-    const compliantSets = requirements.filter(
-      (requirement) => requirement.status !== "warning"
-    ).length;
+  const minimumCoverage = useMemo(() => {
+    return getCoverage(requirement, minimumFields);
+  }, [requirement]);
 
-    return {
-      compliantSets,
-      gamesCovered: requirements.reduce(
-        (total, requirement) => total + requirement.gamesCovered,
-        0
-      ),
-      recentlyUpdated: requirements.length,
-      totalSets: requirements.reduce(
-        (total, requirement) => total + requirement.requirementSets,
-        0
-      ),
-    };
-  }, [requirements]);
+  const recommendedCoverage = useMemo(() => {
+    return getCoverage(requirement, recommendedFields);
+  }, [requirement]);
 
   const filteredRequirements = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    if (!requirement || !selectedGame) {
+      return [];
+    }
 
-    return requirements
-      .filter((requirement) => {
-        const matchesSearch =
-          !normalizedSearch ||
-          `${requirement.game} ${requirement.website}`
-            .toLowerCase()
-            .includes(normalizedSearch);
-        const matchesPlatform =
-          platform === "all" || requirement.platform === platform;
-        const matchesType = type === "all" || requirement.type === type;
+    const normalizedSearch = search.trim().toLocaleLowerCase("tr");
 
-        return matchesSearch && matchesPlatform && matchesType;
-      })
-      .sort((leftRequirement, rightRequirement) =>
-        rightRequirement.lastUpdated.localeCompare(leftRequirement.lastUpdated)
+    if (!normalizedSearch) {
+      return [requirement];
+    }
+
+    const searchableText = [
+      selectedGame.title,
+      selectedGame.platform,
+      selectedGame.source,
+      requirement.minimumOs,
+      requirement.minimumCpu,
+      requirement.minimumGpu,
+      requirement.recommendedOs,
+      requirement.recommendedCpu,
+      requirement.recommendedGpu,
+      requirement.notes,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase("tr");
+
+    return searchableText.includes(normalizedSearch) ? [requirement] : [];
+  }, [requirement, search, selectedGame]);
+
+  const stats = useMemo(() => {
+    return {
+      minimumFields: `${getFilledCount(requirement, minimumFields)}/5`,
+      recommendedFields: `${getFilledCount(requirement, recommendedFields)}/5`,
+      selectedGames: selectedGame ? "1" : "0",
+      totalSets: requirement ? "1" : "0",
+    };
+  }, [requirement, selectedGame]);
+
+  const loadSystemRequirements = async (gameId: number) => {
+    setLoadingRequirement(true);
+    setError(null);
+
+    try {
+      const nextRequirement =
+        await systemRequirementService.getSystemRequirements(gameId);
+      setRequirement(nextRequirement);
+    } catch (requirementError) {
+      setRequirement(null);
+
+      if (!isNotFoundError(requirementError)) {
+        setError(
+          getErrorMessage(
+            requirementError,
+            "Sistem gereksinimleri yüklenirken bir hata oluştu."
+          )
+        );
+      }
+    } finally {
+      setLoadingRequirement(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const loadGames = async () => {
+      setLoadingGames(true);
+      setError(null);
+
+      try {
+        const results = await gameService.getGames();
+
+        if (!active) {
+          return;
+        }
+
+        setGames(results);
+      } catch (gamesError) {
+        if (!active) {
+          return;
+        }
+
+        setGames([]);
+        setError(
+          getErrorMessage(gamesError, "Oyunlar yüklenirken bir hata oluştu.")
+        );
+      } finally {
+        if (active) {
+          setLoadingGames(false);
+        }
+      }
+    };
+
+    void loadGames();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setRequirement(null);
+    setFormError(null);
+
+    if (selectedGameId === null) {
+      setLoadingRequirement(false);
+      return;
+    }
+
+    void loadSystemRequirements(selectedGameId);
+  }, [selectedGameId]);
+
+  const setField = <TKey extends keyof SystemRequirementRequest>(
+    key: TKey,
+    value: SystemRequirementRequest[TKey]
+  ) => {
+    setFormValue((currentValue) => ({ ...currentValue, [key]: value }));
+  };
+
+  const openCreateModal = () => {
+    setFormValue(initialForm);
+    setFormGameId(selectedGameId);
+    setFormError(null);
+    setFormMode("create");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = async () => {
+    if (selectedGameId === null) {
+      setNotice("Sistem gereksinimini düzenlemek için önce bir oyun seçin.");
+      return;
+    }
+
+    setLoadingEdit(true);
+    setFormError(null);
+    setNotice(null);
+
+    try {
+      const nextRequirement =
+        await systemRequirementService.getSystemRequirements(selectedGameId);
+      setRequirement(nextRequirement);
+      setFormValue(toRequirementFormValue(nextRequirement));
+      setFormGameId(selectedGameId);
+      setFormMode("edit");
+      setIsModalOpen(true);
+    } catch (editLoadError) {
+      setError(
+        getRequirementErrorMessage(
+          editLoadError,
+          "Sistem gereksinimi bilgileri yüklenirken bir hata oluştu."
+        )
       );
-  }, [platform, requirements, search, type]);
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormValue(initialForm);
+    setFormGameId(null);
+    setFormError(null);
+    setFormMode("create");
+    setSaving(false);
+  };
+
+  const handleSaveRequirement = async () => {
+    const targetGameId = formMode === "edit" ? selectedGameId : formGameId;
+
+    if (targetGameId === null) {
+      setFormError("Lütfen bir oyun seçin.");
+      return;
+    }
+
+    const request = normalizeRequirementRequest(formValue);
+
+    setSaving(true);
+    setFormError(null);
+
+    try {
+      if (formMode === "edit") {
+        await systemRequirementService.updateSystemRequirements(
+          targetGameId,
+          request
+        );
+      } else {
+        await systemRequirementService.createSystemRequirements(
+          targetGameId,
+          request
+        );
+      }
+
+      closeModal();
+      setSelectedGameId(targetGameId);
+      setNotice(
+        formMode === "edit"
+          ? "Sistem gereksinimi başarıyla güncellendi."
+          : "Sistem gereksinimi başarıyla eklendi."
+      );
+      await loadSystemRequirements(targetGameId);
+    } catch (saveError) {
+      setFormError(
+        getRequirementErrorMessage(
+          saveError,
+          formMode === "edit"
+            ? "Sistem gereksinimi güncellenirken bir hata oluştu."
+            : "Sistem gereksinimi eklenirken bir hata oluştu."
+        )
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteRequirement = async () => {
+    if (selectedGameId === null || !selectedGame) {
+      setError("Sistem gereksinimini silmek için önce bir oyun seçin.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${selectedGame.title} için sistem gereksinimini silmek istediğinizden emin misiniz?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await systemRequirementService.deleteSystemRequirements(selectedGameId);
+      setRequirement(null);
+      await loadSystemRequirements(selectedGameId);
+      setNotice("Sistem gereksinimi başarıyla silindi.");
+    } catch (deleteError) {
+      setError(
+        getRequirementErrorMessage(
+          deleteError,
+          "Sistem gereksinimi silinirken bir hata oluştu."
+        )
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
@@ -243,21 +480,22 @@ const GameSystemRequirementsPage = () => {
           <section className="mb-7 flex flex-wrap items-center justify-between gap-5">
             <div className="flex items-center gap-5">
               <div className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-4xl text-violet-300">
-                ▥
+                SR
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
                   System Requirements
                 </h1>
                 <p className="mt-2 text-base text-slate-400">
-                  Compare and manage system requirements across different games
-                  and platforms.
+                  Seçili oyunun sistem gereksinimlerini backend API üzerinden
+                  yönet.
                 </p>
               </div>
             </div>
 
             <button
-              className="inline-flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+              onClick={openCreateModal}
               type="button"
             >
               <span className="text-3xl font-light leading-none">+</span>
@@ -268,260 +506,631 @@ const GameSystemRequirementsPage = () => {
           <div className="mb-5 grid gap-4 lg:grid-cols-4">
             <StatCard
               accent="bg-violet-500/15 text-violet-300"
-              helper="vs last 30 days"
-              icon="♙"
+              helper="Seçili oyun için backend kaydı"
+              icon="S"
               label="Total Requirement Sets"
-              value={String(stats.totalSets)}
+              value={stats.totalSets}
             />
             <StatCard
               accent="bg-indigo-500/15 text-indigo-300"
-              helper="vs last 30 days"
-              icon="♘"
-              label="Games Covered"
-              value={String(stats.gamesCovered)}
+              helper="Dropdown seçimine göre"
+              icon="G"
+              label="Selected Games"
+              value={stats.selectedGames}
             />
             <StatCard
               accent="bg-emerald-500/15 text-emerald-300"
-              helper="vs last 30 days"
-              icon="◇"
-              label="Compliant Sets"
-              value={String(stats.compliantSets)}
+              helper="Minimum alan doluluğu"
+              icon="M"
+              label="Minimum Fields"
+              value={stats.minimumFields}
             />
             <StatCard
               accent="bg-pink-500/15 text-pink-300"
-              helper="vs last 30 days"
-              icon="▣"
-              label="Recently Updated"
-              value={String(stats.recentlyUpdated)}
+              helper="Önerilen alan doluluğu"
+              icon="R"
+              label="Recommended Fields"
+              value={stats.recommendedFields}
             />
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[1fr_520px]">
             <section className="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/55 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="grid gap-3 border-b border-white/10 p-4 xl:grid-cols-[1.2fr_0.65fr_0.85fr_1fr]">
+              <div className="grid gap-3 border-b border-white/10 p-4 xl:grid-cols-[1.2fr_1fr_0.9fr_0.8fr]">
                 <label className="relative">
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
-                    ⌕
+                    ?
                   </span>
                   <input
                     className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search requirement sets..."
+                    placeholder="Sistem gereksinimlerinde ara..."
                     value={search}
                   />
                 </label>
 
                 <select
-                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                  onChange={(event) => setPlatform(event.target.value)}
-                  value={platform}
+                  className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={loadingGames}
+                  onChange={(event) => {
+                    const nextGameId = event.target.value
+                      ? Number(event.target.value)
+                      : null;
+                    setNotice(null);
+                    setSelectedGameId(nextGameId);
+                  }}
+                  value={selectedGameId ?? ""}
                 >
-                  <option value="all">All Platforms</option>
-                  {platforms.map((nextPlatform) => (
-                    <option key={nextPlatform} value={nextPlatform}>
-                      {nextPlatform}
+                  <option value="">
+                    {loadingGames ? "Oyunlar yükleniyor..." : "Oyun seçin"}
+                  </option>
+                  {games.map((game) => (
+                    <option key={game.id} value={game.id}>
+                      {game.title}
                     </option>
                   ))}
                 </select>
 
                 <select
-                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                  onChange={(event) => setType(event.target.value)}
-                  value={type}
+                  className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                  value={selectedGame?.source ?? ""}
+                  disabled
                 >
-                  <option value="all">All Requirement Types</option>
-                  {types.map((nextType) => (
-                    <option key={nextType} value={nextType}>
-                      {nextType}
-                    </option>
-                  ))}
+                  <option value="">
+                    {selectedGame ? selectedGame.source : "Kaynak yok"}
+                  </option>
                 </select>
 
-                <label className="grid h-12 grid-cols-[1fr_1.1fr] items-center gap-3 text-sm text-slate-400">
+                <label className="grid h-12 grid-cols-[0.8fr_1.2fr] items-center gap-3 text-sm text-slate-400">
                   <span className="text-right">Sort by:</span>
-                  <select className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none">
+                  <select
+                    className="h-12 cursor-not-allowed rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none opacity-70"
+                    disabled
+                  >
                     <option>Newest First</option>
                   </select>
                 </label>
               </div>
 
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
-                  <tr>
-                    <th className="px-6 py-4">Game / Requirement Set</th>
-                    <th className="px-6 py-4">Platform</th>
-                    <th className="px-6 py-4">Requirement Type</th>
-                    <th className="px-6 py-4">Last Updated</th>
-                    <th className="px-6 py-4">Min. / Rec. Coverage</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRequirements.map((requirement, index) => (
-                    <tr
-                      className={`border-b border-white/10 ${
-                        index === 0 ? "outline outline-1 outline-violet-500" : ""
-                      }`}
-                      key={requirement.id}
-                    >
-                      <td className="px-6 py-5">
-                        <button
-                          className="flex items-center gap-4 text-left"
-                          onClick={() => setSelectedRequirement(requirement)}
-                          type="button"
-                        >
-                          <span className="grid h-14 w-14 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-600 text-2xl font-black text-white">
-                            {requirement.logo}
-                          </span>
-                          <span>
-                            <span className="font-bold text-white">
-                              {requirement.game}
-                            </span>
-                            <span className="mt-1 block text-sm text-slate-400">
-                              {requirement.website}
-                            </span>
-                          </span>
-                        </button>
-                      </td>
-                      <td className="px-6 py-5 text-slate-300">
-                        {requirement.platform}
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="rounded-lg border border-violet-400/30 bg-violet-500/15 px-3 py-1 text-sm text-violet-100">
-                          {requirement.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-slate-300">
-                        {formatDate(requirement.lastUpdated)}
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="mb-2 font-bold text-white">
-                          {requirement.minCoverage}% / {requirement.recCoverage}%
-                        </div>
-                        <div className="grid gap-1">
-                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                            <div
-                              className="h-full rounded-full bg-emerald-400"
-                              style={{ width: `${requirement.minCoverage}%` }}
-                            />
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                            <div
-                              className="h-full rounded-full bg-violet-500"
-                              style={{ width: `${requirement.recCoverage}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex justify-end gap-3">
-                          <button className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 text-slate-300" type="button">
-                            ⊙
-                          </button>
-                          <button className="grid h-11 w-11 place-items-center rounded-xl border border-violet-400/30 text-violet-300" type="button">
-                            ✎
-                          </button>
-                          <button className="grid h-11 w-11 place-items-center rounded-xl border border-red-400/30 text-red-300" type="button">
-                            ⌫
-                          </button>
-                        </div>
-                      </td>
+              {notice ? (
+                <div className="m-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-100">
+                  {notice}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="m-4 rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                  {error}
+                </div>
+              ) : null}
+
+              {loadingGames || loadingRequirement ? (
+                <div className="h-96 animate-pulse bg-slate-900/70" />
+              ) : null}
+
+              {!loadingGames && !loadingRequirement && selectedGameId === null ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      Oyun seçilmedi
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Sistem gereksinimlerini görüntülemek için bir oyun seçin.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!loadingGames &&
+              !loadingRequirement &&
+              selectedGameId !== null &&
+              !requirement ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      Sistem gereksinimi bulunamadı
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Bu oyun için backend kaydı yok. Add Requirement Set ile
+                      yeni kayıt oluşturabilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!loadingGames &&
+              !loadingRequirement &&
+              selectedGameId !== null &&
+              requirement &&
+              filteredRequirements.length === 0 ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      Arama sonucu bulunamadı
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Seçili oyun için sistem gereksinimi var, ancak arama
+                      kriteri eşleşmedi.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!loadingGames &&
+              !loadingRequirement &&
+              filteredRequirements.length > 0 &&
+              selectedGame ? (
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-6 py-4">Game / Requirement Set</th>
+                      <th className="px-6 py-4">Platform</th>
+                      <th className="px-6 py-4">Requirement Type</th>
+                      <th className="px-6 py-4">Last Updated</th>
+                      <th className="px-6 py-4">Min. / Rec. Coverage</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredRequirements.map((nextRequirement) => (
+                      <tr
+                        className="border-b border-white/10 outline outline-1 outline-violet-500"
+                        key={nextRequirement.id}
+                      >
+                        <td className="px-6 py-5">
+                          <button
+                            className="flex cursor-pointer items-center gap-4 text-left"
+                            onClick={() => setRequirement(nextRequirement)}
+                            type="button"
+                          >
+                            <span className="grid h-14 w-14 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-600 text-lg font-black text-white">
+                              {getInitials(selectedGame.title)}
+                            </span>
+                            <span>
+                              <span className="font-bold text-white">
+                                {selectedGame.title}
+                              </span>
+                              <span className="mt-1 block text-sm text-slate-400">
+                                Game ID: {selectedGame.id}
+                              </span>
+                            </span>
+                          </button>
+                        </td>
+                        <td className="px-6 py-5 text-slate-300">
+                          {selectedGame.platform || "Bilinmiyor"}
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className="rounded-lg border border-violet-400/30 bg-violet-500/15 px-3 py-1 text-sm text-violet-100">
+                            Sistem Gereksinimi
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 text-slate-300">
+                          {formatDate(
+                            nextRequirement.updatedAt ??
+                              nextRequirement.createdAt
+                          )}
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="mb-2 font-bold text-white">
+                            {minimumCoverage}% / {recommendedCoverage}%
+                          </div>
+                          <div className="grid gap-1">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="h-full rounded-full bg-emerald-400"
+                                style={{ width: `${minimumCoverage}%` }}
+                              />
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="h-full rounded-full bg-violet-500"
+                                style={{ width: `${recommendedCoverage}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex justify-end gap-3">
+                            <button
+                              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-white/10 text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={() => setRequirement(nextRequirement)}
+                              title="Detay"
+                              type="button"
+                            >
+                              Detay
+                            </button>
+                            <button
+                              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-violet-400/30 text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={loadingEdit || deleting}
+                              onClick={() => {
+                                void openEditModal();
+                              }}
+                              title="Düzenle"
+                              type="button"
+                            >
+                              {loadingEdit ? "..." : "Düzenle"}
+                            </button>
+                            <button
+                              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-red-400/30 text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={deleting || loadingEdit}
+                              onClick={() => {
+                                void handleDeleteRequirement();
+                              }}
+                              title="Sil"
+                              type="button"
+                            >
+                              {deleting ? "..." : "Sil"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="flex items-center gap-5">
-                <div className="grid h-20 w-20 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-sky-600 text-4xl font-black text-white">
-                  {selectedRequirement.logo}
-                </div>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-black text-white">
-                      {selectedRequirement.game}
-                    </h2>
-                    <span
-                      className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
-                        selectedRequirement.status
-                      )}`}
-                    >
-                      {selectedRequirement.status === "warning"
-                        ? "Needs Review"
-                        : "Active"}
-                    </span>
+              {selectedGame ? (
+                <>
+                  <div className="flex items-center gap-5">
+                    <div className="grid h-20 w-20 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-sky-600 text-2xl font-black text-white">
+                      {getInitials(selectedGame.title)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-black text-white">
+                          {selectedGame.title}
+                        </h2>
+                        <span className="rounded-lg border border-violet-400/20 bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-200">
+                          {selectedGame.source}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-violet-300">
+                        Game ID: {selectedGame.id}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-400">
+                        {selectedGame.platform || "Platform bilgisi yok"}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-violet-300">
-                    {selectedRequirement.website}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-400">
-                    {selectedRequirement.platform} · Founded{" "}
-                    {selectedRequirement.founded}
-                  </p>
-                </div>
-              </div>
 
-              <div className="mt-8 flex gap-8 border-b border-white/10">
-                {["Overview", "Platforms", "Notes", "History"].map((tab, index) => (
-                  <button
-                    className={`pb-3 text-sm font-bold ${
-                      index === 0
-                        ? "border-b-2 border-violet-500 text-white"
-                        : "text-slate-400"
-                    }`}
-                    key={tab}
-                    type="button"
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <p className="mt-5 text-sm leading-6 text-slate-300">
-                {selectedRequirement.notes}
-              </p>
-
-              <dl className="mt-6 grid gap-3 text-sm">
-                {[
-                  ["Headquarters", selectedRequirement.headquarters],
-                  ["Team Size", selectedRequirement.teamSize],
-                  ["Founded", String(selectedRequirement.founded)],
-                  ["Games Covered", String(selectedRequirement.gamesCovered)],
-                  ["Requirement Sets", String(selectedRequirement.requirementSets)],
-                  ["Website", selectedRequirement.website],
-                  ["Contact", selectedRequirement.contact],
-                ].map(([label, value]) => (
-                  <div className="grid grid-cols-[150px_1fr] gap-4" key={label}>
-                    <dt className="text-slate-400">{label}</dt>
-                    <dd className="text-slate-100">{value}</dd>
+                  <div className="mt-8 flex gap-8 border-b border-white/10">
+                    {["Overview", "Minimum", "Recommended", "Notes"].map(
+                      (tab, index) => (
+                        <button
+                          className={`cursor-pointer pb-3 text-sm font-bold ${
+                            index === 0
+                              ? "border-b-2 border-violet-500 text-white"
+                              : "text-slate-400"
+                          }`}
+                          key={tab}
+                          type="button"
+                        >
+                          {tab}
+                        </button>
+                      )
+                    )}
                   </div>
-                ))}
-              </dl>
 
-              <section className="mt-8">
-                <h3 className="font-bold text-white">Recent Updates</h3>
-                <article className="mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-slate-950/60 p-3">
-                  <img
-                    alt={selectedRequirement.recentGame}
-                    className="h-16 w-20 rounded-xl object-cover"
-                    src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=180&q=80"
-                  />
+                  {requirement ? (
+                    <>
+                      <p className="mt-5 text-sm leading-6 text-slate-300">
+                        {requirement.notes ||
+                          "Bu sistem gereksinimi için not girilmemiş."}
+                      </p>
+
+                      <dl className="mt-6 grid gap-3 text-sm">
+                        <RequirementValue
+                          label="Minimum OS"
+                          value={requirement.minimumOs}
+                        />
+                        <RequirementValue
+                          label="Minimum CPU"
+                          value={requirement.minimumCpu}
+                        />
+                        <RequirementValue
+                          label="Minimum GPU"
+                          value={requirement.minimumGpu}
+                        />
+                        <RequirementValue
+                          label="Minimum RAM"
+                          value={requirement.minimumRam}
+                        />
+                        <RequirementValue
+                          label="Minimum Storage"
+                          value={requirement.minimumStorage}
+                        />
+                        <RequirementValue
+                          label="Recommended OS"
+                          value={requirement.recommendedOs}
+                        />
+                        <RequirementValue
+                          label="Recommended CPU"
+                          value={requirement.recommendedCpu}
+                        />
+                        <RequirementValue
+                          label="Recommended GPU"
+                          value={requirement.recommendedGpu}
+                        />
+                        <RequirementValue
+                          label="Recommended RAM"
+                          value={requirement.recommendedRam}
+                        />
+                        <RequirementValue
+                          label="Recommended Storage"
+                          value={requirement.recommendedStorage}
+                        />
+                        <RequirementValue
+                          label="Updated"
+                          value={formatDate(
+                            requirement.updatedAt ?? requirement.createdAt
+                          )}
+                        />
+                      </dl>
+                    </>
+                  ) : (
+                    <div className="mt-8 rounded-2xl border border-dashed border-white/10 bg-slate-950/45 p-5 text-sm text-slate-400">
+                      Bu oyun için sistem gereksinimi kaydı bulunamadı.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="grid min-h-[520px] place-items-center p-8 text-center">
                   <div>
-                    <h4 className="font-bold text-white">
-                      {selectedRequirement.recentGame}
-                    </h4>
-                    <p className="text-sm text-slate-400">
-                      {selectedRequirement.type} · Updated{" "}
-                      {formatDate(selectedRequirement.lastUpdated)}
+                    <h2 className="text-xl font-bold text-white">
+                      Oyun seçilmedi
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Detayları görmek için listeden bir oyun seçin.
                     </p>
                   </div>
-                </article>
-              </section>
+                </div>
+              )}
             </aside>
           </div>
         </main>
       </div>
+
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-4 py-8 backdrop-blur-sm">
+          <section className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  {formMode === "edit"
+                    ? "Edit Requirement Set"
+                    : "Add Requirement Set"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  {formGame
+                    ? `${formGame.title} için sistem gereksinimi kaydı.`
+                    : "Sistem gereksinimi için bir oyun seçin."}
+                </p>
+              </div>
+              <button
+                aria-label="Modalı kapat"
+                className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
+                onClick={closeModal}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+
+            <form
+              className="space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSaveRequirement();
+              }}
+            >
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Game</span>
+                <select
+                  className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={loadingGames || formMode === "edit"}
+                  onChange={(event) => {
+                    const nextGameId = event.target.value
+                      ? Number(event.target.value)
+                      : null;
+                    setFormGameId(nextGameId);
+                  }}
+                  value={formGameId ?? ""}
+                >
+                  <option value="">
+                    {loadingGames ? "Oyunlar yükleniyor..." : "Oyun seçin"}
+                  </option>
+                  {games.map((game) => (
+                    <option key={game.id} value={game.id}>
+                      {game.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Minimum OS
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("minimumOs", event.target.value)
+                    }
+                    placeholder="Windows 10 64-bit"
+                    value={formValue.minimumOs ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Recommended OS
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("recommendedOs", event.target.value)
+                    }
+                    placeholder="Windows 11 64-bit"
+                    value={formValue.recommendedOs ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Minimum CPU
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("minimumCpu", event.target.value)
+                    }
+                    placeholder="Intel i5"
+                    value={formValue.minimumCpu ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Recommended CPU
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("recommendedCpu", event.target.value)
+                    }
+                    placeholder="Intel i7"
+                    value={formValue.recommendedCpu ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Minimum GPU
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("minimumGpu", event.target.value)
+                    }
+                    placeholder="GTX 1050"
+                    value={formValue.minimumGpu ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Recommended GPU
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("recommendedGpu", event.target.value)
+                    }
+                    placeholder="RTX 2060"
+                    value={formValue.recommendedGpu ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Minimum RAM
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("minimumRam", event.target.value)
+                    }
+                    placeholder="8 GB"
+                    value={formValue.minimumRam ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Recommended RAM
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("recommendedRam", event.target.value)
+                    }
+                    placeholder="16 GB"
+                    value={formValue.recommendedRam ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Minimum Storage
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("minimumStorage", event.target.value)
+                    }
+                    placeholder="50 GB"
+                    value={formValue.minimumStorage ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Recommended Storage
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setField("recommendedStorage", event.target.value)
+                    }
+                    placeholder="100 GB SSD"
+                    value={formValue.recommendedStorage ?? ""}
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Notes</span>
+                <textarea
+                  className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  onChange={(event) => setField("notes", event.target.value)}
+                  placeholder="Ek sistem gereksinimi notları"
+                  value={formValue.notes ?? ""}
+                />
+              </label>
+
+              {formError ? (
+                <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                  {formError}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                <button
+                  className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={saving}
+                  type="submit"
+                >
+                  {saving
+                    ? "Kaydediliyor..."
+                    : formMode === "edit"
+                      ? "Update Requirement Set"
+                      : "Add Requirement Set"}
+                </button>
+                <button
+                  className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
+                  onClick={closeModal}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 };
