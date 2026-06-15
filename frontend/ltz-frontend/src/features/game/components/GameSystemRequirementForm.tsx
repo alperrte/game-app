@@ -11,16 +11,16 @@ type GameSystemRequirementFormProps = {
 };
 
 const requirementFields = [
-  { key: "minimumOs", label: "Minimum OS" },
-  { key: "minimumCpu", label: "Minimum CPU" },
-  { key: "minimumGpu", label: "Minimum GPU" },
+  { key: "minimumOs", label: "Minimum İşletim Sistemi" },
+  { key: "minimumCpu", label: "Minimum İşlemci" },
+  { key: "minimumGpu", label: "Minimum Ekran Kartı" },
   { key: "minimumRam", label: "Minimum RAM" },
   { key: "minimumStorage", label: "Minimum depolama" },
-  { key: "recommendedOs", label: "Onerilen OS" },
-  { key: "recommendedCpu", label: "Onerilen CPU" },
-  { key: "recommendedGpu", label: "Onerilen GPU" },
-  { key: "recommendedRam", label: "Onerilen RAM" },
-  { key: "recommendedStorage", label: "Onerilen depolama" },
+  { key: "recommendedOs", label: "Önerilen İşletim Sistemi" },
+  { key: "recommendedCpu", label: "Önerilen İşlemci" },
+  { key: "recommendedGpu", label: "Önerilen Ekran Kartı" },
+  { key: "recommendedRam", label: "Önerilen RAM" },
+  { key: "recommendedStorage", label: "Önerilen depolama" },
 ] as const;
 
 const GameSystemRequirementForm = ({

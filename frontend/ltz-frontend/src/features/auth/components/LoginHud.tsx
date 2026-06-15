@@ -2,7 +2,7 @@
  * Login panelinin altında yer alan küçük dekoratif gaming HUD şeridi.
  *
  * İçerik:
- *  - Sol: LVL / ACCESS rozetleri (dekoratif, ana tasarımı kalabalıklaştırmaz)
+ *  - Sol: seviye / erişim rozetleri (dekoratif, ana tasarımı kalabalıklaştırmaz)
  *  - Sağ: minimal Twitter/X ve Twitch sosyal ikonları (neon hover)
  *
  * Sosyal ikonlar küçük tutularak ana CTA'dan (Giriş Yap) rol çalmaması sağlanır.
@@ -25,8 +25,8 @@ export function LoginHud() {
     return (
         <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-                <HudTag label="LVL" value="20" />
-                <HudTag label="LTZ" value="ACCESS" />
+                <HudTag label="SVY" value="20" />
+                <HudTag label="LTZ" value="ERİŞİM" />
             </div>
 
             <div className="flex items-center gap-2">

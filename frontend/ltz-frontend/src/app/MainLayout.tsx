@@ -49,7 +49,7 @@ export function MainLayout() {
             href={ROUTES.home}
           >
             <img
-              alt="LTZ Logo"
+              alt="LTZ Logosu"
               className="h-9 w-auto object-contain sm:h-10"
               src={ltzLogo}
             />

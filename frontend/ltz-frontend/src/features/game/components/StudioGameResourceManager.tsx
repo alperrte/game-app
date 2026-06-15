@@ -74,7 +74,7 @@ const StudioGameResourceManager = ({
         const nextItems = await getItems();
         setItems(nextItems);
       } catch {
-        setError(`${resourceName} listesi yuklenirken bir hata olustu.`);
+        setError(`${resourceName} listesi yüklenirken bir hata oluştu.`);
       } finally {
         setLoading(false);
       }
@@ -92,7 +92,7 @@ const StudioGameResourceManager = ({
     const request = normalizeRequest(formValue);
 
     if (!request.name) {
-      setError(`${resourceName} adi zorunludur.`);
+      setError(`${resourceName} adı zorunludur.`);
       return;
     }
 
@@ -114,7 +114,7 @@ const StudioGameResourceManager = ({
 
       resetForm();
     } catch {
-      setError(`${resourceName} kaydedilirken bir hata olustu.`);
+      setError(`${resourceName} kaydedilirken bir hata oluştu.`);
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +131,7 @@ const StudioGameResourceManager = ({
   };
 
   const handleDelete = async (item: StudioResource) => {
-    const confirmed = window.confirm(`${item.name} kaydini silmek istiyor musun?`);
+    const confirmed = window.confirm(`${item.name} kaydını silmek istiyor musun?`);
 
     if (!confirmed) {
       return;
@@ -149,7 +149,7 @@ const StudioGameResourceManager = ({
         resetForm();
       }
     } catch {
-      setError(`${resourceName} silinirken bir hata olustu.`);
+      setError(`${resourceName} silinirken bir hata oluştu.`);
     }
   };
 
@@ -157,11 +157,11 @@ const StudioGameResourceManager = ({
     <section className="space-y-6">
       <div>
         <p className="text-sm uppercase tracking-wide text-cyan-300">
-          Game Service
+          Oyun Servisi
         </p>
         <h1 className="mt-1 text-3xl font-semibold text-white">{title}</h1>
         <p className="mt-2 text-sm text-slate-400">
-          {resourceName} kayitlarini game-service uzerinden yonet.
+          {resourceName} kayıtlarını oyun servisi üzerinden yönet.
         </p>
       </div>
 
@@ -193,7 +193,7 @@ const StudioGameResourceManager = ({
           </label>
 
           <label className="grid gap-2 text-sm">
-            <span className="text-slate-300">Ulke</span>
+            <span className="text-slate-300">Ülke</span>
             <input
               className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
               maxLength={100}
@@ -205,7 +205,7 @@ const StudioGameResourceManager = ({
           </label>
 
           <label className="grid gap-2 text-sm md:col-span-2">
-            <span className="text-slate-300">Website URL</span>
+            <span className="text-slate-300">Web Sitesi URL</span>
             <input
               className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
               maxLength={500}
@@ -217,7 +217,7 @@ const StudioGameResourceManager = ({
           </label>
 
           <label className="grid gap-2 text-sm md:col-span-2">
-            <span className="text-slate-300">Aciklama</span>
+            <span className="text-slate-300">Açıklama</span>
             <textarea
               className="min-h-28 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
               maxLength={1000}
@@ -241,8 +241,8 @@ const StudioGameResourceManager = ({
             {submitting
               ? "Kaydediliyor..."
               : editingId
-                ? "Guncelle"
-                : "Olustur"}
+                ? "Güncelle"
+                : "Oluştur"}
           </button>
           {editingId ? (
             <button
@@ -250,7 +250,7 @@ const StudioGameResourceManager = ({
               onClick={resetForm}
               type="button"
             >
-              Vazgec
+              Vazgeç
             </button>
           ) : null}
         </div>
@@ -258,13 +258,13 @@ const StudioGameResourceManager = ({
 
       {loading ? (
         <div className="rounded-lg border border-slate-800 bg-slate-950 p-6 text-sm text-slate-300">
-          Liste yukleniyor...
+          Liste yükleniyor...
         </div>
       ) : null}
 
       {!loading && items.length === 0 ? (
         <div className="rounded-lg border border-slate-800 bg-slate-950 p-6 text-sm text-slate-300">
-          Henuz kayit yok.
+          Henüz kayıt yok.
         </div>
       ) : null}
 
@@ -278,10 +278,10 @@ const StudioGameResourceManager = ({
               <div>
                 <h2 className="font-medium text-white">{item.name}</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  {item.description ?? "Aciklama yok."}
+                  {item.description ?? "Açıklama yok."}
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
-                  {item.country ?? "Ulke yok"} · {item.websiteUrl ?? "Website yok"}
+                  {item.country ?? "Ülke yok"} · {item.websiteUrl ?? "Web sitesi yok"}
                 </p>
               </div>
 
@@ -291,7 +291,7 @@ const StudioGameResourceManager = ({
                   onClick={() => handleEdit(item)}
                   type="button"
                 >
-                  Duzenle
+                  Düzenle
                 </button>
                 <button
                   className="rounded-md border border-red-800 px-3 py-2 text-sm text-red-200"

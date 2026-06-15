@@ -515,7 +515,7 @@ const GameSystemRequirementsPage = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
-                  System Requirements
+                  Sistem Gereksinimleri
                 </h1>
                 <p className="mt-2 text-base text-slate-400">
                   Seçili oyunun sistem gereksinimlerini backend API üzerinden
@@ -531,7 +531,7 @@ const GameSystemRequirementsPage = () => {
                 type="button"
               >
                 <span className="text-3xl font-light leading-none">+</span>
-                Add Requirement Set
+                Sistem Gereksinimi Ekle
               </button>
             ) : null}
           </section>
@@ -541,28 +541,28 @@ const GameSystemRequirementsPage = () => {
               accent="bg-violet-500/15 text-violet-300"
               helper="Seçili oyun için backend kaydı"
               icon="S"
-              label="Total Requirement Sets"
+              label="Toplam Gereksinim Kaydı"
               value={stats.totalSets}
             />
             <StatCard
               accent="bg-indigo-500/15 text-indigo-300"
               helper="Dropdown seçimine göre"
               icon="G"
-              label="Selected Games"
+              label="Seçili Oyun"
               value={stats.selectedGames}
             />
             <StatCard
               accent="bg-emerald-500/15 text-emerald-300"
               helper="Minimum alan doluluğu"
               icon="M"
-              label="Minimum Fields"
+              label="Minimum Alanlar"
               value={stats.minimumFields}
             />
             <StatCard
               accent="bg-pink-500/15 text-pink-300"
               helper="Önerilen alan doluluğu"
               icon="R"
-              label="Recommended Fields"
+              label="Önerilen Alanlar"
               value={stats.recommendedFields}
             />
           </div>
@@ -615,12 +615,12 @@ const GameSystemRequirementsPage = () => {
                 </select>
 
                 <label className="grid h-12 grid-cols-[0.8fr_1.2fr] items-center gap-3 text-sm text-slate-400">
-                  <span className="text-right">Sort by:</span>
+                  <span className="text-right">Sırala:</span>
                   <select
                     className="h-12 cursor-not-allowed rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none opacity-70"
                     disabled
                   >
-                    <option>Newest First</option>
+                    <option>En Yeni Önce</option>
                   </select>
                 </label>
               </div>
@@ -664,7 +664,7 @@ const GameSystemRequirementsPage = () => {
                       Sistem gereksinimi bulunamadı
                     </h2>
                     <p className="mt-2 text-sm text-slate-400">
-                      Bu oyun için backend kaydı yok. Add Requirement Set ile
+                      Bu oyun için sunucu kaydı yok. Sistem Gereksinimi Ekle ile
                       yeni kayıt oluşturabilirsiniz.
                     </p>
                   </div>
@@ -696,12 +696,12 @@ const GameSystemRequirementsPage = () => {
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="px-6 py-4">Game / Requirement Set</th>
+                      <th className="px-6 py-4">Oyun / Gereksinim Kaydı</th>
                       <th className="px-6 py-4">Platform</th>
-                      <th className="px-6 py-4">Requirement Type</th>
-                      <th className="px-6 py-4">Last Updated</th>
-                      <th className="px-6 py-4">Min. / Rec. Coverage</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4">Gereksinim Türü</th>
+                      <th className="px-6 py-4">Son Güncelleme</th>
+                      <th className="px-6 py-4">Min. / Önerilen Doluluk</th>
+                      <th className="px-6 py-4 text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -724,7 +724,7 @@ const GameSystemRequirementsPage = () => {
                                 {selectedGame.title}
                               </span>
                               <span className="mt-1 block text-sm text-slate-400">
-                                Game ID: {selectedGame.id}
+                                Oyun ID: {selectedGame.id}
                               </span>
                             </span>
                           </button>
@@ -824,7 +824,7 @@ const GameSystemRequirementsPage = () => {
                         </span>
                       </div>
                       <p className="mt-1 text-violet-300">
-                        Game ID: {selectedGame.id}
+                        Oyun ID: {selectedGame.id}
                       </p>
                       <p className="mt-2 text-sm text-slate-400">
                         {selectedGame.platform || "Platform bilgisi yok"}
@@ -833,7 +833,7 @@ const GameSystemRequirementsPage = () => {
                   </div>
 
                   <div className="mt-8 flex gap-8 border-b border-white/10">
-                    {["Overview", "Minimum", "Recommended", "Notes"].map(
+                    {["Özet", "Minimum", "Önerilen", "Notlar"].map(
                       (tab, index) => (
                         <button
                           className={`cursor-pointer pb-3 text-sm font-bold ${
@@ -859,15 +859,15 @@ const GameSystemRequirementsPage = () => {
 
                       <dl className="mt-6 grid gap-3 text-sm">
                         <RequirementValue
-                          label="Minimum OS"
+                          label="Minimum İşletim Sistemi"
                           value={requirement.minimumOs}
                         />
                         <RequirementValue
-                          label="Minimum CPU"
+                          label="Minimum İşlemci"
                           value={requirement.minimumCpu}
                         />
                         <RequirementValue
-                          label="Minimum GPU"
+                          label="Minimum Ekran Kartı"
                           value={requirement.minimumGpu}
                         />
                         <RequirementValue
@@ -875,31 +875,31 @@ const GameSystemRequirementsPage = () => {
                           value={requirement.minimumRam}
                         />
                         <RequirementValue
-                          label="Minimum Storage"
+                          label="Minimum Depolama"
                           value={requirement.minimumStorage}
                         />
                         <RequirementValue
-                          label="Recommended OS"
+                          label="Önerilen İşletim Sistemi"
                           value={requirement.recommendedOs}
                         />
                         <RequirementValue
-                          label="Recommended CPU"
+                          label="Önerilen İşlemci"
                           value={requirement.recommendedCpu}
                         />
                         <RequirementValue
-                          label="Recommended GPU"
+                          label="Önerilen Ekran Kartı"
                           value={requirement.recommendedGpu}
                         />
                         <RequirementValue
-                          label="Recommended RAM"
+                          label="Önerilen RAM"
                           value={requirement.recommendedRam}
                         />
                         <RequirementValue
-                          label="Recommended Storage"
+                          label="Önerilen Depolama"
                           value={requirement.recommendedStorage}
                         />
                         <RequirementValue
-                          label="Updated"
+                          label="Güncellenme"
                           value={formatDate(
                             requirement.updatedAt ?? requirement.createdAt
                           )}
@@ -936,8 +936,8 @@ const GameSystemRequirementsPage = () => {
               <div>
                 <h2 className="text-2xl font-bold text-white">
                   {formMode === "edit"
-                    ? "Edit Requirement Set"
-                    : "Add Requirement Set"}
+                    ? "Sistem Gereksinimini Düzenle"
+                    : "Sistem Gereksinimi Ekle"}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {formGame
@@ -963,7 +963,7 @@ const GameSystemRequirementsPage = () => {
               }}
             >
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">Game</span>
+                <span className="text-sm font-bold text-white">Oyun</span>
                 <select
                   className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={loadingGames || formMode === "edit"}
@@ -989,7 +989,7 @@ const GameSystemRequirementsPage = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Minimum OS
+                    Minimum İşletim Sistemi
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1003,7 +1003,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Recommended OS
+                    Önerilen İşletim Sistemi
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1017,7 +1017,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Minimum CPU
+                    Minimum İşlemci
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1031,7 +1031,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Recommended CPU
+                    Önerilen İşlemci
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1045,7 +1045,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Minimum GPU
+                    Minimum Ekran Kartı
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1059,7 +1059,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Recommended GPU
+                    Önerilen Ekran Kartı
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1087,7 +1087,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Recommended RAM
+                    Önerilen RAM
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1101,7 +1101,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Minimum Storage
+                    Minimum Depolama
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1115,7 +1115,7 @@ const GameSystemRequirementsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Recommended Storage
+                    Önerilen Depolama
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -1129,7 +1129,7 @@ const GameSystemRequirementsPage = () => {
               </div>
 
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">Notes</span>
+                <span className="text-sm font-bold text-white">Notlar</span>
                 <textarea
                   className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                   onChange={(event) => setField("notes", event.target.value)}
@@ -1153,15 +1153,15 @@ const GameSystemRequirementsPage = () => {
                   {saving
                     ? "Kaydediliyor..."
                     : formMode === "edit"
-                      ? "Update Requirement Set"
-                      : "Add Requirement Set"}
+                      ? "Sistem Gereksinimini Güncelle"
+                      : "Sistem Gereksinimi Ekle"}
                 </button>
                 <button
                   className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
                   onClick={closeModal}
                   type="button"
                 >
-                  Cancel
+                  İptal
                 </button>
               </div>
             </form>

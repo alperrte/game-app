@@ -540,7 +540,7 @@ const GamesPage = () => {
                   onClick={() => setViewMode("grid")}
                   type="button"
                 >
-                  Grid
+                  Izgara
                 </button>
                 <button
                   className={`rounded-lg px-3 py-2 text-xs font-semibold ${

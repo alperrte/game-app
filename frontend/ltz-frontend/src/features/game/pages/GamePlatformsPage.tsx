@@ -145,9 +145,9 @@ const toPlatformRow = (
   externalPlatform?: ExternalGamePlatform
 ): PlatformRow => ({
   ...platform,
-  activeUsers: externalPlatform?.activeUsers ?? "N/A",
-  dataSource: externalPlatform ? "Backend + External" : "Backend",
-  developer: externalPlatform?.developer ?? "N/A",
+  activeUsers: externalPlatform?.activeUsers ?? "Yok",
+  dataSource: externalPlatform ? "Sunucu + Harici" : "Sunucu",
+  developer: externalPlatform?.developer ?? "Yok",
   initials: getInitials(platform.name),
   logoUrl: platform.logoUrl ?? null,
   releaseYear: externalPlatform?.releaseYear ?? null,
@@ -180,6 +180,28 @@ const normalizeStatus = (status: string | null) => {
   return status?.trim().toUpperCase() || "UNKNOWN";
 };
 
+const getStatusLabel = (status: string | null) => {
+  const normalizedStatus = normalizeStatus(status);
+
+  if (normalizedStatus === "ACTIVE") {
+    return "Aktif";
+  }
+
+  if (normalizedStatus === "INACTIVE") {
+    return "Pasif";
+  }
+
+  if (normalizedStatus === "AVAILABLE") {
+    return "Mevcut";
+  }
+
+  if (normalizedStatus === "UNAVAILABLE") {
+    return "Mevcut Değil";
+  }
+
+  return "Bilinmiyor";
+};
+
 const statusBadgeClass = (status: string | null) => {
   return normalizeStatus(status) === "ACTIVE"
     ? "border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
@@ -187,7 +209,7 @@ const statusBadgeClass = (status: string | null) => {
 };
 
 const formatActiveUsers = (activeUsers: string | null) => {
-  return activeUsers?.trim() || "N/A";
+  return activeUsers?.trim() || "Yok";
 };
 
 const formatDate = (value: string | null) => {
@@ -550,10 +572,10 @@ const GamePlatformsPage = () => {
           <section className="mb-7 flex flex-wrap items-center justify-between gap-5">
             <div>
               <h1 className="text-4xl font-black tracking-tight text-white">
-                Game Platforms
+                Oyun Platformları
               </h1>
               <p className="mt-2 text-base text-slate-400">
-                Backend API üzerinden platformları ve logolarını yönet.
+                Sunucu API üzerinden platformları ve logolarını yönet.
               </p>
             </div>
 
@@ -564,7 +586,7 @@ const GamePlatformsPage = () => {
                 type="button"
               >
                 <span className="text-3xl font-light leading-none">+</span>
-                Add Platform
+                Platform Ekle
               </button>
             ) : null}
           </section>
@@ -574,28 +596,28 @@ const GamePlatformsPage = () => {
               accent="bg-violet-500/15 text-violet-300"
               helper="GET /games/platforms"
               icon="P"
-              label="Total Platforms"
+              label="Toplam Platform"
               value={String(stats.totalPlatforms)}
             />
             <StatCard
               accent="bg-emerald-500/15 text-emerald-300"
-              helper="Status equals ACTIVE"
+              helper="Durumu aktif olanlar"
               icon="A"
-              label="Active Platforms"
+              label="Aktif Platform"
               value={String(stats.activePlatforms)}
             />
             <StatCard
               accent="bg-sky-500/15 text-sky-300"
-              helper="Across listed platforms"
+              helper="Listelenen platformlarda"
               icon="G"
-              label="Total Games"
+              label="Toplam Oyun"
               value={stats.totalGames.toLocaleString("en")}
             />
             <StatCard
               accent="bg-violet-500/15 text-violet-300"
               helper="logoUrl dolu kayıtlar"
               icon="L"
-              label="Logos"
+              label="Logo"
               value={String(stats.logoCount)}
             />
           </div>
@@ -609,7 +631,7 @@ const GamePlatformsPage = () => {
                 <input
                   className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search platforms..."
+                  placeholder="Platform ara..."
                   type="search"
                   value={search}
                 />
@@ -622,9 +644,9 @@ const GamePlatformsPage = () => {
                 }
                 value={statusFilter}
               >
-                <option value="all">Filter by Status</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
+                <option value="all">Duruma göre filtrele</option>
+                <option value="ACTIVE">Aktif</option>
+                <option value="INACTIVE">Pasif</option>
               </select>
             </div>
 
@@ -654,7 +676,7 @@ const GamePlatformsPage = () => {
                       Platform bulunamadı.
                     </h2>
                     <p className="mt-2 text-sm text-slate-400">
-                      Backend kayıt döndürmedi veya filtreler eşleşmedi.
+                      Sunucu kayıt döndürmedi veya filtreler eşleşmedi.
                     </p>
                   </div>
                 </div>
@@ -666,13 +688,13 @@ const GamePlatformsPage = () => {
                     <thead className="border-b border-white/10 bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
                       <tr>
                         <th className="px-5 py-4">Platform</th>
-                        <th className="px-5 py-4">Status</th>
-                        <th className="px-5 py-4">Total Games</th>
-                        <th className="px-5 py-4">Active Users</th>
-                        <th className="px-5 py-4">Release Year</th>
-                        <th className="px-5 py-4">Developer</th>
-                        <th className="px-5 py-4">Data Source</th>
-                        <th className="px-5 py-4 text-right">Actions</th>
+                        <th className="px-5 py-4">Durum</th>
+                        <th className="px-5 py-4">Toplam Oyun</th>
+                        <th className="px-5 py-4">Aktif Kullanıcı</th>
+                        <th className="px-5 py-4">Çıkış Yılı</th>
+                        <th className="px-5 py-4">Geliştirici</th>
+                        <th className="px-5 py-4">Veri Kaynağı</th>
+                        <th className="px-5 py-4 text-right">İşlemler</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -708,7 +730,7 @@ const GamePlatformsPage = () => {
                                 platform.status
                               )}`}
                             >
-                              {platform.status || "UNKNOWN"}
+                              {getStatusLabel(platform.status)}
                             </span>
                           </td>
                           <td className="px-5 py-4 text-slate-200">
@@ -718,13 +740,13 @@ const GamePlatformsPage = () => {
                             {formatActiveUsers(platform.activeUsers)}
                           </td>
                           <td className="px-5 py-4 text-slate-200">
-                            {platform.releaseYear ?? "N/A"}
+                            {platform.releaseYear ?? "Yok"}
                           </td>
                           <td className="px-5 py-4 text-slate-300">
-                            {platform.developer || "N/A"}
+                            {platform.developer || "Yok"}
                           </td>
                           <td className="px-5 py-4 text-slate-300">
-                            {platform.dataSource || "Backend"}
+                            {platform.dataSource || "Sunucu"}
                           </td>
                           <td className="px-5 py-4">
                             {isAdmin ? (
@@ -788,16 +810,16 @@ const GamePlatformsPage = () => {
                 </p>
                 <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
                   <div>
-                    <dt className="text-slate-400">Total Games</dt>
+                    <dt className="text-slate-400">Toplam Oyun</dt>
                     <dd>{selectedPlatform.totalGames ?? 0}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Developer</dt>
-                    <dd>{selectedPlatform.developer || "N/A"}</dd>
+                    <dt className="text-slate-400">Geliştirici</dt>
+                    <dd>{selectedPlatform.developer || "Yok"}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Data Source</dt>
-                    <dd>{selectedPlatform.dataSource || "Backend"}</dd>
+                    <dt className="text-slate-400">Veri Kaynağı</dt>
+                    <dd>{selectedPlatform.dataSource || "Sunucu"}</dd>
                   </div>
                   <div>
                     <dt className="text-slate-400">Logo URL</dt>
@@ -806,11 +828,11 @@ const GamePlatformsPage = () => {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Created</dt>
+                    <dt className="text-slate-400">Oluşturulma</dt>
                     <dd>{formatDate(selectedPlatform.createdAt)}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Updated</dt>
+                    <dt className="text-slate-400">Güncellenme</dt>
                     <dd>
                       {formatDate(
                         selectedPlatform.updatedAt ?? selectedPlatform.createdAt
@@ -830,16 +852,16 @@ const GamePlatformsPage = () => {
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  {formMode === "edit" ? "Edit Platform" : "Add Platform"}
+                  {formMode === "edit" ? "Platformu Düzenle" : "Platform Ekle"}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {formMode === "edit"
-                    ? "Backend API ile platform kaydını güncelle."
-                    : "Backend API ile yeni platform kaydı oluştur."}
+                    ? "Sunucu API ile platform kaydını güncelle."
+                    : "Sunucu API ile yeni platform kaydı oluştur."}
                 </p>
               </div>
               <button
-                aria-label="Close modal"
+                aria-label="Modalı kapat"
                 className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
                 onClick={closeModal}
                 type="button"
@@ -857,34 +879,34 @@ const GamePlatformsPage = () => {
             >
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-white">
-                  Platform Name
+                  Platform Adı
                 </span>
                 <input
                   className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                   maxLength={100}
                   onChange={(event) => setField("name", event.target.value)}
-                  placeholder="Enter platform name..."
+                  placeholder="Platform adını girin..."
                   required
                   value={formValue.name}
                 />
               </label>
 
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">Description</span>
+                <span className="text-sm font-bold text-white">Açıklama</span>
                 <textarea
                   className="min-h-24 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                   maxLength={500}
                   onChange={(event) =>
                     setField("description", event.target.value)
                   }
-                  placeholder="Describe this platform..."
+                  placeholder="Platform açıklamasını girin..."
                   value={formValue.description}
                 />
               </label>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Source</span>
+                  <span className="text-sm font-bold text-white">Kaynak</span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={100}
@@ -895,20 +917,20 @@ const GamePlatformsPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Status</span>
+                  <span className="text-sm font-bold text-white">Durum</span>
                   <select
                     className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) => setField("status", event.target.value)}
                     value={formValue.status}
                   >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
+                    <option value="ACTIVE">Aktif</option>
+                    <option value="INACTIVE">Pasif</option>
                   </select>
                 </label>
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Total Games
+                    Toplam Oyun
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -923,7 +945,7 @@ const GamePlatformsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Active Users
+                    Aktif Kullanıcı
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -931,14 +953,14 @@ const GamePlatformsPage = () => {
                     onChange={(event) =>
                       setField("activeUsers", event.target.value)
                     }
-                    placeholder="N/A, 10M+..."
+                    placeholder="Yok, 10M+..."
                     value={formValue.activeUsers}
                   />
                 </label>
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Release Year
+                    Çıkış Yılı
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -952,7 +974,7 @@ const GamePlatformsPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Developer</span>
+                  <span className="text-sm font-bold text-white">Geliştirici</span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={150}
@@ -966,7 +988,7 @@ const GamePlatformsPage = () => {
 
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Data Source
+                    Veri Kaynağı
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -974,7 +996,7 @@ const GamePlatformsPage = () => {
                     onChange={(event) =>
                       setField("dataSource", event.target.value)
                     }
-                    placeholder="Backend, Steam API..."
+                    placeholder="Sunucu, Steam API..."
                     value={formValue.dataSource}
                   />
                 </label>
@@ -1006,15 +1028,15 @@ const GamePlatformsPage = () => {
                   {saving
                     ? "Kaydediliyor..."
                     : formMode === "edit"
-                      ? "Update Platform"
-                      : "Create Platform"}
+                      ? "Platformu Güncelle"
+                      : "Platform Oluştur"}
                 </button>
                 <button
                   className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
                   onClick={closeModal}
                   type="button"
                 >
-                  Cancel
+                  İptal
                 </button>
               </div>
             </form>

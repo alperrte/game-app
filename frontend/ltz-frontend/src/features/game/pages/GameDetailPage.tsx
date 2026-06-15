@@ -285,8 +285,8 @@ const GameDetailPage = () => {
                   <InfoRow label="Çıkış tarihi" value={game.releaseDate} />
                   <InfoRow label="Geliştirici" value={game.developer} />
                   <InfoRow label="Yayıncı" value={game.publisher} />
-                  <InfoRow label="Source" value={game.source} />
-                  <InfoRow label="External ID" value={game.externalId} />
+                  <InfoRow label="Kaynak" value={game.source} />
+                  <InfoRow label="Harici ID" value={game.externalId} />
                 </dl>
 
                 <div className="mt-6">

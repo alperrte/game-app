@@ -511,10 +511,10 @@ const GameDevelopersPage = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
-                  Game Developers
+                  Oyun Geliştiricileri
                 </h1>
                 <p className="mt-2 text-base text-slate-400">
-                  Backend API üzerinden geliştirici stüdyolarını yönet.
+                  Sunucu API üzerinden geliştirici stüdyolarını yönet.
                 </p>
               </div>
             </div>
@@ -526,7 +526,7 @@ const GameDevelopersPage = () => {
                 type="button"
               >
                 <span className="text-3xl font-light leading-none">+</span>
-                Add Developer
+                Geliştirici Ekle
               </button>
             ) : null}
           </section>
@@ -534,30 +534,30 @@ const GameDevelopersPage = () => {
           <div className="mb-5 grid gap-4 lg:grid-cols-4">
             <StatCard
               accent="bg-sky-500/15 text-sky-300"
-              helper="Backend kayıtları"
+              helper="Sunucu kayıtları"
               icon="D"
-              label="Total Developers"
+              label="Toplam Geliştirici"
               value={String(stats.totalDevelopers)}
             />
             <StatCard
               accent="bg-violet-500/15 text-violet-300"
-              helper="Website URL dolu"
+              helper="Web sitesi URL dolu"
               icon="W"
-              label="Websites"
+              label="Web Sitesi"
               value={String(stats.websiteCount)}
             />
             <StatCard
               accent="bg-amber-500/15 text-amber-300"
-              helper="Açıklama, ülke ve website var"
+              helper="Açıklama, ülke ve web sitesi var"
               icon="P"
-              label="Complete Profiles"
+              label="Tam Profil"
               value={String(stats.completeProfiles)}
             />
             <StatCard
               accent="bg-cyan-500/15 text-cyan-300"
-              helper="Backend country alanı"
+              helper="Sunucu ülke alanı"
               icon="C"
-              label="Countries Represented"
+              label="Temsil Edilen Ülke"
               value={String(stats.countriesRepresented)}
             />
           </div>
@@ -572,7 +572,7 @@ const GameDevelopersPage = () => {
                   <input
                     className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search developers..."
+                    placeholder="Geliştirici ara..."
                     value={search}
                   />
                 </label>
@@ -582,7 +582,7 @@ const GameDevelopersPage = () => {
                   onChange={(event) => setCountry(event.target.value)}
                   value={country}
                 >
-                  <option value="all">All Countries</option>
+                  <option value="all">Tüm Ülkeler</option>
                   {countries.map((nextCountry) => (
                     <option key={nextCountry} value={nextCountry}>
                       {nextCountry}
@@ -597,9 +597,9 @@ const GameDevelopersPage = () => {
                   }
                   value={status}
                 >
-                  <option value="all">All Profiles</option>
-                  <option value="complete">Complete</option>
-                  <option value="missing">Missing Info</option>
+                  <option value="all">Tüm Profiller</option>
+                  <option value="complete">Tam</option>
+                  <option value="missing">Eksik Bilgi</option>
                 </select>
 
                 <select
@@ -607,9 +607,9 @@ const GameDevelopersPage = () => {
                   onChange={(event) => setSortBy(event.target.value as SortOption)}
                   value={sortBy}
                 >
-                  <option value="newest">Sort by: Newest First</option>
-                  <option value="name-asc">Name: A-Z</option>
-                  <option value="name-desc">Name: Z-A</option>
+                  <option value="newest">Sırala: En Yeni Önce</option>
+                  <option value="name-asc">Ad: A-Z</option>
+                  <option value="name-desc">Ad: Z-A</option>
                 </select>
 
                 <div className="flex h-12 overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
@@ -620,7 +620,7 @@ const GameDevelopersPage = () => {
                     onClick={() => setViewMode("grid")}
                     type="button"
                   >
-                    Grid
+                    Izgara
                   </button>
                   <button
                     className={`grid w-12 cursor-pointer place-items-center rounded-lg ${
@@ -629,7 +629,7 @@ const GameDevelopersPage = () => {
                     onClick={() => setViewMode("list")}
                     type="button"
                   >
-                    List
+                    Liste
                   </button>
                 </div>
               </div>
@@ -657,7 +657,7 @@ const GameDevelopersPage = () => {
                       Geliştirici bulunamadı
                     </h2>
                     <p className="mt-2 text-sm text-slate-400">
-                      Backend henüz kayıt döndürmedi veya filtreler eşleşmedi.
+                      Sunucu henüz kayıt döndürmedi veya filtreler eşleşmedi.
                     </p>
                   </div>
                 </div>
@@ -667,12 +667,12 @@ const GameDevelopersPage = () => {
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="px-6 py-4">Developer</th>
-                      <th className="px-6 py-4">Country</th>
-                      <th className="px-6 py-4">Website</th>
-                      <th className="px-6 py-4">Profile</th>
-                      <th className="px-6 py-4">Updated</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4">Geliştirici</th>
+                      <th className="px-6 py-4">Ülke</th>
+                      <th className="px-6 py-4">Web Sitesi</th>
+                      <th className="px-6 py-4">Profil</th>
+                      <th className="px-6 py-4">Güncellenme</th>
+                      <th className="px-6 py-4 text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -829,21 +829,21 @@ const GameDevelopersPage = () => {
 
                     <dl className="mt-6 space-y-3 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm">
                       <div className="flex justify-between gap-4">
-                        <dt className="text-slate-400">Website</dt>
+                        <dt className="text-slate-400">Web Sitesi</dt>
                         <dd className="text-violet-200">
                           {selectedDeveloper.websiteHost || "Yok"}
                         </dd>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <dt className="text-slate-400">Country</dt>
+                        <dt className="text-slate-400">Ülke</dt>
                         <dd>{selectedDeveloper.country || "Bilinmiyor"}</dd>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <dt className="text-slate-400">Created</dt>
+                        <dt className="text-slate-400">Oluşturulma</dt>
                         <dd>{formatDate(selectedDeveloper.createdAt)}</dd>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <dt className="text-slate-400">Updated</dt>
+                        <dt className="text-slate-400">Güncellenme</dt>
                         <dd>
                           {formatDate(
                             selectedDeveloper.updatedAt ??
@@ -852,7 +852,7 @@ const GameDevelopersPage = () => {
                         </dd>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <dt className="text-slate-400">Profile</dt>
+                        <dt className="text-slate-400">Profil</dt>
                         <dd
                           className={`rounded-lg border px-3 py-1 text-xs font-bold ${profileBadgeClass(
                             selectedDeveloper.profileStatus
@@ -865,7 +865,7 @@ const GameDevelopersPage = () => {
 
                     <section className="mt-6">
                       <h3 className="font-bold text-white">
-                        About {selectedDeveloper.name}
+                        {selectedDeveloper.name} hakkında
                       </h3>
                       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-300">
                         {selectedDeveloper.description || "Açıklama yok."}
@@ -879,7 +879,7 @@ const GameDevelopersPage = () => {
                         rel="noreferrer"
                         target="_blank"
                       >
-                        Website Aç
+                        Web Sitesini Aç
                       </a>
                     ) : (
                       <button
@@ -887,7 +887,7 @@ const GameDevelopersPage = () => {
                         disabled
                         type="button"
                       >
-                        Website yok
+                        Web sitesi yok
                       </button>
                     )}
                   </div>
@@ -915,12 +915,12 @@ const GameDevelopersPage = () => {
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  {formMode === "edit" ? "Edit Developer" : "Add Developer"}
+                  {formMode === "edit" ? "Geliştiriciyi Düzenle" : "Geliştirici Ekle"}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {formMode === "edit"
-                    ? "Backend API ile geliştirici kaydını güncelle."
-                    : "Backend API ile yeni geliştirici kaydı oluştur."}
+                    ? "Sunucu API ile geliştirici kaydını güncelle."
+                    : "Sunucu API ile yeni geliştirici kaydı oluştur."}
                 </p>
               </div>
               <button
@@ -942,7 +942,7 @@ const GameDevelopersPage = () => {
             >
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-white">
-                  Developer Name
+                  Geliştirici Adı
                 </span>
                 <input
                   className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -955,7 +955,7 @@ const GameDevelopersPage = () => {
               </label>
 
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">Description</span>
+                <span className="text-sm font-bold text-white">Açıklama</span>
                 <textarea
                   className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                   maxLength={1000}
@@ -970,7 +970,7 @@ const GameDevelopersPage = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="grid gap-2">
                   <span className="text-sm font-bold text-white">
-                    Website URL
+                    Web Sitesi URL
                   </span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -997,7 +997,7 @@ const GameDevelopersPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Country</span>
+                  <span className="text-sm font-bold text-white">Ülke</span>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={100}
@@ -1037,15 +1037,15 @@ const GameDevelopersPage = () => {
                   {saving
                     ? "Kaydediliyor..."
                     : formMode === "edit"
-                      ? "Update Developer"
-                      : "Add Developer"}
+                      ? "Geliştiriciyi Güncelle"
+                      : "Geliştirici Ekle"}
                 </button>
                 <button
                   className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
                   onClick={closeModal}
                   type="button"
                 >
-                  Cancel
+                  İptal
                 </button>
               </div>
             </form>

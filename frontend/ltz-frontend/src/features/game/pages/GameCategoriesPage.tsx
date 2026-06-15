@@ -57,6 +57,28 @@ const sourceLabel = (source: GameSource) => {
 
 const normalizeStatus = (status: string) => status.trim().toUpperCase();
 
+const getStatusLabel = (status: string) => {
+  const normalizedStatus = normalizeStatus(status);
+
+  if (normalizedStatus === "ACTIVE") {
+    return "Aktif";
+  }
+
+  if (normalizedStatus === "INACTIVE") {
+    return "Pasif";
+  }
+
+  if (normalizedStatus === "AVAILABLE") {
+    return "Mevcut";
+  }
+
+  if (normalizedStatus === "UNAVAILABLE") {
+    return "Mevcut Değil";
+  }
+
+  return "Bilinmiyor";
+};
+
 const getCreateErrorMessage = (error: unknown) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
@@ -159,7 +181,7 @@ const CategoryCardImage = ({
           <div>
             <p className="text-lg font-black text-white">{category.name}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              External category
+              Harici kategori
             </p>
           </div>
         </div>
@@ -243,12 +265,12 @@ const GameCategoriesPage = () => {
       }
     } catch (categoryError) {
       if (requestIdRef.current === requestId) {
-        console.error("External categories could not be loaded.", categoryError);
+        console.error("Harici kategoriler yüklenemedi.", categoryError);
         setCategories([]);
         setError(
           getErrorMessage(
             categoryError,
-            "Categories could not be loaded for selected source."
+            "Seçili kaynak için kategoriler yüklenemedi."
           )
         );
       }
@@ -481,28 +503,28 @@ const GameCategoriesPage = () => {
                 accent="bg-violet-500/15 text-violet-300"
                 helper="Loaded from selected source"
                 icon="#"
-                label="Total Categories"
+                label="Toplam Kategori"
                 value={String(stats.totalCategories)}
               />
               <StatCard
                 accent="bg-cyan-500/15 text-cyan-300"
-                helper="Status equals ACTIVE"
+                helper="Durumu aktif olanlar"
                 icon="A"
-                label="Active Categories"
+                label="Aktif Kategori"
                 value={String(stats.activeCount)}
               />
               <StatCard
                 accent="bg-emerald-500/15 text-emerald-300"
-                helper="Games across listed categories"
+                helper="Listelenen kategorilerde"
                 icon="G"
-                label="Total Games"
+                label="Toplam Oyun"
                 value={stats.totalGames.toLocaleString("en")}
               />
               <StatCard
                 accent="bg-amber-500/15 text-amber-300"
                 helper="Average distribution"
                 icon="/"
-                label="Avg. Games per Category"
+                label="Kategori Başına Ort. Oyun"
                 value={String(stats.average)}
               />
             </div>
@@ -511,7 +533,7 @@ const GameCategoriesPage = () => {
               <div className="grid gap-3 xl:grid-cols-[0.8fr_1.4fr_0.8fr_0.7fr_0.8fr_auto_1fr_auto]">
                 <label className="space-y-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Source
+                    Kaynak
                   </span>
                   <select
                     className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
@@ -532,7 +554,7 @@ const GameCategoriesPage = () => {
                   <input
                     className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     onChange={(event) => handleSearchChange(event.target.value)}
-                    placeholder="Search categories..."
+                    placeholder="Kategori ara..."
                     type="search"
                     value={search}
                   />
@@ -545,10 +567,10 @@ const GameCategoriesPage = () => {
                   }
                   value={sortBy}
                 >
-                  <option value="name-asc">Sort by: Name (A-Z)</option>
-                  <option value="name-desc">Sort by: Name (Z-A)</option>
-                  <option value="games-asc">Games: Low to High</option>
-                  <option value="games-desc">Games: High to Low</option>
+                  <option value="name-asc">Sırala: Ad (A-Z)</option>
+                  <option value="name-desc">Sırala: Ad (Z-A)</option>
+                  <option value="games-asc">Oyun: Düşükten Yükseğe</option>
+                  <option value="games-desc">Oyun: Yüksekten Düşüğe</option>
                 </select>
 
                 <select
@@ -558,9 +580,9 @@ const GameCategoriesPage = () => {
                   }
                   value={status}
                 >
-                  <option value="all">Status: All</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="all">Durum: Tümü</option>
+                  <option value="ACTIVE">Aktif</option>
+                  <option value="INACTIVE">Pasif</option>
                 </select>
 
                 <select
@@ -568,7 +590,7 @@ const GameCategoriesPage = () => {
                   onChange={(event) => setMinGames(Number(event.target.value))}
                   value={minGames}
                 >
-                  <option value={0}>Min. Games: Any</option>
+                  <option value={0}>Min. Oyun: Tümü</option>
                   <option value={100}>100+</option>
                   <option value={250}>250+</option>
                   <option value={300}>300+</option>
@@ -579,11 +601,11 @@ const GameCategoriesPage = () => {
                   onClick={resetFilters}
                   type="button"
                 >
-                  Reset
+                  Sıfırla
                 </button>
 
                 <div className="flex items-end justify-end pb-3 text-sm text-slate-400">
-                  {filteredCategories.length} {sourceLabel(source)} results
+                  {filteredCategories.length} {sourceLabel(source)} sonucu
                 </div>
 
                 <div className="flex h-12 self-end overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
@@ -594,7 +616,7 @@ const GameCategoriesPage = () => {
                     onClick={() => setViewMode("grid")}
                     type="button"
                   >
-                    Grid
+                    Izgara
                   </button>
                   <button
                     className={`grid w-16 place-items-center rounded-lg text-xs font-semibold ${
@@ -603,7 +625,7 @@ const GameCategoriesPage = () => {
                     onClick={() => setViewMode("table")}
                     type="button"
                   >
-                    List
+                    Liste
                   </button>
                 </div>
               </div>
@@ -630,7 +652,7 @@ const GameCategoriesPage = () => {
             <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur-xl">
               {loading || manualLoading ? (
                 <div className="grid h-96 place-items-center text-sm font-semibold text-slate-300">
-                  Loading categories...
+                  Kategoriler yükleniyor...
                 </div>
               ) : null}
 
@@ -638,11 +660,11 @@ const GameCategoriesPage = () => {
                 <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
                   <div>
                     <h2 className="text-xl font-bold text-white">
-                      No categories found for selected source.
+                      Seçili kaynak için kategori bulunamadı.
                     </h2>
                     <p className="mt-2 text-sm text-slate-400">
                       {error
-                        ? "The provider did not return a category list."
+                        ? "Sağlayıcı kategori listesi döndürmedi."
                         : "Try a different source or search query."}
                     </p>
                   </div>
@@ -653,12 +675,12 @@ const GameCategoriesPage = () => {
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="px-5 py-4">Category</th>
-                      <th className="px-5 py-4">Description</th>
-                      <th className="px-5 py-4">Total Games</th>
-                      <th className="px-5 py-4">Status</th>
-                      <th className="px-5 py-4">Data Source</th>
-                      <th className="px-5 py-4 text-right">Actions</th>
+                      <th className="px-5 py-4">Kategori</th>
+                      <th className="px-5 py-4">Açıklama</th>
+                      <th className="px-5 py-4">Toplam Oyun</th>
+                      <th className="px-5 py-4">Durum</th>
+                      <th className="px-5 py-4">Veri Kaynağı</th>
+                      <th className="px-5 py-4 text-right">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -676,7 +698,7 @@ const GameCategoriesPage = () => {
                           </div>
                         </td>
                         <td className="max-w-md px-5 py-4 text-slate-300">
-                          {category.description || "No description provided."}
+                          {category.description || "Açıklama yok."}
                         </td>
                         <td className="px-5 py-4 text-slate-200">
                           {category.gameCount}
@@ -687,7 +709,7 @@ const GameCategoriesPage = () => {
                               category.status
                             )}`}
                           >
-                            {category.status}
+                            {getStatusLabel(category.status)}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-slate-300">
@@ -730,7 +752,7 @@ const GameCategoriesPage = () => {
                         <div>
                           <h2 className="font-bold text-white">{category.name}</h2>
                           <p className="mt-2 text-sm text-slate-400">
-                            {category.description || "No description provided."}
+                            {category.description || "Açıklama yok."}
                           </p>
                           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                             {category.gameCount} oyun - {category.dataSource}
@@ -742,7 +764,7 @@ const GameCategoriesPage = () => {
                               category.status
                             )}`}
                           >
-                            {category.status}
+                            {getStatusLabel(category.status)}
                           </span>
                           <span
                             className={`rounded-lg border px-3 py-1 text-xs font-bold ${
