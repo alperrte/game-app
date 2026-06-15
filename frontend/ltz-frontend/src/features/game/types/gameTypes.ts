@@ -1,6 +1,18 @@
 import type { GameSource } from "./externalGame.types";
 
 export type { GameSource } from "./externalGame.types";
+export type {
+  Developer,
+  DeveloperRequest,
+  Developer as GameDeveloper,
+  DeveloperRequest as GameDeveloperRequest,
+} from "./developerTypes";
+export type {
+  Publisher,
+  PublisherRequest,
+  Publisher as GamePublisher,
+  PublisherRequest as GamePublisherRequest,
+} from "./publisherTypes";
 
 export type Game = {
   id: number;
@@ -115,38 +127,4 @@ export type GamePlatform = {
 export type GamePlatformRequest = {
   name: string;
   description?: string | null;
-};
-
-export type GameDeveloper = {
-  id: number;
-  name: string;
-  description: string | null;
-  websiteUrl: string | null;
-  country: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type GameDeveloperRequest = {
-  name: string;
-  description?: string | null;
-  websiteUrl?: string | null;
-  country?: string | null;
-};
-
-export type GamePublisher = {
-  id: number;
-  name: string;
-  description: string | null;
-  websiteUrl: string | null;
-  country: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type GamePublisherRequest = {
-  name: string;
-  description?: string | null;
-  websiteUrl?: string | null;
-  country?: string | null;
 };
