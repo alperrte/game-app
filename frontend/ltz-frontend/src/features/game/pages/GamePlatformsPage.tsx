@@ -6,7 +6,12 @@ import { getExternalGamePlatforms } from "../services/externalGameService";
 import { platformService } from "../services/platformService";
 import type { ExternalGamePlatform } from "../types/externalGame.types";
 import type { Platform, PlatformRequest } from "../types/platformTypes";
+import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type PlatformStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 type PlatformFormMode = "create" | "edit";
@@ -155,7 +160,11 @@ const getFormErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
       return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
     }
 
@@ -248,6 +257,8 @@ const PlatformAvatar = ({ platform }: { platform: PlatformRow }) => {
 };
 
 const GamePlatformsPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [platforms, setPlatforms] = useState<PlatformRow[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformRow | null>(
     null
@@ -382,6 +393,11 @@ const GamePlatformsPage = () => {
   }, [platforms, search, statusFilter]);
 
   const openCreateModal = () => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setFormValue(initialForm);
     setFormError(null);
     setFormMode("create");
@@ -399,6 +415,11 @@ const GamePlatformsPage = () => {
   };
 
   const openEditModal = async (platformId: number) => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setLoadingEditId(platformId);
     setFormError(null);
     setNotice(null);
@@ -432,6 +453,11 @@ const GamePlatformsPage = () => {
   };
 
   const handleSavePlatform = async () => {
+    if (!isAdmin) {
+      setFormError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request = normalizePlatformRequest(formValue);
 
     if (!request.name) {
@@ -476,6 +502,11 @@ const GamePlatformsPage = () => {
   };
 
   const handleDeletePlatform = async (platform: PlatformRow) => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const confirmed = window.confirm(
       `${platform.name} platformunu silmek istediğinizden emin misiniz?`
     );
@@ -526,14 +557,16 @@ const GamePlatformsPage = () => {
               </p>
             </div>
 
-            <button
-              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={openCreateModal}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Add Platform
-            </button>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                onClick={openCreateModal}
+                type="button"
+              >
+                <span className="text-3xl font-light leading-none">+</span>
+                Add Platform
+              </button>
+            ) : null}
           </section>
 
           <div className="mb-6 grid gap-4 lg:grid-cols-4">
@@ -694,38 +727,40 @@ const GamePlatformsPage = () => {
                             {platform.dataSource || "Backend"}
                           </td>
                           <td className="px-5 py-4">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                className="cursor-pointer rounded-lg border border-violet-400/30 px-3 py-2 text-xs font-bold text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
-                                disabled={
-                                  loadingEditId === platform.id ||
-                                  deletingPlatformId === platform.id
-                                }
-                                onClick={() => {
-                                  void openEditModal(platform.id);
-                                }}
-                                type="button"
-                              >
-                                {loadingEditId === platform.id
-                                  ? "Yükleniyor..."
-                                  : "Seç"}
-                              </button>
-                              <button
-                                className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
-                                disabled={
-                                  deletingPlatformId === platform.id ||
-                                  loadingEditId === platform.id
-                                }
-                                onClick={() => {
-                                  void handleDeletePlatform(platform);
-                                }}
-                                type="button"
-                              >
-                                {deletingPlatformId === platform.id
-                                  ? "Siliniyor..."
-                                  : "Sil"}
-                              </button>
-                            </div>
+                            {isAdmin ? (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  className="cursor-pointer rounded-lg border border-violet-400/30 px-3 py-2 text-xs font-bold text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+                                  disabled={
+                                    loadingEditId === platform.id ||
+                                    deletingPlatformId === platform.id
+                                  }
+                                  onClick={() => {
+                                    void openEditModal(platform.id);
+                                  }}
+                                  type="button"
+                                >
+                                  {loadingEditId === platform.id
+                                    ? "Yükleniyor..."
+                                    : "Seç"}
+                                </button>
+                                <button
+                                  className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                                  disabled={
+                                    deletingPlatformId === platform.id ||
+                                    loadingEditId === platform.id
+                                  }
+                                  onClick={() => {
+                                    void handleDeletePlatform(platform);
+                                  }}
+                                  type="button"
+                                >
+                                  {deletingPlatformId === platform.id
+                                    ? "Siliniyor..."
+                                    : "Sil"}
+                                </button>
+                              </div>
+                            ) : null}
                           </td>
                         </tr>
                       ))}

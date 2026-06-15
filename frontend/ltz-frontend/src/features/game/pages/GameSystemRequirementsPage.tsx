@@ -8,7 +8,12 @@ import type {
   SystemRequirement,
   SystemRequirementRequest,
 } from "../types/systemRequirementTypes";
+import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type RequirementFormMode = "create" | "edit";
 
@@ -124,7 +129,11 @@ const getRequirementErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
       return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
     }
 
@@ -185,6 +194,8 @@ const RequirementValue = ({
 );
 
 const GameSystemRequirementsPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [requirement, setRequirement] = useState<SystemRequirement | null>(null);
@@ -340,6 +351,11 @@ const GameSystemRequirementsPage = () => {
   };
 
   const openCreateModal = () => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setFormValue(initialForm);
     setFormGameId(selectedGameId);
     setFormError(null);
@@ -348,6 +364,11 @@ const GameSystemRequirementsPage = () => {
   };
 
   const openEditModal = async () => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     if (selectedGameId === null) {
       setNotice("Sistem gereksinimini düzenlemek için önce bir oyun seçin.");
       return;
@@ -387,6 +408,11 @@ const GameSystemRequirementsPage = () => {
   };
 
   const handleSaveRequirement = async () => {
+    if (!isAdmin) {
+      setFormError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const targetGameId = formMode === "edit" ? selectedGameId : formGameId;
 
     if (targetGameId === null) {
@@ -435,6 +461,11 @@ const GameSystemRequirementsPage = () => {
   };
 
   const handleDeleteRequirement = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     if (selectedGameId === null || !selectedGame) {
       setError("Sistem gereksinimini silmek için önce bir oyun seçin.");
       return;
@@ -493,14 +524,16 @@ const GameSystemRequirementsPage = () => {
               </div>
             </div>
 
-            <button
-              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={openCreateModal}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Add Requirement Set
-            </button>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                onClick={openCreateModal}
+                type="button"
+              >
+                <span className="text-3xl font-light leading-none">+</span>
+                Add Requirement Set
+              </button>
+            ) : null}
           </section>
 
           <div className="mb-5 grid gap-4 lg:grid-cols-4">
@@ -739,7 +772,9 @@ const GameSystemRequirementsPage = () => {
                             >
                               Detay
                             </button>
-                            <button
+                            {isAdmin ? (
+                              <>
+                                <button
                               className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-violet-400/30 text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={loadingEdit || deleting}
                               onClick={() => {
@@ -761,6 +796,8 @@ const GameSystemRequirementsPage = () => {
                             >
                               {deleting ? "..." : "Sil"}
                             </button>
+                              </>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

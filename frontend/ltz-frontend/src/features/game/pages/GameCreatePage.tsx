@@ -1,8 +1,14 @@
+import { isAxiosError } from "axios";
 import { useMemo, useState } from "react";
 import { GAME_ROUTES } from "../../../lib/constants";
+import { useAuthStore } from "../../../store/authStore";
 import GameNavbar from "../components/GameNavbar";
 import { gameService } from "../services/gameService";
 import type { GameRequest } from "../types/gameTypes";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 const initialValue: GameRequest = {
   title: "",
@@ -72,6 +78,14 @@ const normalizeGameRequest = (value: GameRequest): GameRequest => {
     recommendedSystemRequirements: emptyToNull(value.recommendedSystemRequirements),
     popularityScore: value.popularityScore ?? 0,
   };
+};
+
+const getCreateGameErrorMessage = (error: unknown) => {
+  if (isAxiosError(error) && error.response?.status === 403) {
+    return ADMIN_ACTION_MESSAGE;
+  }
+
+  return "Game could not be created. Please check the form and try again.";
 };
 
 const FieldLabel = ({
@@ -166,6 +180,8 @@ const RequirementBox = ({
 };
 
 const GameCreatePage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [formValue, setFormValue] = useState<GameRequest>(initialValue);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +228,11 @@ const GameCreatePage = () => {
   );
 
   const handleSubmit = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request = normalizeGameRequest(formValue);
 
     if (!request.title) {
@@ -226,8 +247,8 @@ const GameCreatePage = () => {
       await gameService.createGame(request);
       window.history.pushState({}, "", GAME_ROUTES.games);
       window.dispatchEvent(new Event("popstate"));
-    } catch {
-      setError("Game could not be created. Please check the form and try again.");
+    } catch (createError) {
+      setError(getCreateGameErrorMessage(createError));
     } finally {
       setLoading(false);
     }
@@ -467,13 +488,15 @@ const GameCreatePage = () => {
                 >
                   Cancel
                 </a>
-                <button
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-8 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                  disabled={loading}
-                  type="submit"
-                >
-                  {loading ? "Creating..." : "Create Game"}
-                </button>
+                {isAdmin ? (
+                  <button
+                    className="inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-8 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
+                    disabled={loading}
+                    type="submit"
+                  >
+                    {loading ? "Creating..." : "Create Game"}
+                  </button>
+                ) : null}
               </div>
             </form>
 

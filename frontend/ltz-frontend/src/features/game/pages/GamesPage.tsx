@@ -17,7 +17,12 @@ import type {
   ExternalGameSearchResponse,
   GameSource,
 } from "../types/externalGame.types";
+import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 const SEARCH_DEBOUNCE_MS = 450;
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
@@ -71,7 +76,11 @@ const getCreateErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
       return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
     }
 
@@ -111,6 +120,8 @@ const normalizeGameRequest = (value: GameRequest): GameRequest => {
 };
 
 const GamesPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [games, setGames] = useState<ExternalGameSearchResponse[]>([]);
   const [manualGames, setManualGames] = useState<Game[]>([]);
   const [source, setSource] = useState<GameSource>("STEAM");
@@ -345,6 +356,11 @@ const GamesPage = () => {
   };
 
   const handleCreateGame = async () => {
+    if (!isAdmin) {
+      setFormError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request = normalizeGameRequest(gameForm);
 
     if (!request.title) {
@@ -451,14 +467,16 @@ const GamesPage = () => {
               </div>
             </div>
 
-            <button
-              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={openModal}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Oyun Ekle
-            </button>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                onClick={openModal}
+                type="button"
+              >
+                <span className="text-3xl font-light leading-none">+</span>
+                Oyun Ekle
+              </button>
+            ) : null}
           </section>
 
           <form

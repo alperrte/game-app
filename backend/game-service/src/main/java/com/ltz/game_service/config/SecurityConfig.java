@@ -54,10 +54,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/games/platforms").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/games/platforms/**").permitAll()
 
-                        // Protected game management endpoints
-                        .requestMatchers(HttpMethod.POST, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
-                        .requestMatchers(HttpMethod.PUT, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
+                        // Protected game management endpoints - only ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/games/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/games/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/games/**").hasRole("ADMIN")
 
                         .anyRequest().authenticated()
                 )

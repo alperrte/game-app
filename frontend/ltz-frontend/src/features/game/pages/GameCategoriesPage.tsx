@@ -12,7 +12,12 @@ import type {
   ExternalGameCategory,
   GameSource,
 } from "../types/externalGame.types";
+import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type CategoryStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 type CategoryViewMode = "grid" | "table";
@@ -56,7 +61,11 @@ const getCreateErrorMessage = (error: unknown) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
       return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
     }
 
@@ -188,6 +197,8 @@ const CategoryListImage = ({
 };
 
 const GameCategoriesPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [categories, setCategories] = useState<ExternalGameCategory[]>([]);
   const [manualCategories, setManualCategories] = useState<GameCategory[]>([]);
   const [source, setSource] = useState<GameSource>("STEAM");
@@ -376,6 +387,11 @@ const GameCategoriesPage = () => {
   };
 
   const openModal = () => {
+    if (!isAdmin) {
+      setFormNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setFormNotice(null);
     setFormValue({ ...initialForm, source });
     setIsModalOpen(true);
@@ -389,6 +405,11 @@ const GameCategoriesPage = () => {
   };
 
   const handleCreateCategory = async () => {
+    if (!isAdmin) {
+      setFormNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request: GameCategoryRequest = {
       source: formValue.source,
       name: formValue.name.trim(),
@@ -442,14 +463,16 @@ const GameCategoriesPage = () => {
               </div>
             </div>
 
-            <button
-              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={openModal}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Kategori Ekle
-            </button>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                onClick={openModal}
+                type="button"
+              >
+                <span className="text-3xl font-light leading-none">+</span>
+                Kategori Ekle
+              </button>
+            ) : null}
           </section>
 
           <div className="space-y-5">

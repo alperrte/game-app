@@ -1,8 +1,14 @@
+import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { GAME_ROUTES } from "../../../lib/constants";
+import { useAuthStore } from "../../../store/authStore";
 import GameNavbar from "../components/GameNavbar";
 import { gameService } from "../services/gameService";
 import type { Game, GameRequest } from "../types/gameTypes";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type EditGameForm = GameRequest & {
   fullDescription: string;
@@ -49,6 +55,14 @@ const formatDateTime = (value: string | null | undefined) => {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+};
+
+const getGameEditErrorMessage = (error: unknown, fallback: string) => {
+  if (isAxiosError(error) && error.response?.status === 403) {
+    return ADMIN_ACTION_MESSAGE;
+  }
+
+  return fallback;
 };
 
 const mapGameToForm = (game: Game): EditGameForm => {
@@ -126,6 +140,8 @@ const DetailBadge = ({ label, value }: { label: string; value: string }) => {
 };
 
 const GameEditPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [gameId] = useState(() => getGameIdFromPath());
   const [originalGame, setOriginalGame] = useState<Game | null>(null);
   const [initialForm, setInitialForm] = useState<EditGameForm | null>(null);
@@ -173,6 +189,11 @@ const GameEditPage = () => {
   };
 
   const handleSave = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     if (!gameId || !formValue) {
       return;
     }
@@ -195,8 +216,13 @@ const GameEditPage = () => {
       setInitialForm(mappedForm);
       setFormValue(mappedForm);
       setNotice("Changes saved successfully.");
-    } catch {
-      setError("Game could not be updated. Please try again.");
+    } catch (saveError) {
+      setError(
+        getGameEditErrorMessage(
+          saveError,
+          "Game could not be updated. Please try again."
+        )
+      );
     } finally {
       setSubmitting(false);
     }
@@ -211,6 +237,11 @@ const GameEditPage = () => {
   };
 
   const handleDelete = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     if (!gameId) {
       return;
     }
@@ -231,8 +262,13 @@ const GameEditPage = () => {
       await gameService.deleteGame(gameId);
       window.history.pushState({}, "", GAME_ROUTES.games);
       window.dispatchEvent(new Event("popstate"));
-    } catch {
-      setError("Game could not be deleted. Please try again.");
+    } catch (deleteError) {
+      setError(
+        getGameEditErrorMessage(
+          deleteError,
+          "Game could not be deleted. Please try again."
+        )
+      );
     } finally {
       setDeleting(false);
     }
@@ -565,38 +601,40 @@ const GameEditPage = () => {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                <h2 className="mb-5 text-xl font-bold text-white">Actions</h2>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                    disabled={submitting || deleting}
-                    onClick={() => void handleSave()}
-                    type="button"
-                  >
-                    {submitting ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    className="h-12 rounded-xl border border-white/10 bg-slate-900/80 px-6 text-sm font-bold text-white"
-                    onClick={handleReset}
-                    type="button"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    className="h-12 rounded-xl border border-red-500/50 bg-red-500/10 px-6 text-sm font-bold text-red-200 disabled:opacity-60"
-                    disabled={submitting || deleting}
-                    onClick={() => void handleDelete()}
-                    type="button"
-                  >
-                    {deleting ? "Deleting..." : "Delete Game"}
-                  </button>
-                </div>
-                <p className="mt-5 text-sm leading-6 text-red-200">
-                  Deleting a game is permanent and cannot be undone. This action
-                  will remove the game and all associated data.
-                </p>
-              </section>
+              {isAdmin ? (
+                <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+                  <h2 className="mb-5 text-xl font-bold text-white">Actions</h2>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
+                      disabled={submitting || deleting}
+                      onClick={() => void handleSave()}
+                      type="button"
+                    >
+                      {submitting ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button
+                      className="h-12 rounded-xl border border-white/10 bg-slate-900/80 px-6 text-sm font-bold text-white"
+                      onClick={handleReset}
+                      type="button"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      className="h-12 rounded-xl border border-red-500/50 bg-red-500/10 px-6 text-sm font-bold text-red-200 disabled:opacity-60"
+                      disabled={submitting || deleting}
+                      onClick={() => void handleDelete()}
+                      type="button"
+                    >
+                      {deleting ? "Deleting..." : "Delete Game"}
+                    </button>
+                  </div>
+                  <p className="mt-5 text-sm leading-6 text-red-200">
+                    Deleting a game is permanent and cannot be undone. This action
+                    will remove the game and all associated data.
+                  </p>
+                </section>
+              ) : null}
             </aside>
           </div>
         </main>

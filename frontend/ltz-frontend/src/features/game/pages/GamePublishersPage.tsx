@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import GameNavbar from "../components/GameNavbar";
 import { publisherService } from "../services/publisherService";
 import type { Publisher, PublisherRequest } from "../types/publisherTypes";
+import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type PublisherViewMode = "grid" | "list";
 type PublisherProfileStatus = "complete" | "missing";
@@ -87,7 +92,11 @@ const getFormErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
       return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
     }
 
@@ -152,6 +161,8 @@ const StatCard = ({
 };
 
 const GamePublishersPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [publishers, setPublishers] = useState<PublisherRow[]>([]);
   const [selectedPublisher, setSelectedPublisher] =
     useState<PublisherRow | null>(null);
@@ -329,6 +340,11 @@ const GamePublishersPage = () => {
   }, [country, publishers, search, sortBy, status]);
 
   const openCreateModal = () => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setFormValue(initialForm);
     setFormError(null);
     setFormMode("create");
@@ -347,6 +363,11 @@ const GamePublishersPage = () => {
   };
 
   const openEditModal = async (publisherId: number) => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setLoadingEditId(publisherId);
     setFormError(null);
     setNotice(null);
@@ -380,6 +401,11 @@ const GamePublishersPage = () => {
   };
 
   const handleSavePublisher = async () => {
+    if (!isAdmin) {
+      setFormError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request = normalizePublisherRequest(formValue);
 
     if (!request.name) {
@@ -424,6 +450,11 @@ const GamePublishersPage = () => {
   };
 
   const handleDeletePublisher = async (publisher: PublisherRow) => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const confirmed = window.confirm(
       `${publisher.name} yayıncısını silmek istediğinizden emin misiniz?`
     );
@@ -482,14 +513,16 @@ const GamePublishersPage = () => {
               </div>
             </div>
 
-            <button
-              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={openCreateModal}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Add Publisher
-            </button>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                onClick={openCreateModal}
+                type="button"
+              >
+                <span className="text-3xl font-light leading-none">+</span>
+                Add Publisher
+              </button>
+            ) : null}
           </section>
 
           <div className="mb-5 grid gap-4 lg:grid-cols-4">
@@ -684,7 +717,8 @@ const GamePublishersPage = () => {
                           {formatDate(publisher.updatedAt ?? publisher.createdAt)}
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex justify-end gap-3">
+                          {isAdmin ? (
+                            <div className="flex justify-end gap-3">
                             <button
                               className="cursor-pointer rounded-lg border border-violet-400/30 px-3 py-2 text-xs font-bold text-violet-200 disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={
@@ -715,7 +749,8 @@ const GamePublishersPage = () => {
                                 ? "Siliniyor..."
                                 : "Sil"}
                             </button>
-                          </div>
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     ))}

@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import GameNavbar from "../components/GameNavbar";
 import { developerService } from "../services/developerService";
 import type { Developer, DeveloperRequest } from "../types/developerTypes";
+import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type DeveloperViewMode = "grid" | "list";
 type DeveloperProfileStatus = "complete" | "missing";
@@ -93,7 +98,11 @@ const getFormErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
       return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
     }
 
@@ -158,6 +167,8 @@ const StatCard = ({
 };
 
 const GameDevelopersPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [developers, setDevelopers] = useState<DeveloperRow[]>([]);
   const [selectedDeveloper, setSelectedDeveloper] =
     useState<DeveloperRow | null>(null);
@@ -335,6 +346,11 @@ const GameDevelopersPage = () => {
   }, [country, developers, search, sortBy, status]);
 
   const openCreateModal = () => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setFormValue(initialForm);
     setFormError(null);
     setFormMode("create");
@@ -353,6 +369,11 @@ const GameDevelopersPage = () => {
   };
 
   const openEditModal = async (developerId: number) => {
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     setLoadingEditId(developerId);
     setFormError(null);
     setNotice(null);
@@ -386,6 +407,11 @@ const GameDevelopersPage = () => {
   };
 
   const handleSaveDeveloper = async () => {
+    if (!isAdmin) {
+      setFormError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request = normalizeDeveloperRequest(formValue);
 
     if (!request.name) {
@@ -430,6 +456,11 @@ const GameDevelopersPage = () => {
   };
 
   const handleDeleteDeveloper = async (developer: DeveloperRow) => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const confirmed = window.confirm(
       `${developer.name} geliştiricisini silmek istediğinizden emin misiniz?`
     );
@@ -488,14 +519,16 @@ const GameDevelopersPage = () => {
               </div>
             </div>
 
-            <button
-              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={openCreateModal}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Add Developer
-            </button>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                onClick={openCreateModal}
+                type="button"
+              >
+                <span className="text-3xl font-light leading-none">+</span>
+                Add Developer
+              </button>
+            ) : null}
           </section>
 
           <div className="mb-5 grid gap-4 lg:grid-cols-4">
@@ -690,7 +723,8 @@ const GameDevelopersPage = () => {
                           {formatDate(developer.updatedAt ?? developer.createdAt)}
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex justify-end gap-3">
+                          {isAdmin ? (
+                            <div className="flex justify-end gap-3">
                             <button
                               className="cursor-pointer rounded-lg border border-violet-400/30 px-3 py-2 text-xs font-bold text-violet-200 disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={
@@ -721,7 +755,8 @@ const GameDevelopersPage = () => {
                                 ? "Siliniyor..."
                                 : "Sil"}
                             </button>
-                          </div>
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
