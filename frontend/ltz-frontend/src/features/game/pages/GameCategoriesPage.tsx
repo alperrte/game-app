@@ -1,7 +1,13 @@
+import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import GameNavbar from "../components/GameNavbar";
+import { createGameCategory, getGameCategories } from "../services/gameService";
 import { getExternalGameCategories } from "../services/externalGameService";
+import type {
+  GameCategory,
+  GameCategoryRequest,
+} from "../types/gameTypes";
 import type {
   ExternalGameCategory,
   GameSource,
@@ -11,19 +17,25 @@ import { getErrorMessage } from "../../../utils/getErrorMessage";
 type CategoryStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 type CategoryViewMode = "grid" | "table";
 type SortOption = "name-asc" | "name-desc" | "games-asc" | "games-desc";
+type CategoryOrigin = "external" | "manual";
 
-type CategoryForm = {
+type CategoryListItem = {
+  dataSource: string;
   description: string;
-  iconUrl: string;
+  externalId?: string;
+  gameCount: number;
+  id?: number;
+  imageUrl?: string | null;
   name: string;
-  status: "ACTIVE" | "INACTIVE";
+  origin: CategoryOrigin;
+  source: GameSource;
+  status: string;
 };
 
-const initialForm: CategoryForm = {
+const initialForm: GameCategoryRequest = {
+  source: "STEAM",
   name: "",
   description: "",
-  iconUrl: "",
-  status: "ACTIVE",
 };
 
 const SEARCH_DEBOUNCE_MS = 450;
@@ -39,6 +51,46 @@ const sourceLabel = (source: GameSource) => {
 };
 
 const normalizeStatus = (status: string) => status.trim().toUpperCase();
+
+const getCreateErrorMessage = (error: unknown) => {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+
+    if (status === 401 || status === 403) {
+      return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
+    }
+
+    if (status === 409) {
+      return "Bu kayıt bu platform için zaten mevcut.";
+    }
+  }
+
+  return "Kategori eklenirken bir hata oluştu.";
+};
+
+const toExternalCategoryItem = (
+  category: ExternalGameCategory
+): CategoryListItem => ({
+  ...category,
+  origin: "external",
+});
+
+const toManualCategoryItem = (category: GameCategory): CategoryListItem => ({
+  dataSource: "Manuel",
+  description: category.description ?? "",
+  gameCount: 0,
+  id: category.id,
+  name: category.name,
+  origin: "manual",
+  source: category.source,
+  status: "ACTIVE",
+});
+
+const getCategoryKey = (category: CategoryListItem) => {
+  return category.origin === "external"
+    ? `${category.source}-external-${category.externalId}`
+    : `${category.source}-manual-${category.id}`;
+};
 
 const StatCard = ({
   accent,
@@ -74,7 +126,7 @@ const StatCard = ({
 const CategoryCardImage = ({
   category,
 }: {
-  category: ExternalGameCategory;
+  category: CategoryListItem;
 }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = category.imageUrl?.trim();
@@ -110,7 +162,7 @@ const CategoryCardImage = ({
 const CategoryListImage = ({
   category,
 }: {
-  category: ExternalGameCategory;
+  category: CategoryListItem;
 }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = category.imageUrl?.trim();
@@ -137,17 +189,21 @@ const CategoryListImage = ({
 
 const GameCategoriesPage = () => {
   const [categories, setCategories] = useState<ExternalGameCategory[]>([]);
+  const [manualCategories, setManualCategories] = useState<GameCategory[]>([]);
   const [source, setSource] = useState<GameSource>("STEAM");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CategoryStatusFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [minGames, setMinGames] = useState(0);
   const [viewMode, setViewMode] = useState<CategoryViewMode>("table");
-  const [formValue, setFormValue] = useState<CategoryForm>(initialForm);
+  const [formValue, setFormValue] = useState<GameCategoryRequest>(initialForm);
   const [loading, setLoading] = useState(true);
+  const [manualLoading, setManualLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [manualError, setManualError] = useState<string | null>(null);
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const searchTimeoutRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
 
@@ -192,6 +248,26 @@ const GameCategoriesPage = () => {
     }
   };
 
+  const fetchManualCategories = async (nextSource: GameSource) => {
+    setManualLoading(true);
+    setManualError(null);
+
+    try {
+      const results = await getGameCategories(nextSource);
+      setManualCategories(results);
+    } catch (manualCategoryError) {
+      setManualCategories([]);
+      setManualError(
+        getErrorMessage(
+          manualCategoryError,
+          "Manuel kategoriler yüklenirken bir hata oluştu."
+        )
+      );
+    } finally {
+      setManualLoading(false);
+    }
+  };
+
   const scheduleCategoryFetch = (nextSource: GameSource, nextSearch: string) => {
     clearScheduledSearch();
 
@@ -203,6 +279,7 @@ const GameCategoriesPage = () => {
   useEffect(() => {
     const initialLoadTimeout = window.setTimeout(() => {
       void fetchCategories("STEAM", "");
+      void fetchManualCategories("STEAM");
     }, 0);
 
     return () => {
@@ -212,15 +289,23 @@ const GameCategoriesPage = () => {
     };
   }, []);
 
+  const combinedCategories = useMemo(
+    () => [
+      ...categories.map(toExternalCategoryItem),
+      ...manualCategories.map(toManualCategoryItem),
+    ],
+    [categories, manualCategories]
+  );
+
   const stats = useMemo(() => {
-    const totalGames = categories.reduce(
+    const totalGames = combinedCategories.reduce(
       (total, category) => total + category.gameCount,
       0
     );
-    const totalCategories = categories.length;
+    const totalCategories = combinedCategories.length;
 
     return {
-      activeCount: categories.filter(
+      activeCount: combinedCategories.filter(
         (category) => normalizeStatus(category.status) === "ACTIVE"
       ).length,
       average:
@@ -228,15 +313,26 @@ const GameCategoriesPage = () => {
       totalCategories,
       totalGames,
     };
-  }, [categories]);
+  }, [combinedCategories]);
 
   const filteredCategories = useMemo(() => {
-    const filtered = categories.filter((category) => {
+    const normalizedSearch = search.trim().toLocaleLowerCase("tr");
+    const filtered = combinedCategories.filter((category) => {
+      const searchableText = [
+        category.name,
+        category.description,
+        category.dataSource,
+        category.source,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr");
+      const matchesSearch =
+        !normalizedSearch || searchableText.includes(normalizedSearch);
       const matchesStatus =
         status === "all" || normalizeStatus(category.status) === status;
       const matchesMinGames = category.gameCount >= minGames;
 
-      return matchesStatus && matchesMinGames;
+      return matchesSearch && matchesStatus && matchesMinGames;
     });
 
     return [...filtered].sort((leftCategory, rightCategory) => {
@@ -254,7 +350,7 @@ const GameCategoriesPage = () => {
 
       return leftCategory.name.localeCompare(rightCategory.name, "tr");
     });
-  }, [categories, minGames, sortBy, status]);
+  }, [combinedCategories, minGames, search, sortBy, status]);
 
   const resetFilters = () => {
     clearScheduledSearch();
@@ -271,6 +367,7 @@ const GameCategoriesPage = () => {
     setStatus("all");
     setMinGames(0);
     void fetchCategories(nextSource, search);
+    void fetchManualCategories(nextSource);
   };
 
   const handleSearchChange = (nextSearch: string) => {
@@ -280,6 +377,7 @@ const GameCategoriesPage = () => {
 
   const openModal = () => {
     setFormNotice(null);
+    setFormValue({ ...initialForm, source });
     setIsModalOpen(true);
   };
 
@@ -287,10 +385,38 @@ const GameCategoriesPage = () => {
     setIsModalOpen(false);
     setFormNotice(null);
     setFormValue(initialForm);
+    setCreatingCategory(false);
   };
 
-  const handleCreateCategory = () => {
-    setFormNotice("Kategori oluşturma işlemi henüz backend'e bağlı değil.");
+  const handleCreateCategory = async () => {
+    const request: GameCategoryRequest = {
+      source: formValue.source,
+      name: formValue.name.trim(),
+      description: formValue.description?.trim() || null,
+    };
+
+    if (!request.name) {
+      setFormNotice("Kategori adı zorunludur.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    setFormNotice(null);
+
+    try {
+      await createGameCategory(request);
+      closeModal();
+      setFormNotice("Kategori başarıyla eklendi.");
+      setSource(request.source);
+      await Promise.all([
+        fetchCategories(request.source, search),
+        fetchManualCategories(request.source),
+      ]);
+    } catch (createError) {
+      setFormNotice(getCreateErrorMessage(createError));
+    } finally {
+      setCreatingCategory(false);
+    }
   };
 
   return (
@@ -308,21 +434,21 @@ const GameCategoriesPage = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
-                  Game Categories
+                  Kategoriler
                 </h1>
                 <p className="mt-2 text-base text-slate-400">
-                  Browse external provider categories through the API Gateway.
+                  Harici sağlayıcı kategorilerini ve manuel kayıtları görüntüle.
                 </p>
               </div>
             </div>
 
             <button
-              className="inline-flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+              className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
               onClick={openModal}
               type="button"
             >
               <span className="text-3xl font-light leading-none">+</span>
-              Add New Category
+              Kategori Ekle
             </button>
           </section>
 
@@ -460,20 +586,32 @@ const GameCategoriesPage = () => {
               </div>
             </section>
 
+            {!isModalOpen && formNotice ? (
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-100">
+                {formNotice}
+              </div>
+            ) : null}
+
             {error ? (
               <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
                 {error}
               </div>
             ) : null}
 
+            {manualError ? (
+              <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                {manualError}
+              </div>
+            ) : null}
+
             <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur-xl">
-              {loading ? (
+              {loading || manualLoading ? (
                 <div className="grid h-96 place-items-center text-sm font-semibold text-slate-300">
                   Loading categories...
                 </div>
               ) : null}
 
-              {!loading && filteredCategories.length === 0 ? (
+              {!loading && !manualLoading && filteredCategories.length === 0 ? (
                 <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
                   <div>
                     <h2 className="text-xl font-bold text-white">
@@ -488,7 +626,7 @@ const GameCategoriesPage = () => {
                 </div>
               ) : null}
 
-              {!loading && filteredCategories.length > 0 && viewMode === "table" ? (
+              {!loading && !manualLoading && filteredCategories.length > 0 && viewMode === "table" ? (
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
@@ -504,7 +642,7 @@ const GameCategoriesPage = () => {
                     {filteredCategories.map((category) => (
                       <tr
                         className="border-b border-white/10"
-                        key={`${category.source}-${category.externalId}`}
+                        key={getCategoryKey(category)}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-4">
@@ -530,7 +668,18 @@ const GameCategoriesPage = () => {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-slate-300">
-                          {category.dataSource}
+                          <div className="flex flex-wrap gap-2">
+                            <span>{category.dataSource}</span>
+                            <span
+                              className={`rounded-lg border px-2 py-0.5 text-xs font-bold ${
+                                category.origin === "external"
+                                  ? "border-violet-300/30 bg-violet-500/15 text-violet-100"
+                                  : "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
+                              }`}
+                            >
+                              {category.origin === "external" ? "Harici" : "Manuel"}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-5 py-4 text-right">
                           <button
@@ -546,12 +695,12 @@ const GameCategoriesPage = () => {
                 </table>
               ) : null}
 
-              {!loading && filteredCategories.length > 0 && viewMode === "grid" ? (
+              {!loading && !manualLoading && filteredCategories.length > 0 && viewMode === "grid" ? (
                 <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
                   {filteredCategories.map((category) => (
                     <article
                       className="rounded-2xl border border-white/10 bg-slate-950/70 p-4"
-                      key={`${category.source}-${category.externalId}`}
+                      key={getCategoryKey(category)}
                     >
                       <CategoryCardImage category={category} />
                       <div className="mt-4 flex items-start justify-between gap-4">
@@ -561,16 +710,27 @@ const GameCategoriesPage = () => {
                             {category.description || "No description provided."}
                           </p>
                           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                            {category.gameCount} games - {category.dataSource}
+                            {category.gameCount} oyun - {category.dataSource}
                           </p>
                         </div>
-                        <span
-                          className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
-                            category.status
-                          )}`}
-                        >
-                          {category.status}
-                        </span>
+                        <div className="flex flex-col gap-2">
+                          <span
+                            className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
+                              category.status
+                            )}`}
+                          >
+                            {category.status}
+                          </span>
+                          <span
+                            className={`rounded-lg border px-3 py-1 text-xs font-bold ${
+                              category.origin === "external"
+                                ? "border-violet-300/30 bg-violet-500/15 text-violet-100"
+                                : "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
+                            }`}
+                          >
+                            {category.origin === "external" ? "Harici" : "Manuel"}
+                          </span>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -587,16 +747,15 @@ const GameCategoriesPage = () => {
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  Add New Category
+                  Kategori Ekle
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Manual category creation UI is prepared, but the create
-                  endpoint is not connected yet.
+                  Steam veya Epic için manuel kategori kaydı oluştur.
                 </p>
               </div>
               <button
-                aria-label="Close modal"
-                className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
+                aria-label="Modalı kapat"
+                className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
                 onClick={closeModal}
                 type="button"
               >
@@ -613,7 +772,26 @@ const GameCategoriesPage = () => {
             >
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-white">
-                  Category Name
+                  Platform / Sağlayıcı
+                </span>
+                <select
+                  className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
+                  onChange={(event) =>
+                    setFormValue({
+                      ...formValue,
+                      source: event.target.value as GameSource,
+                    })
+                  }
+                  value={formValue.source}
+                >
+                  <option value="STEAM">STEAM</option>
+                  <option value="EPIC">EPIC</option>
+                </select>
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">
+                  Kategori adı
                 </span>
                 <input
                   className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
@@ -621,13 +799,14 @@ const GameCategoriesPage = () => {
                   onChange={(event) =>
                     setFormValue({ ...formValue, name: event.target.value })
                   }
-                  placeholder="Enter category name..."
+                  placeholder="Kategori adını girin"
+                  required
                   value={formValue.name}
                 />
               </label>
 
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">Description</span>
+                <span className="text-sm font-bold text-white">Açıklama</span>
                 <textarea
                   className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                   maxLength={500}
@@ -637,61 +816,31 @@ const GameCategoriesPage = () => {
                       description: event.target.value,
                     })
                   }
-                  placeholder="Describe this category..."
-                  value={formValue.description}
+                  placeholder="Kategori açıklamasını girin"
+                  value={formValue.description ?? ""}
                 />
-              </label>
-
-              <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">
-                  Category Icon / Icon URL
-                </span>
-                <input
-                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                  onChange={(event) =>
-                    setFormValue({ ...formValue, iconUrl: event.target.value })
-                  }
-                  placeholder="Optional icon URL"
-                  value={formValue.iconUrl}
-                />
-              </label>
-
-              <label className="grid gap-2">
-                <span className="text-sm font-bold text-white">Status</span>
-                <select
-                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                  onChange={(event) =>
-                    setFormValue({
-                      ...formValue,
-                      status: event.target.value as CategoryForm["status"],
-                    })
-                  }
-                  value={formValue.status}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
               </label>
 
               {formNotice ? (
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
+                <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
                   {formNotice}
                 </div>
               ) : null}
 
               <div className="grid gap-3 pt-2 sm:grid-cols-2">
                 <button
-                  className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50"
+                  className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={creatingCategory || !formValue.name.trim()}
                   type="submit"
                 >
-                  Create Category
+                  {creatingCategory ? "Kaydediliyor..." : "Kategori Ekle"}
                 </button>
                 <button
-                  className="rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
+                  className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
                   onClick={closeModal}
                   type="button"
                 >
-                  Cancel
+                  Vazgeç
                 </button>
               </div>
             </form>

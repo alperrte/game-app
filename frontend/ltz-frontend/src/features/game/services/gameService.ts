@@ -14,18 +14,29 @@ import type {
   GameRequest,
   GameSystemRequirement,
   GameSystemRequirementRequest,
+  GameSource,
 } from "../types/gameTypes";
+
+export const getGamesByFilter = (filters: GameFilters = {}) =>
+  apiClient.get<Game[]>(GAME_API_ENDPOINTS.filterGames, filters);
+
+export const createGame = (request: GameRequest) =>
+  apiClient.post<Game>(GAME_API_ENDPOINTS.games, request);
+
+export const getGameCategories = (source?: GameSource) =>
+  apiClient.get<GameCategory[]>(GAME_API_ENDPOINTS.categories, { source });
+
+export const createGameCategory = (request: GameCategoryRequest) =>
+  apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request);
 
 export const gameService = {
   getGames: () => apiClient.get<Game[]>(GAME_API_ENDPOINTS.games),
-  filterGames: (filters: GameFilters) =>
-    apiClient.get<Game[]>(GAME_API_ENDPOINTS.filterGames, filters),
+  filterGames: getGamesByFilter,
   getPopularGames: () =>
     apiClient.get<Game[]>(GAME_API_ENDPOINTS.popularGames),
   getGameById: (id: number) =>
     apiClient.get<Game>(GAME_API_ENDPOINTS.gameById(id)),
-  createGame: (request: GameRequest) =>
-    apiClient.post<Game>(GAME_API_ENDPOINTS.games, request),
+  createGame,
   updateGame: (id: number, request: GameRequest) =>
     apiClient.put<Game>(GAME_API_ENDPOINTS.gameById(id), request),
   deleteGame: (id: number) =>
@@ -54,12 +65,10 @@ export const gameService = {
   deleteSystemRequirement: (gameId: number) =>
     apiClient.delete(GAME_API_ENDPOINTS.gameSystemRequirements(gameId)),
 
-  getCategories: () =>
-    apiClient.get<GameCategory[]>(GAME_API_ENDPOINTS.categories),
+  getCategories: getGameCategories,
   getCategoryById: (id: number) =>
     apiClient.get<GameCategory>(GAME_API_ENDPOINTS.categoryById(id)),
-  createCategory: (request: GameCategoryRequest) =>
-    apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request),
+  createCategory: createGameCategory,
   updateCategory: (id: number, request: GameCategoryRequest) =>
     apiClient.put<GameCategory>(GAME_API_ENDPOINTS.categoryById(id), request),
   deleteCategory: (id: number) =>

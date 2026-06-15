@@ -1,5 +1,12 @@
+import type { GameSource } from "./externalGame.types";
+
+export type { GameSource } from "./externalGame.types";
+
 export type Game = {
   id: number;
+  source: GameSource;
+  categoryId: number | null;
+  categoryName: string | null;
   title: string;
   description: string | null;
   genre: string | null;
@@ -20,6 +27,8 @@ export type Game = {
 };
 
 export type GameRequest = {
+  source?: GameSource;
+  categoryId?: number | null;
   title: string;
   description?: string | null;
   genre?: string | null;
@@ -38,6 +47,8 @@ export type GameRequest = {
 };
 
 export type GameFilters = {
+  source?: GameSource;
+  categoryId?: number;
   title?: string;
   genre?: string;
   platform?: string;
@@ -80,13 +91,15 @@ export type GameSystemRequirementRequest = {
 
 export type GameCategory = {
   id: number;
+  source: GameSource;
   name: string;
   description: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 };
 
 export type GameCategoryRequest = {
+  source: GameSource;
   name: string;
   description?: string | null;
 };
