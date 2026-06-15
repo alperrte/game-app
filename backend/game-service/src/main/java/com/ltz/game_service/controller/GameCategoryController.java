@@ -2,6 +2,7 @@ package com.ltz.game_service.controller;
 
 import com.ltz.game_service.dto.request.GameCategoryRequest;
 import com.ltz.game_service.dto.response.GameCategoryResponse;
+import com.ltz.game_service.enums.GameSource;
 import com.ltz.game_service.service.GameCategoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,13 @@ public class GameCategoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GameCategoryResponse>> getAllCategories() {
+    public ResponseEntity<List<GameCategoryResponse>> getAllCategories(
+            @RequestParam(required = false) GameSource source
+    ) {
+        if (source != null) {
+            return ResponseEntity.ok(gameCategoryService.getCategoriesBySource(source));
+        }
+
         return ResponseEntity.ok(gameCategoryService.getAllCategories());
     }
 

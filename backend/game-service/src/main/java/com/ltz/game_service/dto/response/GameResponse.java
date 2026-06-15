@@ -1,11 +1,16 @@
 package com.ltz.game_service.dto.response;
 
+import com.ltz.game_service.enums.GameSource;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class GameResponse {
 
     private Long id;
+    private GameSource source;
+    private Long categoryId;
+    private String categoryName;
     private String title;
     private String description;
     private String genre;
@@ -29,6 +34,9 @@ public class GameResponse {
 
     public GameResponse(
             Long id,
+            GameSource source,
+            Long categoryId,
+            String categoryName,
             String title,
             String description,
             String genre,
@@ -48,6 +56,9 @@ public class GameResponse {
             LocalDateTime updatedAt
     ) {
         this.id = id;
+        this.source = source;
+        this.categoryId = categoryId;
+        this.categoryName = categoryName;
         this.title = title;
         this.description = description;
         this.genre = genre;
@@ -69,6 +80,18 @@ public class GameResponse {
 
     public Long getId() {
         return id;
+    }
+
+    public GameSource getSource() {
+        return source;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
     }
 
     public String getTitle() {
