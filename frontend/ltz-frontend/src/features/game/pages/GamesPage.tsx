@@ -1,422 +1,154 @@
-import { useEffect, useMemo, useState } from "react";
-import { GAME_ROUTES } from "../../../lib/constants";
+import { isAxiosError } from "axios";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
+
+import { Button } from "../../../components/ui/Button";
 import GameCard from "../components/GameCard";
-import GameFilterForm from "../components/GameFilterForm";
+import type { GameCardViewMode } from "../components/GameCard";
 import GameNavbar from "../components/GameNavbar";
-import { gameService } from "../services/gameService";
-import type { Game } from "../types/gameTypes";
+import { searchExternalGames } from "../services/externalGameService";
 import type {
-  GameListFilters,
-  GameSortOption,
-  GameViewMode,
-} from "../components/GameFilterForm";
+  ExternalGameSearchResponse,
+  GameSource,
+} from "../types/externalGame.types";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
 
-const mockGames: Game[] = [
-  {
-    id: 1001,
-    title: "Eclipse Frontier",
-    description: "Açık dünya uzay RYO'sunda bilinmeyeni keşfet.",
-    genre: "Aksiyon, RYO",
-    platform: "Windows",
-    releaseDate: "2024-05-24",
-    developer: "Nebula Forge",
-    publisher: "LTZ Studios",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce, Türkçe",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: true,
-    onSale: false,
-    turkishLanguageSupport: false,
-    popularityScore: 91,
-    createdAt: "2024-05-24T10:00:00",
-    updatedAt: "2024-05-24T10:00:00",
-  },
-  {
-    id: 1002,
-    title: "Blood Oath",
-    description: "Onur ve ihanet üzerine sert bir orta çağ macerası.",
-    genre: "Aksiyon, Macera",
-    platform: "Windows",
-    releaseDate: "2024-04-10",
-    developer: "Iron Vale",
-    publisher: "Northmark",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: true,
-    turkishLanguageSupport: false,
-    popularityScore: 82,
-    createdAt: "2024-04-10T10:00:00",
-    updatedAt: "2024-04-10T10:00:00",
-  },
-  {
-    id: 1003,
-    title: "Cybernetica",
-    description: "Distopik siberpunk gelecekte kendi imparatorluğunu kur.",
-    genre: "RYO, Simülasyon",
-    platform: "Windows, Steam",
-    releaseDate: "2024-06-02",
-    developer: "Neon Byte",
-    publisher: "Circuit House",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: false,
-    turkishLanguageSupport: false,
-    popularityScore: 95,
-    createdAt: "2024-06-02T10:00:00",
-    updatedAt: "2024-06-02T10:00:00",
-  },
-  {
-    id: 1004,
-    title: "Forest Whisper",
-    description: "Ormanın kalbinde sakin ama gizemli bir yolculuk.",
-    genre: "Macera, Bağımsız",
-    platform: "Windows",
-    releaseDate: "2024-05-18",
-    developer: "Mosslight",
-    publisher: "Quiet Play",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce, Türkçe",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: false,
-    turkishLanguageSupport: true,
-    popularityScore: 77,
-    createdAt: "2024-05-18T10:00:00",
-    updatedAt: "2024-05-18T10:00:00",
-  },
-  {
-    id: 1005,
-    title: "Race Max Pro",
-    description: "Etkileyici pistler ve gerçekçi fiziklerle yüksek tempolu yarış.",
-    genre: "Yarış, Spor",
-    platform: "Windows, PlayStation",
-    releaseDate: "2024-05-05",
-    developer: "Apex Drive",
-    publisher: "Torque Media",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: true,
-    turkishLanguageSupport: false,
-    popularityScore: 88,
-    createdAt: "2024-05-05T10:00:00",
-    updatedAt: "2024-05-05T10:00:00",
-  },
-  {
-    id: 1006,
-    title: "Last Haven",
-    description: "Kıyamet sonrası açık dünyada hayatta kal.",
-    genre: "Hayatta Kalma",
-    platform: "Windows",
-    releaseDate: "2024-02-14",
-    developer: "Haven Works",
-    publisher: "Ashline",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: true,
-    onSale: false,
-    turkishLanguageSupport: false,
-    popularityScore: 74,
-    createdAt: "2024-02-14T10:00:00",
-    updatedAt: "2024-02-14T10:00:00",
-  },
-  {
-    id: 1007,
-    title: "Pixel Legends",
-    description: "Modern dokunuşlara sahip retro piksel RYO macerası.",
-    genre: "RYO, Bağımsız",
-    platform: "Windows, Steam",
-    releaseDate: "2024-01-30",
-    developer: "Tiny Forge",
-    publisher: "Pixel Bay",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: false,
-    turkishLanguageSupport: false,
-    popularityScore: 79,
-    createdAt: "2024-01-30T10:00:00",
-    updatedAt: "2024-01-30T10:00:00",
-  },
-  {
-    id: 1008,
-    title: "Starfall Tactics",
-    description: "Filona komuta et ve galaksinin kaderi için savaş.",
-    genre: "Strateji, Bilim Kurgu",
-    platform: "Windows",
-    releaseDate: "2024-04-27",
-    developer: "Orbit Line",
-    publisher: "Nova Press",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce, Türkçe",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: false,
-    turkishLanguageSupport: true,
-    popularityScore: 83,
-    createdAt: "2024-04-27T10:00:00",
-    updatedAt: "2024-04-27T10:00:00",
-  },
-  {
-    id: 1009,
-    title: "Myth of Anatolia",
-    description: "Mitlerle dolu bir diyarda kadim sırları ortaya çıkar.",
-    genre: "Aksiyon, Macera",
-    platform: "Windows",
-    releaseDate: "2024-03-02",
-    developer: "Anka Interactive",
-    publisher: "LTZ Studios",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce, Türkçe",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: false,
-    turkishLanguageSupport: false,
-    popularityScore: 86,
-    createdAt: "2024-03-02T10:00:00",
-    updatedAt: "2024-03-02T10:00:00",
-  },
-  {
-    id: 1010,
-    title: "Neon Drift",
-    description: "Neonlarla dolu gelecek şehrinde arcade yarış deneyimi.",
-    genre: "Yarış, Arcade",
-    platform: "Windows, Steam",
-    releaseDate: "2024-06-01",
-    developer: "Glowshift",
-    publisher: "Arc Lane",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: true,
-    turkishLanguageSupport: false,
-    popularityScore: 90,
-    createdAt: "2024-06-01T10:00:00",
-    updatedAt: "2024-06-01T10:00:00",
-  },
-  {
-    id: 1011,
-    title: "Galactic Frontiers",
-    description: "Bilinmeyeni keşfet, genişle ve fethet.",
-    genre: "Strateji, Simülasyon",
-    platform: "Windows",
-    releaseDate: "2024-05-30",
-    developer: "Deep Orbit",
-    publisher: "Starpath",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: true,
-    onSale: false,
-    turkishLanguageSupport: false,
-    popularityScore: 84,
-    createdAt: "2024-05-30T10:00:00",
-    updatedAt: "2024-05-30T10:00:00",
-  },
-  {
-    id: 1012,
-    title: "Shadow's Fall",
-    description: "Her seçimin önemli olduğu karanlık fantastik RYO.",
-    genre: "Aksiyon, RYO",
-    platform: "Windows",
-    releaseDate: "2024-04-03",
-    developer: "Nightglass",
-    publisher: "Black Door",
-    minimumSystemRequirements: null,
-    recommendedSystemRequirements: null,
-    supportedLanguages: "İngilizce, Türkçe",
-    coverImageUrl:
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=900&q=80",
-    earlyAccess: false,
-    onSale: false,
-    turkishLanguageSupport: true,
-    popularityScore: 89,
-    createdAt: "2024-04-03T10:00:00",
-    updatedAt: "2024-04-03T10:00:00",
-  },
-];
+const STEAM_SOURCE: GameSource = "STEAM";
+const SEARCH_DEBOUNCE_MS = 450;
 
-const initialFilters: GameListFilters = {
-  earlyAccess: false,
-  genre: "",
-  onSale: false,
-  platform: "",
-  search: "",
-  turkishLanguageSupport: false,
-};
+const getSearchErrorMessage = (error: unknown) => {
+  if (isAxiosError(error) && error.response?.status === 501) {
+    return "Bu oyun kaynağı henüz aktif değil.";
+  }
 
-const getUniqueValues = (games: Game[], selector: (game: Game) => string | null) => {
-  return Array.from(
-    new Set(
-      games
-        .flatMap((game) => selector(game)?.split(",") ?? [])
-        .map((value) => value.trim())
-        .filter(Boolean)
-    )
-  ).sort();
-};
-
-const getGameTime = (game: Game) => {
-  return new Date(game.releaseDate ?? game.createdAt).getTime();
+  return getErrorMessage(error, "Steam oyunları aranırken bir hata oluştu.");
 };
 
 const GamesPage = () => {
-  const [games, setGames] = useState<Game[]>([]);
-  const [filters, setFilters] = useState<GameListFilters>(initialFilters);
-  const [sort, setSort] = useState<GameSortOption>("newest");
-  const [viewMode, setViewMode] = useState<GameViewMode>("grid");
-  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [games, setGames] = useState<ExternalGameSearchResponse[]>([]);
+  const [query, setQuery] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(12);
-  const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<GameCardViewMode>("grid");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const searchTimeoutRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    let active = true;
-
-    gameService
-      .getGames()
-      .then((backendGames) => {
-        if (!active) {
-          return;
-        }
-
-        if (backendGames.length === 0) {
-          setGames(mockGames);
-          setNotice("Backend oyun döndürmedi, örnek veriler gösteriliyor.");
-          return;
-        }
-
-        setGames(backendGames);
-        setNotice(null);
-      })
-      .catch(() => {
-        if (active) {
-          setGames(mockGames);
-          setNotice("Backend erişilebilir değil, örnek veriler gösteriliyor.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
-
     return () => {
-      active = false;
+      if (searchTimeoutRef.current) {
+        window.clearTimeout(searchTimeoutRef.current);
+      }
+
+      requestIdRef.current += 1;
     };
   }, []);
 
-  const genres = useMemo(() => getUniqueValues(games, (game) => game.genre), [games]);
-  const platforms = useMemo(
-    () => getUniqueValues(games, (game) => game.platform),
-    [games]
-  );
+  const clearScheduledSearch = () => {
+    if (searchTimeoutRef.current) {
+      window.clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+  };
 
-  const filteredGames = useMemo(() => {
-    const normalizedSearch = filters.search.trim().toLowerCase();
-
-    return games
-      .filter((game) => {
-        const searchableText = [
-          game.title,
-          game.genre,
-          game.platform,
-          game.developer,
-          game.publisher,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        if (normalizedSearch && !searchableText.includes(normalizedSearch)) {
-          return false;
-        }
-
-        if (filters.genre && !game.genre?.includes(filters.genre)) {
-          return false;
-        }
-
-        if (filters.platform && !game.platform?.includes(filters.platform)) {
-          return false;
-        }
-
-        if (filters.earlyAccess && !game.earlyAccess) {
-          return false;
-        }
-
-        if (filters.onSale && !game.onSale) {
-          return false;
-        }
-
-        if (filters.turkishLanguageSupport && !game.turkishLanguageSupport) {
-          return false;
-        }
-
-        return true;
-      })
-      .sort((leftGame, rightGame) => {
-        if (sort === "popular") {
-          return rightGame.popularityScore - leftGame.popularityScore;
-        }
-
-        if (sort === "oldest") {
-          return getGameTime(leftGame) - getGameTime(rightGame);
-        }
-
-        return getGameTime(rightGame) - getGameTime(leftGame);
-      });
-  }, [filters, games, sort]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredGames.length / perPage));
-  const currentPage = Math.min(page, totalPages);
-  const visibleGames = filteredGames.slice(
-    (currentPage - 1) * perPage,
-    currentPage * perPage
-  );
-
-  const updateFilters = (nextFilters: GameListFilters) => {
-    setFilters(nextFilters);
+  const resetSearch = (message: string | null, searched: boolean) => {
+    requestIdRef.current += 1;
+    setError(message);
+    setGames([]);
+    setHasSearched(searched);
+    setLoading(false);
     setPage(1);
   };
 
-  const toggleFavorite = (gameId: number) => {
+  const runSearch = async (rawQuery: string) => {
+    const trimmedQuery = rawQuery.trim();
+
+    clearScheduledSearch();
+
+    if (!trimmedQuery) {
+      resetSearch(null, false);
+      return;
+    }
+
+    if (trimmedQuery.length < 2) {
+      resetSearch("Arama yapmak için en az 2 karakter girin.", false);
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    setLoading(true);
+    setError(null);
+    setHasSearched(true);
+
+    try {
+      const results = await searchExternalGames(STEAM_SOURCE, trimmedQuery);
+
+      if (requestIdRef.current === requestId) {
+        setGames(results);
+        setPage(1);
+      }
+    } catch (searchError) {
+      if (requestIdRef.current === requestId) {
+        setGames([]);
+        setError(getSearchErrorMessage(searchError));
+      }
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const scheduleSearch = (nextQuery: string) => {
+    clearScheduledSearch();
+
+    const trimmedQuery = nextQuery.trim();
+
+    if (!trimmedQuery) {
+      resetSearch(null, false);
+      return;
+    }
+
+    if (trimmedQuery.length < 2) {
+      resetSearch("Arama yapmak için en az 2 karakter girin.", false);
+      return;
+    }
+
+    searchTimeoutRef.current = window.setTimeout(() => {
+      void runSearch(nextQuery);
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const handleQueryChange = (nextQuery: string) => {
+    setQuery(nextQuery);
+    scheduleSearch(nextQuery);
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void runSearch(query);
+  };
+
+  const toggleFavorite = (externalId: string) => {
     setFavoriteIds((currentIds) =>
-      currentIds.includes(gameId)
-        ? currentIds.filter((id) => id !== gameId)
-        : [...currentIds, gameId]
+      currentIds.includes(externalId)
+        ? currentIds.filter((id) => id !== externalId)
+        : [...currentIds, externalId]
     );
   };
+
+  const totalPages = Math.max(1, Math.ceil(games.length / perPage));
+  const currentPage = Math.min(page, totalPages);
+  const visibleGames = useMemo(
+    () =>
+      games.slice((currentPage - 1) * perPage, currentPage * perPage),
+    [currentPage, games, perPage]
+  );
 
   return (
     <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
@@ -428,52 +160,102 @@ const GamesPage = () => {
         <main className="mx-auto max-w-[1840px] px-8 py-8">
           <section className="mb-7 flex flex-wrap items-center justify-between gap-5">
             <div className="flex items-center gap-5">
-              <div className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-4xl text-violet-300 shadow-2xl shadow-violet-950/40">
-                ♘
+              <div className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl font-black text-violet-300 shadow-2xl shadow-violet-950/40">
+                ST
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
                   Oyunlar
                 </h1>
                 <p className="mt-3 text-base text-slate-400">
-                  LobbyTwoZero platformundaki tüm oyunları yönet ve keşfet.
+                  Steam oyunlarını backend üzerinden ara ve detaylarını görüntüle.
                 </p>
               </div>
             </div>
-
-            <a
-              className="inline-flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50 transition hover:from-violet-500 hover:to-indigo-500"
-              href={GAME_ROUTES.createGame}
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Yeni Oyun Ekle
-            </a>
           </section>
 
-          <GameFilterForm
-            filters={filters}
-            genres={genres}
-            onFiltersChange={updateFilters}
-            onSortChange={(nextSort) => {
-              setSort(nextSort);
-              setPage(1);
-            }}
-            onViewModeChange={setViewMode}
-            platforms={platforms}
-            sort={sort}
-            viewMode={viewMode}
-          />
+          <form
+            className="rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl"
+            onSubmit={handleSubmit}
+          >
+            <div className="grid gap-4 lg:grid-cols-[220px_1fr_auto]">
+              <label className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Kaynak
+                </span>
+                <select
+                  className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm font-semibold text-white outline-none"
+                  disabled
+                  value={STEAM_SOURCE}
+                >
+                  <option value="STEAM">Steam</option>
+                </select>
+              </label>
 
-          {notice ? (
-            <div className="mt-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
-              {notice}
+              <label className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Oyun adı
+                </span>
+                <input
+                  className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-violet-400/70"
+                  onChange={(event) => handleQueryChange(event.target.value)}
+                  placeholder="Örn. elden ring"
+                  type="search"
+                  value={query}
+                />
+              </label>
+
+              <div className="flex items-end">
+                <Button className="w-full lg:w-auto" isLoading={loading} type="submit">
+                  Ara
+                </Button>
+              </div>
             </div>
-          ) : null}
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm text-slate-400">
+                {hasSearched
+                  ? `${games.length} Steam sonucu`
+                  : "Arama için en az 2 karakter girin."}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                    viewMode === "grid"
+                      ? "bg-violet-600 text-white"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                  onClick={() => setViewMode("grid")}
+                  type="button"
+                >
+                  Grid
+                </button>
+                <button
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                    viewMode === "list"
+                      ? "bg-violet-600 text-white"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                  onClick={() => setViewMode("list")}
+                  type="button"
+                >
+                  Liste
+                </button>
+              </div>
+            </div>
+
+            {error ? (
+              <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-950/25 px-5 py-3 text-sm text-red-100">
+                {error}
+              </div>
+            ) : null}
+          </form>
 
           <section className="mt-5 rounded-3xl border border-white/10 bg-slate-950/45 p-3 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl">
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-                {Array.from({ length: 12 }).map((_, index) => (
+                {Array.from({ length: perPage }).map((_, index) => (
                   <div
                     className="h-80 animate-pulse rounded-2xl border border-white/10 bg-slate-900/70"
                     key={index}
@@ -482,15 +264,28 @@ const GamesPage = () => {
               </div>
             ) : null}
 
-            {!loading && visibleGames.length === 0 ? (
+            {!loading && !hasSearched ? (
               <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-white/15 bg-slate-950/50 p-8 text-center">
                 <div>
-                  <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-violet-500/15 text-3xl text-violet-300">
-                    ⌕
+                  <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-violet-500/15 text-2xl font-black text-violet-300">
+                    ST
                   </div>
+                  <h2 className="text-xl font-bold text-white">
+                    Steam kataloğunda ara
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Sonuçları görmek için oyun adını yazmaya başlayın.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {!loading && hasSearched && visibleGames.length === 0 ? (
+              <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-white/15 bg-slate-950/50 p-8 text-center">
+                <div>
                   <h2 className="text-xl font-bold text-white">Oyun bulunamadı</h2>
                   <p className="mt-2 text-sm text-slate-400">
-                    Arama, tür, platform veya hızlı filtreleri değiştirmeyi dene.
+                    Farklı bir Steam oyun adı ile tekrar arama yapmayı deneyin.
                   </p>
                 </div>
               </div>
@@ -506,9 +301,9 @@ const GamesPage = () => {
               >
                 {visibleGames.map((game) => (
                   <GameCard
-                    favorite={favoriteIds.includes(game.id)}
+                    favorite={favoriteIds.includes(game.externalId)}
                     game={game}
-                    key={game.id}
+                    key={`${game.source}-${game.externalId}`}
                     onToggleFavorite={toggleFavorite}
                     viewMode={viewMode}
                   />
@@ -516,64 +311,68 @@ const GamesPage = () => {
               </div>
             ) : null}
 
-            <footer className="mt-6 flex flex-wrap items-center justify-between gap-4 px-2 pb-1">
-              <div className="flex items-center gap-2">
-                <button
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900/80 text-slate-300 disabled:opacity-40"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  type="button"
-                >
-                  ‹
-                </button>
-                {Array.from({ length: Math.min(totalPages, 5) }).map((_, index) => {
-                  const pageNumber = index + 1;
+            {hasSearched && games.length > 0 ? (
+              <footer className="mt-6 flex flex-wrap items-center justify-between gap-4 px-2 pb-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    className="grid h-10 place-items-center rounded-xl bg-slate-900/80 px-3 text-sm text-slate-300 disabled:opacity-40"
+                    disabled={currentPage === 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    type="button"
+                  >
+                    Önceki
+                  </button>
+                  {Array.from({ length: Math.min(totalPages, 5) }).map(
+                    (_, index) => {
+                      const pageNumber = index + 1;
 
-                  return (
-                    <button
-                      className={`grid h-10 w-10 place-items-center rounded-xl text-sm font-semibold ${
-                        currentPage === pageNumber
-                          ? "bg-violet-600 text-white"
-                          : "text-slate-300 hover:bg-white/5"
-                      }`}
-                      key={pageNumber}
-                      onClick={() => setPage(pageNumber)}
-                      type="button"
-                    >
-                      {pageNumber}
-                    </button>
-                  );
-                })}
-                {totalPages > 5 ? (
-                  <span className="px-2 text-slate-500">...</span>
-                ) : null}
-                <button
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900/80 text-slate-300 disabled:opacity-40"
-                  disabled={currentPage === totalPages}
-                  onClick={() =>
-                    setPage((current) => Math.min(totalPages, current + 1))
-                  }
-                  type="button"
-                >
-                  ›
-                </button>
-              </div>
+                      return (
+                        <button
+                          className={`grid h-10 w-10 place-items-center rounded-xl text-sm font-semibold ${
+                            currentPage === pageNumber
+                              ? "bg-violet-600 text-white"
+                              : "text-slate-300 hover:bg-white/5"
+                          }`}
+                          key={pageNumber}
+                          onClick={() => setPage(pageNumber)}
+                          type="button"
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    }
+                  )}
+                  {totalPages > 5 ? (
+                    <span className="px-2 text-slate-500">...</span>
+                  ) : null}
+                  <button
+                    className="grid h-10 place-items-center rounded-xl bg-slate-900/80 px-3 text-sm text-slate-300 disabled:opacity-40"
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setPage((current) => Math.min(totalPages, current + 1))
+                    }
+                    type="button"
+                  >
+                    Sonraki
+                  </button>
+                </div>
 
-              <label className="rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
-                <select
-                  className="bg-transparent text-sm text-slate-200 outline-none"
-                  onChange={(event) => {
-                    setPerPage(Number(event.target.value));
-                    setPage(1);
-                  }}
-                  value={perPage}
-                >
-                  <option value={6}>Sayfa başına 6</option>
-                  <option value={12}>Sayfa başına 12</option>
-                  <option value={24}>Sayfa başına 24</option>
-                </select>
-              </label>
-            </footer>
+                <label className="rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
+                  <select
+                    className="bg-transparent text-sm text-slate-200 outline-none"
+                    onChange={(event) => {
+                      setPerPage(Number(event.target.value));
+                      setPage(1);
+                    }}
+                    value={perPage}
+                  >
+                    <option value={6}>Sayfa başına 6</option>
+                    <option value={12}>Sayfa başına 12</option>
+                    <option value={24}>Sayfa başına 24</option>
+                  </select>
+                </label>
+              </footer>
+            ) : null}
           </section>
         </main>
       </div>

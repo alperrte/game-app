@@ -1,6 +1,8 @@
 package com.ltz.game_service.provider;
 
+import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.enums.GameSource;
 import org.springframework.stereotype.Component;
@@ -23,5 +25,26 @@ public class EpicGameProvider implements ExternalGameProvider {
     @Override
     public ExternalGameDetailResponse getGameDetail(String externalId) {
         throw new UnsupportedOperationException("Epic Games provider henüz aktif değil.");
+    }
+
+    @Override
+    public List<ExternalGameCategoryResponse> getCategories(String query) {
+        throw new UnsupportedOperationException("Epic Games provider henüz aktif değil.");
+    }
+
+    @Override
+    public ExternalGamePlatformResponse getPlatformInfo() {
+        return new ExternalGamePlatformResponse(
+                GameSource.EPIC,
+                "Epic Games Store",
+                "Epic Games provider henüz aktif değil. İleride Epic Games Store verileri bu provider üzerinden sağlanacak.",
+                "INACTIVE",
+                0,
+                null,
+                2018,
+                "Epic Games",
+                "Not connected yet",
+                null
+        );
     }
 }

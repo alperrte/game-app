@@ -1,6 +1,8 @@
 package com.ltz.game_service.provider;
 
+import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.enums.GameSource;
 
@@ -13,4 +15,8 @@ public interface ExternalGameProvider {
     List<ExternalGameSearchResponse> searchGames(String query);
 
     ExternalGameDetailResponse getGameDetail(String externalId);
+
+    List<ExternalGameCategoryResponse> getCategories(String query);
+
+    ExternalGamePlatformResponse getPlatformInfo();
 }

@@ -49,7 +49,6 @@ export const ROUTES = {
 export const GAME_ROUTES = {
   games: "/games",
   popularGames: "/games/popular",
-  gameDetail: (id: number | string) => `/games/${id}`,
   createGame: "/games/create",
   editGame: (id: number | string) => `/games/${id}/edit`,
   gameSystemRequirements: (id: number | string) =>
@@ -59,6 +58,8 @@ export const GAME_ROUTES = {
   platforms: "/games/platforms",
   developers: "/games/developers",
   publishers: "/games/publishers",
+  externalGameDetail: (source: string, externalId: string) =>
+    `/games/external/${source}/${externalId}`,
 } as const;
 
 /*
@@ -83,6 +84,11 @@ export const GAME_API_ENDPOINTS = {
 
   publishers: "/api/games/publishers",
   publisherById: (id: number | string) => `/api/games/publishers/${id}`,
+
+  externalGameSearch: "/api/games/external/search",
+  externalGameDetail: "/api/games/external/detail",
+  externalGameCategories: "/api/games/external/categories",
+  externalGamePlatforms: "/api/games/external/platforms",
 } as const;
 
 /*

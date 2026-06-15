@@ -28,6 +28,7 @@ const GAME_ROUTES = {
   developers: "/games/developers",
   publishers: "/games/publishers",
   systemRequirements: "/games/system-requirements",
+  externalGameDetail: "/games/external/:source/:externalId",
 };
 
 /*
@@ -105,9 +106,12 @@ export function AppRouter() {
             path={GAME_ROUTES.systemRequirements}
             element={<GameSystemRequirementsPage />}
           />
+          <Route
+            path={GAME_ROUTES.externalGameDetail}
+            element={<GameDetailPage />}
+          />
 
           <Route path="/games/:id/edit" element={<GameEditPage />} />
-          <Route path="/games/:id" element={<GameDetailPage />} />
         </Route>
       </Route>
 

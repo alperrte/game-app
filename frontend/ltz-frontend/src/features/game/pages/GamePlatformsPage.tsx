@@ -1,134 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
+
 import GameNavbar from "../components/GameNavbar";
-import { gameService } from "../services/gameService";
-import type { GamePlatform, GamePlatformRequest } from "../types/gameTypes";
+import { getExternalGamePlatforms } from "../services/externalGameService";
+import type { ExternalGamePlatform } from "../types/externalGame.types";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
 
-type PlatformStatus = "active" | "inactive";
-
-type PlatformRow = GamePlatform & {
-  activeUsers: string;
-  developer: string;
-  icon: string;
-  releaseYear: number;
-  status: PlatformStatus;
-  totalGames: number;
-};
+type PlatformStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 
 type PlatformForm = {
   description: string;
   developer: string;
+  logoUrl: string;
   name: string;
   releaseYear: string;
   slug: string;
-  status: PlatformStatus;
+  status: "ACTIVE" | "INACTIVE";
 };
 
-const mockPlatforms: PlatformRow[] = [
-  {
-    id: 701,
-    name: "Steam",
-    description: "Steam is a digital distribution platform developed by Valve Corporation.",
-    status: "active",
-    totalGames: 856,
-    activeUsers: "18.5K",
-    releaseYear: 2003,
-    developer: "Valve Corporation",
-    icon: "S",
-    createdAt: "2024-05-24T10:42:00",
-    updatedAt: "2024-05-24T10:42:00",
-  },
-  {
-    id: 702,
-    name: "Epic Games Store",
-    description: "PC gaming storefront and launcher from Epic Games.",
-    status: "active",
-    totalGames: 432,
-    activeUsers: "12.1K",
-    releaseYear: 2018,
-    developer: "Epic Games",
-    icon: "E",
-    createdAt: "2024-05-11T10:42:00",
-    updatedAt: "2024-05-11T10:42:00",
-  },
-  {
-    id: 703,
-    name: "PlayStation Store",
-    description: "Digital store for PlayStation games and content.",
-    status: "active",
-    totalGames: 678,
-    activeUsers: "15.2K",
-    releaseYear: 2006,
-    developer: "Sony Interactive Entertainment",
-    icon: "P",
-    createdAt: "2024-04-21T10:42:00",
-    updatedAt: "2024-04-21T10:42:00",
-  },
-  {
-    id: 704,
-    name: "Xbox Store",
-    description: "Microsoft gaming store for Xbox and Windows titles.",
-    status: "active",
-    totalGames: 523,
-    activeUsers: "11.8K",
-    releaseYear: 2013,
-    developer: "Microsoft Corporation",
-    icon: "X",
-    createdAt: "2024-04-08T10:42:00",
-    updatedAt: "2024-04-08T10:42:00",
-  },
-  {
-    id: 705,
-    name: "GOG.com",
-    description: "DRM-free game distribution platform.",
-    status: "active",
-    totalGames: 2145,
-    activeUsers: "3.2K",
-    releaseYear: 2008,
-    developer: "GOG Limited",
-    icon: "G",
-    createdAt: "2024-03-19T10:42:00",
-    updatedAt: "2024-03-19T10:42:00",
-  },
-  {
-    id: 706,
-    name: "Nintendo eShop",
-    description: "Digital game store for Nintendo platforms.",
-    status: "inactive",
-    totalGames: 312,
-    activeUsers: "2.1K",
-    releaseYear: 2011,
-    developer: "Nintendo",
-    icon: "N",
-    createdAt: "2024-02-28T10:42:00",
-    updatedAt: "2024-02-28T10:42:00",
-  },
-  {
-    id: 707,
-    name: "Mac App Store",
-    description: "Apple storefront for macOS games and apps.",
-    status: "active",
-    totalGames: 189,
-    activeUsers: "1.6K",
-    releaseYear: 2011,
-    developer: "Apple Inc.",
-    icon: "A",
-    createdAt: "2024-02-11T10:42:00",
-    updatedAt: "2024-02-11T10:42:00",
-  },
-  {
-    id: 708,
-    name: "Google Play Games",
-    description: "Google platform for Android and PC game access.",
-    status: "active",
-    totalGames: 245,
-    activeUsers: "4.3K",
-    releaseYear: 2013,
-    developer: "Google LLC",
-    icon: "G",
-    createdAt: "2024-01-22T10:42:00",
-    updatedAt: "2024-01-22T10:42:00",
-  },
-];
+const emptyForm: PlatformForm = {
+  name: "",
+  slug: "",
+  description: "",
+  developer: "",
+  releaseYear: "",
+  status: "ACTIVE",
+  logoUrl: "",
+};
 
 const createSlug = (value: string) => {
   return value
@@ -138,39 +35,20 @@ const createSlug = (value: string) => {
     .replace(/^-|-$/g, "");
 };
 
-const mapBackendPlatform = (
-  platform: GamePlatform,
-  index: number
-): PlatformRow => {
-  const mockPlatform = mockPlatforms[index % mockPlatforms.length];
+const normalizeStatus = (status: string) => status.trim().toUpperCase();
 
-  return {
-    ...platform,
-    description: platform.description ?? "No description provided.",
-    status: index % 7 === 0 ? "inactive" : "active",
-    totalGames: 120 + ((platform.id * 31 + index * 19) % 900),
-    activeUsers: `${(1 + ((platform.id + index) % 24)).toFixed(1)}K`,
-    releaseYear: mockPlatform.releaseYear,
-    developer: mockPlatform.developer,
-    icon: platform.name.charAt(0).toUpperCase(),
-  };
-};
-
-const mapPlatformToForm = (platform: PlatformRow): PlatformForm => {
-  return {
-    name: platform.name,
-    slug: createSlug(platform.name),
-    description: platform.description ?? "",
-    developer: platform.developer,
-    releaseYear: String(platform.releaseYear),
-    status: platform.status,
-  };
-};
-
-const statusBadgeClass = (status: PlatformStatus) => {
-  return status === "active"
+const statusBadgeClass = (status: string) => {
+  return normalizeStatus(status) === "ACTIVE"
     ? "border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
     : "border-red-400/20 bg-red-500/15 text-red-200";
+};
+
+const formatActiveUsers = (activeUsers: string | null) => {
+  return activeUsers?.trim() || "N/A";
+};
+
+const platformInitial = (platform: ExternalGamePlatform) => {
+  return platform.name.trim().charAt(0).toUpperCase() || platform.source.charAt(0);
 };
 
 const StatCard = ({
@@ -204,87 +82,84 @@ const StatCard = ({
   );
 };
 
-const emptyForm: PlatformForm = {
-  name: "",
-  slug: "",
-  description: "",
-  developer: "",
-  releaseYear: "",
-  status: "active",
+const PlatformAvatar = ({ platform }: { platform: ExternalGamePlatform }) => {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoUrl = platform.logoUrl?.trim();
+  const shouldShowLogo = Boolean(logoUrl) && !logoFailed;
+
+  return (
+    <div className="h-11 w-11 overflow-hidden rounded-full border border-violet-400/20 bg-gradient-to-br from-sky-500 to-violet-700">
+      {shouldShowLogo ? (
+        <img
+          alt={platform.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setLogoFailed(true)}
+          src={logoUrl}
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center text-lg font-black text-white">
+          {platformInitial(platform)}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const GamePlatformsPage = () => {
-  const [platforms, setPlatforms] = useState<PlatformRow[]>([]);
-  const [selectedPlatform, setSelectedPlatform] = useState<PlatformRow | null>(
-    null
-  );
+  const [platforms, setPlatforms] = useState<ExternalGamePlatform[]>([]);
   const [formValue, setFormValue] = useState<PlatformForm>(emptyForm);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | PlatformStatus>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<PlatformStatusFilter>("all");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const fetchPlatforms = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const results = await getExternalGamePlatforms();
+      setPlatforms(results);
+    } catch (platformError) {
+      console.error("External platforms could not be loaded.", platformError);
+      setPlatforms([]);
+      setError(
+        getErrorMessage(
+          platformError,
+          "Platforms could not be loaded from external providers."
+        )
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
+    const initialLoadTimeout = window.setTimeout(() => {
+      void fetchPlatforms();
+    }, 0);
 
-    gameService
-      .getPlatforms()
-      .then((backendPlatforms) => {
-        if (!active) {
-          return;
-        }
-
-        const nextPlatforms =
-          backendPlatforms.length > 0
-            ? backendPlatforms.map(mapBackendPlatform)
-            : mockPlatforms;
-
-        setPlatforms(nextPlatforms);
-        setSelectedPlatform(nextPlatforms[0] ?? null);
-        setFormValue(nextPlatforms[0] ? mapPlatformToForm(nextPlatforms[0]) : emptyForm);
-        setNotice(
-          backendPlatforms.length > 0
-            ? null
-            : "Backend returned no platforms, showing mock data."
-        );
-      })
-      .catch(() => {
-        if (active) {
-          setPlatforms(mockPlatforms);
-          setSelectedPlatform(mockPlatforms[0]);
-          setFormValue(mapPlatformToForm(mockPlatforms[0]));
-          setNotice("Backend is unavailable, showing mock platform data.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+    return () => window.clearTimeout(initialLoadTimeout);
   }, []);
 
   const stats = useMemo(() => {
-    const activePlatforms = platforms.filter(
-      (platform) => platform.status === "active"
-    ).length;
     const totalGames = platforms.reduce(
       (total, platform) => total + platform.totalGames,
       0
     );
-    const totalUsers = platforms.reduce((total, platform) => {
-      return total + Number(platform.activeUsers.replace("K", ""));
-    }, 0);
 
     return {
-      activePlatforms,
+      activePlatforms: platforms.filter(
+        (platform) => normalizeStatus(platform.status) === "ACTIVE"
+      ).length,
       totalGames,
       totalPlatforms: platforms.length,
-      totalUsers: `${totalUsers.toFixed(1)}K`,
+      totalUsers: "N/A",
     };
   }, [platforms]);
 
@@ -292,85 +167,42 @@ const GamePlatformsPage = () => {
     const normalizedSearch = search.trim().toLowerCase();
 
     return platforms.filter((platform) => {
+      const searchableText = [
+        platform.name,
+        platform.source,
+        platform.developer,
+        platform.description,
+      ]
+        .join(" ")
+        .toLowerCase();
       const matchesSearch =
-        !normalizedSearch ||
-        `${platform.name} ${platform.developer}`
-          .toLowerCase()
-          .includes(normalizedSearch);
+        !normalizedSearch || searchableText.includes(normalizedSearch);
       const matchesStatus =
-        statusFilter === "all" || platform.status === statusFilter;
+        statusFilter === "all" ||
+        normalizeStatus(platform.status) === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
   }, [platforms, search, statusFilter]);
 
-  const selectPlatform = (platform: PlatformRow) => {
-    setSelectedPlatform(platform);
-    setFormValue(mapPlatformToForm(platform));
-    setNotice(null);
-  };
-
-  const addPlatform = () => {
-    setSelectedPlatform(null);
+  const openModal = () => {
     setFormValue(emptyForm);
-    setNotice("Fill the details panel to create a new platform.");
+    setFormNotice(null);
+    setIsModalOpen(true);
   };
 
-  const savePlatform = async () => {
-    const request: GamePlatformRequest = {
-      name: formValue.name.trim(),
-      description: formValue.description.trim() || null,
-    };
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormNotice(null);
+    setFormValue(emptyForm);
+  };
 
-    if (!request.name) {
-      setNotice("Platform name is required.");
-      return;
-    }
+  const showActionNotice = (message: string) => {
+    setNotice(message);
+  };
 
-    setSaving(true);
-
-    try {
-      if (selectedPlatform) {
-        const updatedPlatform = await gameService.updatePlatform(
-          selectedPlatform.id,
-          request
-        );
-        const nextPlatform: PlatformRow = {
-          ...selectedPlatform,
-          ...updatedPlatform,
-          description: updatedPlatform.description ?? request.description ?? null,
-          developer: formValue.developer,
-          releaseYear: Number(formValue.releaseYear) || selectedPlatform.releaseYear,
-          status: formValue.status,
-        };
-        setPlatforms((currentPlatforms) =>
-          currentPlatforms.map((platform) =>
-            platform.id === nextPlatform.id ? nextPlatform : platform
-          )
-        );
-        setSelectedPlatform(nextPlatform);
-        setNotice("Platform updated successfully.");
-      } else {
-        const createdPlatform = await gameService.createPlatform(request);
-        const nextPlatform: PlatformRow = {
-          ...createdPlatform,
-          description: createdPlatform.description ?? request.description ?? null,
-          activeUsers: "0.0K",
-          developer: formValue.developer || "Unknown Developer",
-          icon: createdPlatform.name.charAt(0).toUpperCase(),
-          releaseYear: Number(formValue.releaseYear) || new Date().getFullYear(),
-          status: formValue.status,
-          totalGames: 0,
-        };
-        setPlatforms((currentPlatforms) => [nextPlatform, ...currentPlatforms]);
-        setSelectedPlatform(nextPlatform);
-        setNotice("Platform created successfully.");
-      }
-    } catch {
-      setNotice("Backend save failed. Please try again later.");
-    } finally {
-      setSaving(false);
-    }
+  const handleCreatePlatform = () => {
+    setFormNotice("Platform oluşturma işlemi henüz backend'e bağlı değil.");
   };
 
   return (
@@ -387,13 +219,13 @@ const GamePlatformsPage = () => {
                 Game Platforms
               </h1>
               <p className="mt-2 text-base text-slate-400">
-                Manage platforms and their details
+                Browse external provider platforms through the API Gateway.
               </p>
             </div>
 
             <button
               className="inline-flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={addPlatform}
+              onClick={openModal}
               type="button"
             >
               <span className="text-3xl font-light leading-none">+</span>
@@ -404,73 +236,99 @@ const GamePlatformsPage = () => {
           <div className="mb-6 grid gap-4 lg:grid-cols-4">
             <StatCard
               accent="bg-violet-500/15 text-violet-300"
-              helper="All platforms"
-              icon="♘"
+              helper="Loaded from external providers"
+              icon="P"
               label="Total Platforms"
               value={String(stats.totalPlatforms)}
             />
             <StatCard
               accent="bg-emerald-500/15 text-emerald-300"
-              helper="Currently supported"
-              icon="◇"
+              helper="Status equals ACTIVE"
+              icon="A"
               label="Active Platforms"
               value={String(stats.activePlatforms)}
             />
             <StatCard
               accent="bg-sky-500/15 text-sky-300"
-              helper="Across all platforms"
-              icon="▤"
+              helper="Across listed platforms"
+              icon="G"
               label="Total Games"
               value={stats.totalGames.toLocaleString("en")}
             />
             <StatCard
               accent="bg-violet-500/15 text-violet-300"
-              helper="Platform users"
-              icon="♙"
+              helper="Provider user count unavailable"
+              icon="U"
               label="Total Users"
               value={stats.totalUsers}
             />
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[1fr_580px]">
-            <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="mb-5 grid gap-4 md:grid-cols-[1fr_240px]">
-                <label className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
-                    ⌕
-                  </span>
-                  <input
-                    className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search platforms..."
-                    value={search}
-                  />
-                </label>
+          <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <div className="mb-5 grid gap-4 md:grid-cols-[1fr_240px]">
+              <label className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
+                  ?
+                </span>
+                <input
+                  className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search platforms..."
+                  type="search"
+                  value={search}
+                />
+              </label>
 
-                <select
-                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                  onChange={(event) =>
-                    setStatusFilter(event.target.value as "all" | PlatformStatus)
-                  }
-                  value={statusFilter}
-                >
-                  <option value="all">Filter by Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+              <select
+                className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as PlatformStatusFilter)
+                }
+                value={statusFilter}
+              >
+                <option value="all">Filter by Status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+
+            {notice ? (
+              <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
+                {notice}
               </div>
+            ) : null}
 
-              {notice ? (
-                <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
-                  {notice}
+            {error ? (
+              <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="overflow-hidden rounded-2xl border border-white/10">
+              {loading ? (
+                <div className="grid h-96 place-items-center text-sm font-semibold text-slate-300">
+                  Loading platforms...
                 </div>
               ) : null}
 
-              <div className="overflow-hidden rounded-2xl border border-white/10">
-                {loading ? (
-                  <div className="h-96 animate-pulse bg-slate-900/70" />
-                ) : (
-                  <table className="w-full text-left text-sm">
+              {!loading && filteredPlatforms.length === 0 ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      No platforms found.
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      {error
+                        ? "The provider endpoint did not return a platform list."
+                        : "Try a different search or status filter."}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!loading && filteredPlatforms.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1080px] text-left text-sm">
                     <thead className="border-b border-white/10 bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
                       <tr>
                         <th className="px-5 py-4">Platform</th>
@@ -479,6 +337,7 @@ const GamePlatformsPage = () => {
                         <th className="px-5 py-4">Active Users</th>
                         <th className="px-5 py-4">Release Year</th>
                         <th className="px-5 py-4">Developer</th>
+                        <th className="px-5 py-4">Data Source</th>
                         <th className="px-5 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -486,21 +345,24 @@ const GamePlatformsPage = () => {
                       {filteredPlatforms.map((platform) => (
                         <tr
                           className="border-b border-white/10 hover:bg-white/[0.03]"
-                          key={platform.id}
+                          key={platform.source}
                         >
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-4">
-                              <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-violet-700 text-lg font-black text-white">
-                                {platform.icon}
+                              <PlatformAvatar platform={platform} />
+                              <div>
+                                <span className="font-bold text-white">
+                                  {platform.name}
+                                </span>
+                                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  {platform.source}
+                                </p>
                               </div>
-                              <span className="font-bold text-white">
-                                {platform.name}
-                              </span>
                             </div>
                           </td>
                           <td className="px-5 py-4">
                             <span
-                              className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
+                              className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
                                 platform.status
                               )}`}
                             >
@@ -511,7 +373,7 @@ const GamePlatformsPage = () => {
                             {platform.totalGames.toLocaleString("en")}
                           </td>
                           <td className="px-5 py-4 text-slate-200">
-                            {platform.activeUsers}
+                            {formatActiveUsers(platform.activeUsers)}
                           </td>
                           <td className="px-5 py-4 text-slate-200">
                             {platform.releaseYear}
@@ -519,20 +381,32 @@ const GamePlatformsPage = () => {
                           <td className="px-5 py-4 text-slate-300">
                             {platform.developer}
                           </td>
+                          <td className="px-5 py-4 text-slate-300">
+                            {platform.dataSource}
+                          </td>
                           <td className="px-5 py-4">
                             <div className="flex justify-end gap-2">
                               <button
-                                className="grid h-10 w-10 place-items-center rounded-lg border border-violet-400/30 text-violet-300"
-                                onClick={() => selectPlatform(platform)}
+                                className="grid h-10 w-10 place-items-center rounded-lg border border-violet-400/30 text-xs font-bold text-violet-300"
+                                onClick={() =>
+                                  showActionNotice(
+                                    "Platform düzenleme işlemi henüz backend'e bağlı değil."
+                                  )
+                                }
                                 type="button"
                               >
-                                ✎
+                                Edit
                               </button>
                               <button
-                                className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-slate-300"
+                                className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-xl text-slate-300"
+                                onClick={() =>
+                                  showActionNotice(
+                                    "Platform aksiyonları henüz backend'e bağlı değil."
+                                  )
+                                }
                                 type="button"
                               >
-                                ⋯
+                                ...
                               </button>
                             </div>
                           </td>
@@ -540,181 +414,177 @@ const GamePlatformsPage = () => {
                       ))}
                     </tbody>
                   </table>
-                )}
-              </div>
-            </section>
-
-            <aside className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <h2 className="text-2xl font-bold text-white">Platform Details</h2>
-
-              <div className="mt-6 flex items-center gap-5">
-                <div className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-violet-700 text-3xl font-black text-white">
-                  {(
-                    selectedPlatform?.icon ??
-                    (formValue.name.charAt(0) || "P")
-                  ).toUpperCase()}
                 </div>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-2xl font-bold text-white">
-                      {formValue.name || "New Platform"}
-                    </h3>
-                    <span
-                      className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
-                        formValue.status
-                      )}`}
-                    >
-                      {formValue.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-400">
-                    PC Gaming Platform
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Created on May 24, 2024
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-7 flex gap-8 border-b border-white/10">
-                {["Overview", "Statistics", "Settings"].map((tab, index) => (
-                  <button
-                    className={`pb-3 text-sm font-bold ${
-                      index === 0
-                        ? "border-b-2 border-violet-500 text-white"
-                        : "text-slate-400"
-                    }`}
-                    key={tab}
-                    type="button"
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <form
-                className="mt-6 space-y-5"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void savePlatform();
-                }}
-              >
-                <label className="grid gap-2">
-                  <span className="text-sm text-slate-400">Platform Name</span>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                    maxLength={100}
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        name: event.target.value,
-                        slug: createSlug(event.target.value),
-                      })
-                    }
-                    value={formValue.name}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm text-slate-400">Slug</span>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                    onChange={(event) =>
-                      setFormValue({ ...formValue, slug: event.target.value })
-                    }
-                    value={formValue.slug}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm text-slate-400">Description</span>
-                  <textarea
-                    className="min-h-24 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-violet-400/70"
-                    maxLength={500}
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        description: event.target.value,
-                      })
-                    }
-                    value={formValue.description}
-                  />
-                </label>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-2">
-                    <span className="text-sm text-slate-400">Developer</span>
-                    <input
-                      className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                      onChange={(event) =>
-                        setFormValue({
-                          ...formValue,
-                          developer: event.target.value,
-                        })
-                      }
-                      value={formValue.developer}
-                    />
-                  </label>
-
-                  <label className="grid gap-2">
-                    <span className="text-sm text-slate-400">Release Year</span>
-                    <input
-                      className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                      onChange={(event) =>
-                        setFormValue({
-                          ...formValue,
-                          releaseYear: event.target.value,
-                        })
-                      }
-                      value={formValue.releaseYear}
-                    />
-                  </label>
-                </div>
-
-                <label className="grid gap-2">
-                  <span className="text-sm text-slate-400">Status</span>
-                  <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        status: event.target.value as PlatformStatus,
-                      })
-                    }
-                    value={formValue.status}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </label>
-
-                <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
-                  <button
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-6 text-sm font-bold text-white"
-                    onClick={() => {
-                      if (selectedPlatform) {
-                        setFormValue(mapPlatformToForm(selectedPlatform));
-                      } else {
-                        setFormValue(emptyForm);
-                      }
-                    }}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                    disabled={saving}
-                    type="submit"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            </aside>
-          </div>
+              ) : null}
+            </div>
+          </section>
         </main>
       </div>
+
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-4 py-8 backdrop-blur-sm">
+          <section className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Add Platform</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Manual platform creation UI is prepared, but the create
+                  endpoint is not connected yet.
+                </p>
+              </div>
+              <button
+                aria-label="Close modal"
+                className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
+                onClick={closeModal}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+
+            <form
+              className="space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleCreatePlatform();
+              }}
+            >
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">
+                  Platform Name
+                </span>
+                <input
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  maxLength={100}
+                  onChange={(event) =>
+                    setFormValue({
+                      ...formValue,
+                      name: event.target.value,
+                      slug: createSlug(event.target.value),
+                    })
+                  }
+                  placeholder="Enter platform name..."
+                  value={formValue.name}
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Slug</span>
+                <input
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  onChange={(event) =>
+                    setFormValue({ ...formValue, slug: event.target.value })
+                  }
+                  placeholder="platform-slug"
+                  value={formValue.slug}
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Description</span>
+                <textarea
+                  className="min-h-24 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  maxLength={500}
+                  onChange={(event) =>
+                    setFormValue({
+                      ...formValue,
+                      description: event.target.value,
+                    })
+                  }
+                  placeholder="Describe this platform..."
+                  value={formValue.description}
+                />
+              </label>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">Developer</span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) =>
+                      setFormValue({
+                        ...formValue,
+                        developer: event.target.value,
+                      })
+                    }
+                    placeholder="Developer..."
+                    value={formValue.developer}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Release Year
+                  </span>
+                  <input
+                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    inputMode="numeric"
+                    onChange={(event) =>
+                      setFormValue({
+                        ...formValue,
+                        releaseYear: event.target.value,
+                      })
+                    }
+                    placeholder="2003"
+                    value={formValue.releaseYear}
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Status</span>
+                <select
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
+                  onChange={(event) =>
+                    setFormValue({
+                      ...formValue,
+                      status: event.target.value as PlatformForm["status"],
+                    })
+                  }
+                  value={formValue.status}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Logo URL</span>
+                <input
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  onChange={(event) =>
+                    setFormValue({ ...formValue, logoUrl: event.target.value })
+                  }
+                  placeholder="Optional logo URL"
+                  value={formValue.logoUrl}
+                />
+              </label>
+
+              {formNotice ? (
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
+                  {formNotice}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                <button
+                  className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50"
+                  type="submit"
+                >
+                  Create Platform
+                </button>
+                <button
+                  className="rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
+                  onClick={closeModal}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 };

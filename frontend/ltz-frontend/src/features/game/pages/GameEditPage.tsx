@@ -283,7 +283,7 @@ const GameEditPage = () => {
             <div className="flex items-center gap-5">
               <a
                 className="grid h-14 w-14 place-items-center rounded-xl border border-white/10 bg-slate-950/60 text-3xl text-white"
-                href={GAME_ROUTES.gameDetail(originalGame.id)}
+                href={GAME_ROUTES.games}
               >
                 ←
               </a>

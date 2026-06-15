@@ -2,9 +2,12 @@ package com.ltz.game_service.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.dto.steam.SteamAppDetailsResponse;
+import com.ltz.game_service.dto.steam.SteamSearchResultsResponse;
 import com.ltz.game_service.dto.steam.SteamStoreSearchResponse;
 import com.ltz.game_service.enums.GameSource;
 import org.springframework.stereotype.Component;
@@ -19,6 +22,81 @@ import java.util.stream.Collectors;
 public class SteamGameProvider implements ExternalGameProvider {
 
     private static final int SEARCH_RESULT_LIMIT = 20;
+
+    private static final List<SteamCategory> STEAM_CATEGORIES = List.of(
+            new SteamCategory(
+                    "action",
+                    "Aksiyon",
+                    "Hızlı tempo, savaş, çatışma ve refleks odaklı Steam oyunları.",
+                    "action"
+            ),
+            new SteamCategory(
+                    "adventure",
+                    "Macera",
+                    "Keşif, hikaye anlatımı ve görev odaklı Steam oyunları.",
+                    "adventure"
+            ),
+            new SteamCategory(
+                    "rpg",
+                    "RYO",
+                    "Karakter geliştirme, rol yapma ve hikaye ilerleyişi sunan Steam oyunları.",
+                    "rpg"
+            ),
+            new SteamCategory(
+                    "strategy",
+                    "Strateji",
+                    "Planlama, kaynak yönetimi ve taktiksel kararlar içeren Steam oyunları.",
+                    "strategy"
+            ),
+            new SteamCategory(
+                    "simulation",
+                    "Simülasyon",
+                    "Gerçek hayat, araç, şehir, meslek veya sistem simülasyonu sunan Steam oyunları.",
+                    "simulation"
+            ),
+            new SteamCategory(
+                    "racing",
+                    "Yarış",
+                    "Araç kullanımı, hız ve yarış rekabeti üzerine kurulu Steam oyunları.",
+                    "racing"
+            ),
+            new SteamCategory(
+                    "sports",
+                    "Spor",
+                    "Futbol, basketbol, dövüş, fitness ve diğer spor temalı Steam oyunları.",
+                    "sports"
+            ),
+            new SteamCategory(
+                    "indie",
+                    "Bağımsız",
+                    "Bağımsız geliştiriciler tarafından yayınlanan yaratıcı Steam oyunları.",
+                    "indie"
+            ),
+            new SteamCategory(
+                    "horror",
+                    "Korku",
+                    "Gerilim, hayatta kalma korkusu ve atmosfer odaklı Steam oyunları.",
+                    "horror"
+            ),
+            new SteamCategory(
+                    "survival",
+                    "Hayatta Kalma",
+                    "Kaynak toplama, üretim ve zorlu koşullarda yaşam mücadelesi içeren Steam oyunları.",
+                    "survival"
+            ),
+            new SteamCategory(
+                    "open-world",
+                    "Açık Dünya",
+                    "Geniş haritalarda serbest keşif ve görev yapısı sunan Steam oyunları.",
+                    "open world"
+            ),
+            new SteamCategory(
+                    "multiplayer",
+                    "Çok Oyunculu",
+                    "Birden fazla oyuncuyla çevrim içi veya yerel oynanabilen Steam oyunları.",
+                    "multiplayer"
+            )
+    );
 
     private final RestClient steamStoreClient;
     private final ObjectMapper objectMapper;
@@ -90,6 +168,107 @@ public class SteamGameProvider implements ExternalGameProvider {
                 false,
                 hasTurkishLanguage(data.getSupportedLanguages())
         );
+    }
+
+    @Override
+    public List<ExternalGameCategoryResponse> getCategories(String query) {
+        return STEAM_CATEGORIES.stream()
+                .filter(category -> matchesCategoryQuery(category, query))
+                .map(category -> {
+                    SteamCategoryStats stats = getSteamCategoryStats(category.searchTerm());
+
+                    return new ExternalGameCategoryResponse(
+                            GameSource.STEAM,
+                            category.externalId(),
+                            category.name(),
+                            category.description(),
+                            stats.gameCount(),
+                            "ACTIVE",
+                            "Steam Store API",
+                            stats.imageUrl()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ExternalGamePlatformResponse getPlatformInfo() {
+        return new ExternalGamePlatformResponse(
+                GameSource.STEAM,
+                "Steam",
+                "Steam Store API üzerinden oyun, kategori ve platform verisi sağlayan aktif provider.",
+                "ACTIVE",
+                fetchSteamSearchTotalCount(""),
+                null,
+                2003,
+                "Valve Corporation",
+                "Steam Store API",
+                null
+        );
+    }
+
+    private SteamCategoryStats getSteamCategoryStats(String searchTerm) {
+        SteamStoreSearchResponse searchResponse = fetchSteamStoreSearch(searchTerm);
+
+        Integer gameCount = fetchSteamSearchTotalCount(searchTerm);
+        String imageUrl = getFirstValidImageUrl(searchResponse);
+
+        return new SteamCategoryStats(gameCount, imageUrl);
+    }
+
+    private Integer fetchSteamSearchTotalCount(String query) {
+        try {
+            String response = steamStoreClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/search/results/")
+                            .queryParam("term", query)
+                            .queryParam("cc", "tr")
+                            .queryParam("l", "turkish")
+                            .queryParam("count", 0)
+                            .queryParam("start", 0)
+                            .queryParam("infinite", 1)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+
+            SteamSearchResultsResponse searchResultsResponse =
+                    objectMapper.readValue(response, SteamSearchResultsResponse.class);
+
+            if (searchResultsResponse == null || searchResultsResponse.getTotalCount() == null) {
+                return 0;
+            }
+
+            return searchResultsResponse.getTotalCount();
+        } catch (Exception e) {
+            throw new RuntimeException("Steam toplam arama sonucu alınamadı. Query: " + query, e);
+        }
+    }
+
+    private String getFirstValidImageUrl(SteamStoreSearchResponse searchResponse) {
+        if (searchResponse == null || searchResponse.getItems() == null) {
+            return null;
+        }
+
+        return searchResponse.getItems()
+                .stream()
+                .filter(item -> item.getId() != null)
+                .filter(item -> item.getName() != null && !item.getName().isBlank())
+                .map(item -> buildSteamHeaderImageUrl(item.getId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean matchesCategoryQuery(SteamCategory category, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+
+        String normalizedQuery = normalizeText(query);
+
+        return normalizeText(category.externalId()).contains(normalizedQuery)
+                || normalizeText(category.name()).contains(normalizedQuery)
+                || normalizeText(category.description()).contains(normalizedQuery)
+                || normalizeText(category.searchTerm()).contains(normalizedQuery);
     }
 
     private SteamStoreSearchResponse fetchSteamStoreSearch(String query) {
@@ -209,6 +388,18 @@ public class SteamGameProvider implements ExternalGameProvider {
                 || normalized.contains("turkce");
     }
 
+    private String normalizeText(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return Normalizer.normalize(value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace("ı", "i")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
     private String buildSteamHeaderImageUrl(Integer appId) {
         return "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appId + "/header.jpg";
     }
@@ -226,5 +417,19 @@ public class SteamGameProvider implements ExternalGameProvider {
                 .replace("&lt;", "<")
                 .replace("&gt;", ">")
                 .trim();
+    }
+
+    private record SteamCategory(
+            String externalId,
+            String name,
+            String description,
+            String searchTerm
+    ) {
+    }
+
+    private record SteamCategoryStats(
+            Integer gameCount,
+            String imageUrl
+    ) {
     }
 }

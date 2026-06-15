@@ -1,6 +1,8 @@
 package com.ltz.game_service.service;
 
+import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.enums.GameSource;
 import com.ltz.game_service.provider.ExternalGameProvider;
@@ -29,6 +31,17 @@ public class ExternalGameService {
 
     public ExternalGameDetailResponse getDetail(GameSource source, String externalId) {
         return getProvider(source).getGameDetail(externalId);
+    }
+
+    public List<ExternalGameCategoryResponse> getCategories(GameSource source, String query) {
+        return getProvider(source).getCategories(query);
+    }
+
+    public List<ExternalGamePlatformResponse> getPlatforms() {
+        return providers.values()
+                .stream()
+                .map(ExternalGameProvider::getPlatformInfo)
+                .collect(Collectors.toList());
     }
 
     private ExternalGameProvider getProvider(GameSource source) {

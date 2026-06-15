@@ -1,137 +1,44 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import GameNavbar from "../components/GameNavbar";
-import { gameService } from "../services/gameService";
-import type { GameCategory, GameCategoryRequest } from "../types/gameTypes";
+import { getExternalGameCategories } from "../services/externalGameService";
+import type {
+  ExternalGameCategory,
+  GameSource,
+} from "../types/externalGame.types";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
 
-type CategoryStatus = "active" | "inactive";
+type CategoryStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 type CategoryViewMode = "grid" | "table";
-
-type CategoryRow = GameCategory & {
-  iconUrl: string;
-  status: CategoryStatus;
-  totalGames: number;
-};
+type SortOption = "name-asc" | "name-desc" | "games-asc" | "games-desc";
 
 type CategoryForm = {
   description: string;
   iconUrl: string;
   name: string;
-  status: CategoryStatus;
+  status: "ACTIVE" | "INACTIVE";
 };
-
-const mockCategories: CategoryRow[] = [
-  {
-    id: 501,
-    name: "Cybernetica",
-    description: "Cyberpunk and futuristic games set in high-tech worlds.",
-    totalGames: 284,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-06-02T10:42:00",
-    updatedAt: "2024-06-02T10:42:00",
-  },
-  {
-    id: 502,
-    name: "Action RPG",
-    description: "Action role-playing games with character progression and story.",
-    totalGames: 412,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-05-24T10:42:00",
-    updatedAt: "2024-05-24T10:42:00",
-  },
-  {
-    id: 503,
-    name: "Adventure",
-    description: "Story-driven games focused on exploration and puzzle solving.",
-    totalGames: 356,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-04-10T10:42:00",
-    updatedAt: "2024-04-10T10:42:00",
-  },
-  {
-    id: 504,
-    name: "Survival",
-    description: "Games focused on survival, crafting, and resource management.",
-    totalGames: 298,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-03-18T10:42:00",
-    updatedAt: "2024-03-18T10:42:00",
-  },
-  {
-    id: 505,
-    name: "Racing",
-    description: "High-speed racing games and driving simulations.",
-    totalGames: 189,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-05-05T10:42:00",
-    updatedAt: "2024-05-05T10:42:00",
-  },
-  {
-    id: 506,
-    name: "Strategy",
-    description: "Strategic thinking and tactical gameplay experiences.",
-    totalGames: 267,
-    status: "inactive",
-    iconUrl:
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-02-14T10:42:00",
-    updatedAt: "2024-02-14T10:42:00",
-  },
-  {
-    id: 507,
-    name: "Fantasy",
-    description: "Fantasy-themed games with magical elements and mythical worlds.",
-    totalGames: 324,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-01-30T10:42:00",
-    updatedAt: "2024-01-30T10:42:00",
-  },
-];
 
 const initialForm: CategoryForm = {
   name: "",
   description: "",
   iconUrl: "",
-  status: "active",
+  status: "ACTIVE",
 };
 
-const formatDate = (value: string) => {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-};
+const SEARCH_DEBOUNCE_MS = 450;
 
-const mapBackendCategory = (
-  category: GameCategory,
-  index: number
-): CategoryRow => {
-  return {
-    ...category,
-    description: category.description ?? "No description provided.",
-    totalGames: 80 + ((category.id * 37 + index * 23) % 420),
-    status: index % 6 === 0 ? "inactive" : "active",
-    iconUrl: mockCategories[index % mockCategories.length].iconUrl,
-  };
-};
-
-const statusBadgeClass = (status: CategoryStatus) => {
-  return status === "active"
+const statusBadgeClass = (status: string) => {
+  return status.toUpperCase() === "ACTIVE"
     ? "border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
     : "border-red-400/20 bg-red-500/15 text-red-200";
 };
+
+const sourceLabel = (source: GameSource) => {
+  return source === "STEAM" ? "Steam" : "Epic";
+};
+
+const normalizeStatus = (status: string) => status.trim().toUpperCase();
 
 const StatCard = ({
   accent,
@@ -150,7 +57,7 @@ const StatCard = ({
     <article className="rounded-2xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl">
       <div className="flex items-center gap-4">
         <div
-          className={`grid h-16 w-16 place-items-center rounded-2xl text-4xl ${accent}`}
+          className={`grid h-16 w-16 place-items-center rounded-2xl text-3xl ${accent}`}
         >
           {icon}
         </div>
@@ -164,146 +71,226 @@ const StatCard = ({
   );
 };
 
+const CategoryCardImage = ({
+  category,
+}: {
+  category: ExternalGameCategory;
+}) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = category.imageUrl?.trim();
+  const shouldShowImage = Boolean(imageUrl) && !imageFailed;
+
+  return (
+    <div className="h-32 w-full overflow-hidden rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-950/80 via-slate-950 to-cyan-950/70">
+      {shouldShowImage ? (
+        <img
+          alt={category.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+          src={imageUrl}
+        />
+      ) : (
+        <div className="flex h-full w-full flex-col justify-between p-4">
+          <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-violet-100">
+            {category.source}
+          </span>
+          <div>
+            <p className="text-lg font-black text-white">{category.name}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              External category
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CategoryListImage = ({
+  category,
+}: {
+  category: ExternalGameCategory;
+}) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = category.imageUrl?.trim();
+  const shouldShowImage = Boolean(imageUrl) && !imageFailed;
+
+  return (
+    <div className="h-12 w-20 overflow-hidden rounded-lg border border-violet-400/20 bg-violet-950/40">
+      {shouldShowImage ? (
+        <img
+          alt={category.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+          src={imageUrl}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs font-bold text-violet-100">
+          {category.source}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const GameCategoriesPage = () => {
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [categories, setCategories] = useState<ExternalGameCategory[]>([]);
+  const [source, setSource] = useState<GameSource>("STEAM");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | CategoryStatus>("all");
+  const [status, setStatus] = useState<CategoryStatusFilter>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [minGames, setMinGames] = useState(0);
   const [viewMode, setViewMode] = useState<CategoryViewMode>("table");
   const [formValue, setFormValue] = useState<CategoryForm>(initialForm);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const searchTimeoutRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
+
+  const clearScheduledSearch = () => {
+    if (searchTimeoutRef.current) {
+      window.clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+  };
+
+  const fetchCategories = async (nextSource: GameSource, rawQuery: string) => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const results = await getExternalGameCategories(
+        nextSource,
+        rawQuery.trim() || undefined
+      );
+
+      if (requestIdRef.current === requestId) {
+        setCategories(results);
+      }
+    } catch (categoryError) {
+      if (requestIdRef.current === requestId) {
+        console.error("External categories could not be loaded.", categoryError);
+        setCategories([]);
+        setError(
+          getErrorMessage(
+            categoryError,
+            "Categories could not be loaded for selected source."
+          )
+        );
+      }
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const scheduleCategoryFetch = (nextSource: GameSource, nextSearch: string) => {
+    clearScheduledSearch();
+
+    searchTimeoutRef.current = window.setTimeout(() => {
+      void fetchCategories(nextSource, nextSearch);
+    }, SEARCH_DEBOUNCE_MS);
+  };
 
   useEffect(() => {
-    let active = true;
-
-    gameService
-      .getCategories()
-      .then((backendCategories) => {
-        if (!active) {
-          return;
-        }
-
-        if (backendCategories.length === 0) {
-          setCategories(mockCategories);
-          setNotice("Backend returned no categories, showing mock data.");
-          return;
-        }
-
-        setCategories(backendCategories.map(mapBackendCategory));
-      })
-      .catch(() => {
-        if (active) {
-          setCategories(mockCategories);
-          setNotice("Backend is unavailable, showing mock category data.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    const initialLoadTimeout = window.setTimeout(() => {
+      void fetchCategories("STEAM", "");
+    }, 0);
 
     return () => {
-      active = false;
+      window.clearTimeout(initialLoadTimeout);
+      clearScheduledSearch();
+      requestIdRef.current += 1;
     };
   }, []);
 
   const stats = useMemo(() => {
-    const activeCount = categories.filter(
-      (category) => category.status === "active"
-    ).length;
     const totalGames = categories.reduce(
-      (total, category) => total + category.totalGames,
+      (total, category) => total + category.gameCount,
       0
     );
-    const average =
-      categories.length > 0 ? Math.round(totalGames / categories.length) : 0;
+    const totalCategories = categories.length;
 
     return {
-      activeCount,
-      average,
-      totalCategories: categories.length,
+      activeCount: categories.filter(
+        (category) => normalizeStatus(category.status) === "ACTIVE"
+      ).length,
+      average:
+        totalCategories > 0 ? Math.round(totalGames / totalCategories) : 0,
+      totalCategories,
       totalGames,
     };
   }, [categories]);
 
   const filteredCategories = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const filtered = categories.filter((category) => {
+      const matchesStatus =
+        status === "all" || normalizeStatus(category.status) === status;
+      const matchesMinGames = category.gameCount >= minGames;
 
-    return categories
-      .filter((category) => {
-        const matchesSearch =
-          !normalizedSearch ||
-          `${category.name} ${category.description}`
-            .toLowerCase()
-            .includes(normalizedSearch);
-        const matchesStatus = status === "all" || category.status === status;
-        const matchesMinGames = category.totalGames >= minGames;
+      return matchesStatus && matchesMinGames;
+    });
 
-        return matchesSearch && matchesStatus && matchesMinGames;
-      })
-      .sort((leftCategory, rightCategory) =>
-        leftCategory.name.localeCompare(rightCategory.name)
-      );
-  }, [categories, minGames, search, status]);
+    return [...filtered].sort((leftCategory, rightCategory) => {
+      if (sortBy === "name-desc") {
+        return rightCategory.name.localeCompare(leftCategory.name, "tr");
+      }
+
+      if (sortBy === "games-asc") {
+        return leftCategory.gameCount - rightCategory.gameCount;
+      }
+
+      if (sortBy === "games-desc") {
+        return rightCategory.gameCount - leftCategory.gameCount;
+      }
+
+      return leftCategory.name.localeCompare(rightCategory.name, "tr");
+    });
+  }, [categories, minGames, sortBy, status]);
 
   const resetFilters = () => {
+    clearScheduledSearch();
     setSearch("");
     setStatus("all");
+    setSortBy("name-asc");
     setMinGames(0);
+    void fetchCategories(source, "");
   };
 
-  const createCategory = async () => {
-    const request: GameCategoryRequest = {
-      name: formValue.name.trim(),
-      description: formValue.description.trim() || null,
-    };
+  const handleSourceChange = (nextSource: GameSource) => {
+    clearScheduledSearch();
+    setSource(nextSource);
+    setStatus("all");
+    setMinGames(0);
+    void fetchCategories(nextSource, search);
+  };
 
-    if (!request.name) {
-      setError("Category name is required.");
-      return;
-    }
+  const handleSearchChange = (nextSearch: string) => {
+    setSearch(nextSearch);
+    scheduleCategoryFetch(source, nextSearch);
+  };
 
-    setSubmitting(true);
-    setError(null);
+  const openModal = () => {
+    setFormNotice(null);
+    setIsModalOpen(true);
+  };
 
-    try {
-      const createdCategory = await gameService.createCategory(request);
-      setCategories((currentCategories) => [
-        {
-          ...createdCategory,
-          description: createdCategory.description ?? request.description ?? null,
-          iconUrl: formValue.iconUrl || mockCategories[0].iconUrl,
-          status: formValue.status,
-          totalGames: 0,
-        },
-        ...currentCategories,
-      ]);
-      setFormValue(initialForm);
-      setNotice("Category created successfully.");
-    } catch {
-      const mockCreatedCategory: CategoryRow = {
-        id: Date.now(),
-        name: request.name,
-        description: request.description ?? null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        iconUrl: formValue.iconUrl || mockCategories[0].iconUrl,
-        status: formValue.status,
-        totalGames: 0,
-      };
-      setCategories((currentCategories) => [
-        mockCreatedCategory,
-        ...currentCategories,
-      ]);
-      setFormValue(initialForm);
-      setNotice("Backend create failed, category added locally as mock data.");
-    } finally {
-      setSubmitting(false);
-    }
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormNotice(null);
+    setFormValue(initialForm);
+  };
+
+  const handleCreateCategory = () => {
+    setFormNotice("Kategori oluşturma işlemi henüz backend'e bağlı değil.");
   };
 
   return (
@@ -317,24 +304,21 @@ const GameCategoriesPage = () => {
           <section className="mb-6 flex flex-wrap items-center justify-between gap-5">
             <div className="flex items-center gap-5">
               <div className="grid h-16 w-16 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl text-violet-300">
-                ▦
+                #
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
                   Game Categories
                 </h1>
                 <p className="mt-2 text-base text-slate-400">
-                  Manage and organize game categories to help users discover
-                  games.
+                  Browse external provider categories through the API Gateway.
                 </p>
               </div>
             </div>
 
             <button
               className="inline-flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={() => {
-                document.getElementById("category-name")?.focus();
-              }}
+              onClick={openModal}
               type="button"
             >
               <span className="text-3xl font-light leading-none">+</span>
@@ -342,361 +326,378 @@ const GameCategoriesPage = () => {
             </button>
           </section>
 
-          <div className="grid gap-5 xl:grid-cols-[1fr_440px]">
-            <div className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-4">
-                <StatCard
-                  accent="bg-violet-500/15 text-violet-300"
-                  helper="All categories in the system"
-                  icon="▦"
-                  label="Total Categories"
-                  value={String(stats.totalCategories)}
-                />
-                <StatCard
-                  accent="bg-cyan-500/15 text-cyan-300"
-                  helper="Currently active categories"
-                  icon="♘"
-                  label="Active Categories"
-                  value={String(stats.activeCount)}
-                />
-                <StatCard
-                  accent="bg-emerald-500/15 text-emerald-300"
-                  helper="Games across all categories"
-                  icon="◎"
-                  label="Total Games"
-                  value={stats.totalGames.toLocaleString("en")}
-                />
-                <StatCard
-                  accent="bg-amber-500/15 text-amber-300"
-                  helper="Average distribution"
-                  icon="↗"
-                  label="Avg. Games per Category"
-                  value={String(stats.average)}
-                />
-              </div>
+          <div className="space-y-5">
+            <div className="grid gap-4 lg:grid-cols-4">
+              <StatCard
+                accent="bg-violet-500/15 text-violet-300"
+                helper="Loaded from selected source"
+                icon="#"
+                label="Total Categories"
+                value={String(stats.totalCategories)}
+              />
+              <StatCard
+                accent="bg-cyan-500/15 text-cyan-300"
+                helper="Status equals ACTIVE"
+                icon="A"
+                label="Active Categories"
+                value={String(stats.activeCount)}
+              />
+              <StatCard
+                accent="bg-emerald-500/15 text-emerald-300"
+                helper="Games across listed categories"
+                icon="G"
+                label="Total Games"
+                value={stats.totalGames.toLocaleString("en")}
+              />
+              <StatCard
+                accent="bg-amber-500/15 text-amber-300"
+                helper="Average distribution"
+                icon="/"
+                label="Avg. Games per Category"
+                value={String(stats.average)}
+              />
+            </div>
 
-              <section className="rounded-2xl border border-white/10 bg-slate-950/55 p-3 backdrop-blur-xl">
-                <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.7fr_0.8fr_auto_1fr_auto]">
-                  <label className="relative">
-                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
-                      ⌕
-                    </span>
-                    <input
-                      className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search categories..."
-                      value={search}
-                    />
-                  </label>
-
-                  <select className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none">
-                    <option>Sort by: Name (A-Z)</option>
-                  </select>
-
+            <section className="rounded-2xl border border-white/10 bg-slate-950/55 p-3 backdrop-blur-xl">
+              <div className="grid gap-3 xl:grid-cols-[0.8fr_1.4fr_0.8fr_0.7fr_0.8fr_auto_1fr_auto]">
+                <label className="space-y-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Source
+                  </span>
                   <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
                     onChange={(event) =>
-                      setStatus(event.target.value as "all" | CategoryStatus)
+                      handleSourceChange(event.target.value as GameSource)
                     }
-                    value={status}
+                    value={source}
                   >
-                    <option value="all">Status: All</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="STEAM">Steam</option>
+                    <option value="EPIC">Epic</option>
                   </select>
+                </label>
 
-                  <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                    onChange={(event) => setMinGames(Number(event.target.value))}
-                    value={minGames}
-                  >
-                    <option value={0}>Min. Games: Any</option>
-                    <option value={100}>100+</option>
-                    <option value={250}>250+</option>
-                    <option value={300}>300+</option>
-                  </select>
+                <label className="relative self-end">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
+                    ?
+                  </span>
+                  <input
+                    className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                    onChange={(event) => handleSearchChange(event.target.value)}
+                    placeholder="Search categories..."
+                    type="search"
+                    value={search}
+                  />
+                </label>
 
+                <select
+                  className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                  onChange={(event) =>
+                    setSortBy(event.target.value as SortOption)
+                  }
+                  value={sortBy}
+                >
+                  <option value="name-asc">Sort by: Name (A-Z)</option>
+                  <option value="name-desc">Sort by: Name (Z-A)</option>
+                  <option value="games-asc">Games: Low to High</option>
+                  <option value="games-desc">Games: High to Low</option>
+                </select>
+
+                <select
+                  className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                  onChange={(event) =>
+                    setStatus(event.target.value as CategoryStatusFilter)
+                  }
+                  value={status}
+                >
+                  <option value="all">Status: All</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+
+                <select
+                  className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                  onChange={(event) => setMinGames(Number(event.target.value))}
+                  value={minGames}
+                >
+                  <option value={0}>Min. Games: Any</option>
+                  <option value={100}>100+</option>
+                  <option value={250}>250+</option>
+                  <option value={300}>300+</option>
+                </select>
+
+                <button
+                  className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-5 text-sm font-semibold text-slate-300"
+                  onClick={resetFilters}
+                  type="button"
+                >
+                  Reset
+                </button>
+
+                <div className="flex items-end justify-end pb-3 text-sm text-slate-400">
+                  {filteredCategories.length} {sourceLabel(source)} results
+                </div>
+
+                <div className="flex h-12 self-end overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
                   <button
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-5 text-sm font-semibold text-slate-300"
-                    onClick={resetFilters}
+                    className={`grid w-16 place-items-center rounded-lg text-xs font-semibold ${
+                      viewMode === "grid" ? "bg-violet-600" : "text-slate-400"
+                    }`}
+                    onClick={() => setViewMode("grid")}
                     type="button"
                   >
-                    Reset
+                    Grid
                   </button>
-
-                  <div className="flex items-center justify-end text-sm text-slate-400">
-                    {filteredCategories.length} results
-                  </div>
-
-                  <div className="flex h-12 overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
-                    <button
-                      className={`grid w-12 place-items-center rounded-lg ${
-                        viewMode === "grid" ? "bg-violet-600" : "text-slate-400"
-                      }`}
-                      onClick={() => setViewMode("grid")}
-                      type="button"
-                    >
-                      ▦
-                    </button>
-                    <button
-                      className={`grid w-12 place-items-center rounded-lg ${
-                        viewMode === "table" ? "bg-violet-600" : "text-slate-400"
-                      }`}
-                      onClick={() => setViewMode("table")}
-                      type="button"
-                    >
-                      ☰
-                    </button>
-                  </div>
+                  <button
+                    className={`grid w-16 place-items-center rounded-lg text-xs font-semibold ${
+                      viewMode === "table" ? "bg-violet-600" : "text-slate-400"
+                    }`}
+                    onClick={() => setViewMode("table")}
+                    type="button"
+                  >
+                    List
+                  </button>
                 </div>
-              </section>
+              </div>
+            </section>
 
-              {notice ? (
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
-                  {notice}
+            {error ? (
+              <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                {error}
+              </div>
+            ) : null}
+
+            <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur-xl">
+              {loading ? (
+                <div className="grid h-96 place-items-center text-sm font-semibold text-slate-300">
+                  Loading categories...
                 </div>
               ) : null}
 
-              {error ? (
-                <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
-                  {error}
+              {!loading && filteredCategories.length === 0 ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      No categories found for selected source.
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      {error
+                        ? "The provider did not return a category list."
+                        : "Try a different source or search query."}
+                    </p>
+                  </div>
                 </div>
               ) : null}
 
-              <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur-xl">
-                {loading ? (
-                  <div className="h-96 animate-pulse bg-slate-900/70" />
-                ) : null}
-
-                {!loading && viewMode === "table" ? (
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
-                      <tr>
-                        <th className="px-5 py-4">Category</th>
-                        <th className="px-5 py-4">Description</th>
-                        <th className="px-5 py-4">Total Games</th>
-                        <th className="px-5 py-4">Status</th>
-                        <th className="px-5 py-4">Created At</th>
-                        <th className="px-5 py-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCategories.map((category, index) => (
-                        <tr
-                          className={`border-b border-white/10 ${
-                            index === 0 ? "outline outline-1 outline-violet-500" : ""
-                          }`}
-                          key={category.id}
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-4">
-                              <img
-                                alt={category.name}
-                                className="h-14 w-16 rounded-lg object-cover"
-                                src={category.iconUrl}
-                              />
-                              <span className="font-bold text-white">
-                                {category.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="max-w-md px-5 py-4 text-slate-300">
-                            {category.description}
-                          </td>
-                          <td className="px-5 py-4 text-slate-200">
-                            {category.totalGames}
-                          </td>
-                          <td className="px-5 py-4">
-                            <span
-                              className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
-                                category.status
-                              )}`}
-                            >
-                              {category.status}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-slate-300">
-                            {formatDate(category.createdAt)}
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <button
-                              className="rounded-lg px-3 py-1 text-2xl text-slate-300 hover:bg-white/5"
-                              type="button"
-                            >
-                              ⋮
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : null}
-
-                {!loading && viewMode === "grid" ? (
-                  <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+              {!loading && filteredCategories.length > 0 && viewMode === "table" ? (
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-5 py-4">Category</th>
+                      <th className="px-5 py-4">Description</th>
+                      <th className="px-5 py-4">Total Games</th>
+                      <th className="px-5 py-4">Status</th>
+                      <th className="px-5 py-4">Data Source</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {filteredCategories.map((category) => (
-                      <article
-                        className="rounded-2xl border border-white/10 bg-slate-950/70 p-4"
-                        key={category.id}
+                      <tr
+                        className="border-b border-white/10"
+                        key={`${category.source}-${category.externalId}`}
                       >
-                        <img
-                          alt={category.name}
-                          className="h-32 w-full rounded-xl object-cover"
-                          src={category.iconUrl}
-                        />
-                        <div className="mt-4 flex items-start justify-between gap-4">
-                          <div>
-                            <h2 className="font-bold text-white">{category.name}</h2>
-                            <p className="mt-2 text-sm text-slate-400">
-                              {category.description}
-                            </p>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-4">
+                            <CategoryListImage category={category} />
+                            <span className="font-bold text-white">
+                              {category.name}
+                            </span>
                           </div>
+                        </td>
+                        <td className="max-w-md px-5 py-4 text-slate-300">
+                          {category.description || "No description provided."}
+                        </td>
+                        <td className="px-5 py-4 text-slate-200">
+                          {category.gameCount}
+                        </td>
+                        <td className="px-5 py-4">
                           <span
-                            className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
+                            className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
                               category.status
                             )}`}
                           >
                             {category.status}
                           </span>
-                        </div>
-                      </article>
+                        </td>
+                        <td className="px-5 py-4 text-slate-300">
+                          {category.dataSource}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            className="rounded-lg px-3 py-1 text-2xl text-slate-300 hover:bg-white/5"
+                            type="button"
+                          >
+                            ...
+                          </button>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                ) : null}
-              </section>
-            </div>
+                  </tbody>
+                </table>
+              ) : null}
 
-            <aside className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">
-                    Add New Category
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Create a new game category to organize games and help users
-                    discover content.
-                  </p>
-                </div>
-                <button
-                  className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl text-slate-400"
-                  onClick={() => setFormValue(initialForm)}
-                  type="button"
-                >
-                  ×
-                </button>
-              </div>
-
-              <form
-                className="space-y-5"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void createCategory();
-                }}
-              >
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">
-                    Category Name
-                  </span>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    id="category-name"
-                    maxLength={100}
-                    onChange={(event) =>
-                      setFormValue({ ...formValue, name: event.target.value })
-                    }
-                    placeholder="Enter category name..."
-                    value={formValue.name}
-                  />
-                  <span className="text-xs text-slate-500">
-                    Choose a clear, descriptive name for the category.
-                  </span>
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Description</span>
-                  <textarea
-                    className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    maxLength={500}
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        description: event.target.value,
-                      })
-                    }
-                    placeholder="Describe this category..."
-                    value={formValue.description}
-                  />
-                  <span className="text-xs text-slate-500">
-                    Explain what types of games belong in this category.
-                  </span>
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">
-                    Category Icon
-                  </span>
-                  <div className="grid min-h-32 place-items-center rounded-xl border border-dashed border-violet-400/50 bg-violet-500/5 p-5 text-center">
-                    <div>
-                      <div className="text-4xl text-violet-300">↥</div>
-                      <div className="mt-2 font-bold text-violet-100">
-                        Upload Icon
+              {!loading && filteredCategories.length > 0 && viewMode === "grid" ? (
+                <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredCategories.map((category) => (
+                    <article
+                      className="rounded-2xl border border-white/10 bg-slate-950/70 p-4"
+                      key={`${category.source}-${category.externalId}`}
+                    >
+                      <CategoryCardImage category={category} />
+                      <div className="mt-4 flex items-start justify-between gap-4">
+                        <div>
+                          <h2 className="font-bold text-white">{category.name}</h2>
+                          <p className="mt-2 text-sm text-slate-400">
+                            {category.description || "No description provided."}
+                          </p>
+                          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                            {category.gameCount} games - {category.dataSource}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
+                            category.status
+                          )}`}
+                        >
+                          {category.status}
+                        </span>
                       </div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        PNG, JPG or SVG (512x512)
-                      </div>
-                    </div>
-                  </div>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    onChange={(event) =>
-                      setFormValue({ ...formValue, iconUrl: event.target.value })
-                    }
-                    placeholder="Optional icon URL"
-                    value={formValue.iconUrl}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Status</span>
-                  <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        status: event.target.value as CategoryStatus,
-                      })
-                    }
-                    value={formValue.status}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                  <span className="text-xs text-slate-500">
-                    Set the initial status for this category.
-                  </span>
-                </label>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <button
-                    className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                    disabled={submitting}
-                    type="submit"
-                  >
-                    {submitting ? "Creating..." : "Create Category"}
-                  </button>
-                  <button
-                    className="rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
-                    onClick={() => setFormValue(initialForm)}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
+                    </article>
+                  ))}
                 </div>
-              </form>
-            </aside>
+              ) : null}
+            </section>
           </div>
         </main>
       </div>
+
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-4 py-8 backdrop-blur-sm">
+          <section className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  Add New Category
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Manual category creation UI is prepared, but the create
+                  endpoint is not connected yet.
+                </p>
+              </div>
+              <button
+                aria-label="Close modal"
+                className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
+                onClick={closeModal}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+
+            <form
+              className="space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleCreateCategory();
+              }}
+            >
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">
+                  Category Name
+                </span>
+                <input
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  maxLength={100}
+                  onChange={(event) =>
+                    setFormValue({ ...formValue, name: event.target.value })
+                  }
+                  placeholder="Enter category name..."
+                  value={formValue.name}
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Description</span>
+                <textarea
+                  className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  maxLength={500}
+                  onChange={(event) =>
+                    setFormValue({
+                      ...formValue,
+                      description: event.target.value,
+                    })
+                  }
+                  placeholder="Describe this category..."
+                  value={formValue.description}
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">
+                  Category Icon / Icon URL
+                </span>
+                <input
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                  onChange={(event) =>
+                    setFormValue({ ...formValue, iconUrl: event.target.value })
+                  }
+                  placeholder="Optional icon URL"
+                  value={formValue.iconUrl}
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">Status</span>
+                <select
+                  className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
+                  onChange={(event) =>
+                    setFormValue({
+                      ...formValue,
+                      status: event.target.value as CategoryForm["status"],
+                    })
+                  }
+                  value={formValue.status}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </label>
+
+              {formNotice ? (
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
+                  {formNotice}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                <button
+                  className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50"
+                  type="submit"
+                >
+                  Create Category
+                </button>
+                <button
+                  className="rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
+                  onClick={closeModal}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 };

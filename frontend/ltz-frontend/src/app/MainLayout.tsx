@@ -3,23 +3,24 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 
 import { Button } from "../components/ui/Button";
-import { APP_NAME, ROUTES } from "../lib/constants";
+import { ROUTES } from "../lib/constants";
 import { getRefreshToken } from "../lib/token";
 import { clearAuth, useAuthStore } from "../store/authStore";
 import { authService } from "../features/auth/services/authService";
-
-/*
- * MainLayout: Login / register dışındaki ana uygulama ekranlarının ortak kabuğu.
- * Giriş sonrası sayfalar bu layout içindeki <Outlet /> alanında açılır.
- *
- * Game-service sayfalarında sidebar kullanılmaz.
- * Game-service sayfalarının kendi yatay navbar yapısı feature içinde yönetilir.
- */
+import ltzLogo from "../assets/ltz-yazi.png";
+import {
+  getUserDisplayName,
+  getUserInitials,
+  getUserRoleLabel,
+} from "../utils/authUserDisplay";
 
 export function MainLayout() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const displayName = getUserDisplayName(user);
+  const roleLabel = getUserRoleLabel(user);
+  const initials = getUserInitials(user);
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -27,15 +28,11 @@ export function MainLayout() {
     const refreshToken = getRefreshToken();
 
     try {
-      /*
-       * Refresh token'ı backend'de iptal et. Hata olsa bile
-       * istemci tarafında oturumu yine de temizleriz.
-       */
       if (refreshToken) {
         await authService.logout({ refreshToken });
       }
     } catch {
-      /* logout hatası kullanıcıyı engellememeli */
+      /* Logout hatasi kullaniciyi engellememeli. */
     } finally {
       clearAuth();
       navigate(ROUTES.login, { replace: true });
@@ -45,17 +42,35 @@ export function MainLayout() {
   return (
     <div className="min-h-screen bg-ltz-bg text-white">
       <header className="border-b border-white/10 bg-ltz-panel/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <span className="text-sm font-bold tracking-widest text-fuchsia-300">
-            {APP_NAME}
-          </span>
+        <div className="flex h-14 w-full items-center justify-between px-4 sm:px-6">
+          <a
+            aria-label="Ana sayfa"
+            className="flex shrink-0 items-center overflow-hidden"
+            href={ROUTES.home}
+          >
+            <img
+              alt="LTZ Logo"
+              className="h-9 w-auto object-contain sm:h-10"
+              src={ltzLogo}
+            />
+          </a>
 
-          <div className="flex items-center gap-3">
-            {user && (
-              <span className="text-sm text-zinc-300">
-                {user.username}
-              </span>
-            )}
+          <div className="ml-auto flex items-center gap-3">
+            <div className="hidden items-center gap-3 sm:flex">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-violet-300 to-fuchsia-600 text-xs font-bold text-slate-950">
+                {initials}
+              </div>
+              <div className="min-w-0 text-right">
+                <div className="max-w-40 truncate text-sm font-semibold text-white">
+                  {displayName}
+                </div>
+                {roleLabel ? (
+                  <div className="max-w-40 truncate text-xs text-zinc-400">
+                    {roleLabel}
+                  </div>
+                ) : null}
+              </div>
+            </div>
 
             <Button
               type="button"
@@ -65,7 +80,7 @@ export function MainLayout() {
               leftIcon={<LogOut size={15} />}
               onClick={handleLogout}
             >
-              Çıkış
+              Çıkış Yap
             </Button>
           </div>
         </div>

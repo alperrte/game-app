@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
+
+import { Button } from "../../../components/ui/Button";
 import { ROUTES } from "../../../lib/constants";
 import { getRefreshToken } from "../../../lib/token";
+import { clearAuth, useAuthStore } from "../../../store/authStore";
+import {
+  getUserDisplayName,
+  getUserInitials,
+  getUserRoleLabel,
+} from "../../../utils/authUserDisplay";
+import ltzLogo from "../../../assets/ltz-yazi.png";
 import { authService } from "../../auth/services/authService";
-import { clearAuth } from "../../../store/authStore";
 
 type GameNavbarActiveItem =
   | "Categories"
@@ -18,22 +27,26 @@ type GameNavbarProps = {
 };
 
 const navItems = [
-  { key: "Games", label: "Oyunlar", href: "/games", icon: "♘" },
-  { key: "Categories", label: "Kategoriler", href: "/games/categories", icon: "⬡" },
-  { key: "Platforms", label: "Platformlar", href: "/games/platforms", icon: "▭" },
-  { key: "Developers", label: "Geliştiriciler", href: "/games/developers", icon: "♙" },
-  { key: "Publishers", label: "Yayıncılar", href: "/games/publishers", icon: "▥" },
+  { key: "Games", label: "Oyunlar", href: "/games", icon: "G" },
+  { key: "Categories", label: "Kategoriler", href: "/games/categories", icon: "K" },
+  { key: "Platforms", label: "Platformlar", href: "/games/platforms", icon: "P" },
+  { key: "Developers", label: "Geliştiriciler", href: "/games/developers", icon: "D" },
+  { key: "Publishers", label: "Yayıncılar", href: "/games/publishers", icon: "Y" },
   {
     key: "SystemRequirements",
     label: "Sistem Gereksinimleri",
     href: "/games/system-requirements",
-    icon: "⚙",
+    icon: "S",
   },
 ] as const;
 
 const GameNavbar = ({ activeItem }: GameNavbarProps) => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const displayName = getUserDisplayName(user);
+  const roleLabel = getUserRoleLabel(user);
+  const initials = getUserInitials(user);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -54,31 +67,36 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050b18]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-[1840px] items-center gap-8 px-8">
-        <a className="mr-8 block" href="/games" aria-label="LobbyTwoZero games">
-          <div className="bg-gradient-to-r from-cyan-300 via-indigo-400 to-violet-500 bg-clip-text text-5xl font-black italic leading-none tracking-tight text-transparent">
-            LTZ
-          </div>
-          <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.45em] text-white/70">
-            Lobby Two Zero
-          </div>
+      <div className="flex h-16 w-full items-center gap-5 px-4 sm:px-6 lg:px-8">
+        <a
+          aria-label="LTZ oyunlar"
+          className="flex shrink-0 items-center overflow-hidden"
+          href="/games"
+        >
+          <img
+            alt="LTZ Logo"
+            className="h-9 w-auto object-contain sm:h-10 md:h-12"
+            src={ltzLogo}
+          />
         </a>
 
-        <nav className="flex h-full min-w-0 flex-1 items-center gap-6">
+        <nav className="hidden h-full min-w-0 flex-1 items-center gap-5 md:flex">
           {navItems.map((item) => {
             const active = item.key === activeItem;
 
             return (
               <a
-                className={`relative flex h-full items-center gap-3 px-1 text-sm font-semibold transition ${
+                className={`relative flex h-full items-center gap-2 px-1 text-sm font-semibold transition ${
                   active ? "text-white" : "text-slate-400 hover:text-white"
                 }`}
                 href={item.href}
                 key={item.key}
               >
                 <span
-                  className={`text-2xl ${
-                    active ? "text-violet-400" : "text-slate-500"
+                  className={`grid h-8 w-8 place-items-center rounded-lg border text-xs font-black ${
+                    active
+                      ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
+                      : "border-white/10 bg-white/[0.03] text-slate-500"
                   }`}
                 >
                   {item.icon}
@@ -92,46 +110,34 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           })}
         </nav>
 
-        <label className="relative hidden w-[380px] xl:block">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
-            ⌕
-          </span>
-          <input
-            className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/70 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-            placeholder="Oyun, geliştirici, yayıncı ara..."
-          />
-        </label>
-
-        <button
-          aria-label="Bildirimler"
-          className="relative grid h-11 w-11 place-items-center rounded-xl text-2xl text-slate-300 hover:bg-white/5"
-          type="button"
-        >
-          ♧
-          <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
-            12
-          </span>
-        </button>
-
-        <button
-          className="hidden h-11 items-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-4 text-sm font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
-          disabled={isLoggingOut}
-          onClick={() => void handleLogout()}
-          type="button"
-        >
-          <span className="text-lg">↪</span>
-          {isLoggingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
-        </button>
-
-        <div className="hidden items-center gap-3 lg:flex">
-          <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-orange-700 text-sm font-bold text-slate-950">
-            AD
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          <div className="hidden items-center gap-3 sm:flex">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-orange-700 text-sm font-bold text-slate-950">
+              {initials}
+            </div>
+            <div className="min-w-0 text-right">
+              <div className="max-w-40 truncate text-sm font-semibold text-white">
+                {displayName}
+              </div>
+              {roleLabel ? (
+                <div className="max-w-40 truncate text-xs text-slate-400">
+                  {roleLabel}
+                </div>
+              ) : null}
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-white">Arda Demir</div>
-            <div className="text-xs text-slate-400">Yönetici</div>
-          </div>
-          <span className="text-slate-500">⌄</span>
+
+          <Button
+            className="h-10 px-3 text-xs"
+            disabled={isLoggingOut}
+            isLoading={isLoggingOut}
+            leftIcon={<LogOut size={15} />}
+            onClick={() => void handleLogout()}
+            type="button"
+            variant="ghost"
+          >
+            Çıkış Yap
+          </Button>
         </div>
       </div>
     </header>
