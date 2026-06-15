@@ -22,6 +22,7 @@ import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequire
 
 const GAME_ROUTES = {
   games: "/games",
+  gameDetail: "/games/:id",
   createGame: "/games/create",
   categories: "/games/categories",
   platforms: "/games/platforms",
@@ -110,6 +111,7 @@ export function AppRouter() {
             path={GAME_ROUTES.externalGameDetail}
             element={<GameDetailPage />}
           />
+          <Route path={GAME_ROUTES.gameDetail} element={<GameDetailPage />} />
 
           <Route path="/games/:id/edit" element={<GameEditPage />} />
         </Route>

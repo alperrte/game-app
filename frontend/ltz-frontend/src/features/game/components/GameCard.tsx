@@ -36,6 +36,14 @@ const getSubtitle = (game: GameCardData) => {
     .join(" • ");
 };
 
+const getDetailPath = (game: GameCardData) => {
+  if (isExternalGame(game)) {
+    return GAME_ROUTES.externalGameDetail(game.source, game.externalId);
+  }
+
+  return GAME_ROUTES.gameDetail(game.id);
+};
+
 const GameCard = ({
   favorite = false,
   game,
@@ -47,9 +55,7 @@ const GameCard = ({
   const [imageFailed, setImageFailed] = useState(false);
   const isList = viewMode === "list";
   const externalGame = isExternalGame(game) ? game : null;
-  const detailPath = externalGame
-    ? GAME_ROUTES.externalGameDetail(externalGame.source, externalGame.externalId)
-    : null;
+  const detailPath = getDetailPath(game);
   const imageUrl = imageFailed
     ? null
     : externalGame
@@ -148,23 +154,17 @@ const GameCard = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {detailPath ? (
-            <a
-              className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/50"
-              href={detailPath}
-              onClick={(event) => event.stopPropagation()}
-            >
-              Detayları Gör
-            </a>
-          ) : (
-            <button
-              className="inline-flex flex-1 cursor-not-allowed items-center justify-center rounded-lg border border-white/10 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-400"
-              disabled
-              type="button"
-            >
-              Manuel kayıt
-            </button>
-          )}
+          <a
+            className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-300/50"
+            href={detailPath}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openDetail();
+            }}
+          >
+            Detayları Gör
+          </a>
         </div>
       </div>
     </article>

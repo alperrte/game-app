@@ -49,6 +49,7 @@ export const ROUTES = {
 export const GAME_ROUTES = {
   games: "/games",
   popularGames: "/games/popular",
+  gameDetail: (id: number | string) => `/games/${id}`,
   createGame: "/games/create",
   editGame: (id: number | string) => `/games/${id}/edit`,
   gameSystemRequirements: (id: number | string) =>

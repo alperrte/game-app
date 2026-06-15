@@ -6,22 +6,37 @@ import { Link, useParams } from "react-router-dom";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import GameNavbar from "../components/GameNavbar";
 import { getExternalGameDetail } from "../services/externalGameService";
+import { gameService } from "../services/gameService";
 import type {
   ExternalGameDetailResponse,
   GameSource,
 } from "../types/externalGame.types";
+import type { Game } from "../types/gameTypes";
 import { getExternalGameImageUrl } from "../utils/steamImage";
+
+type DetailGame = ExternalGameDetailResponse | Game;
 
 const isGameSource = (value: string | undefined): value is GameSource => {
   return value === "STEAM" || value === "EPIC";
 };
 
-const getDetailErrorMessage = (error: unknown) => {
+const isExternalDetailGame = (
+  game: DetailGame
+): game is ExternalGameDetailResponse => {
+  return "externalId" in game;
+};
+
+const getDetailErrorMessage = (error: unknown, isExternalDetail: boolean) => {
   if (isAxiosError(error) && error.response?.status === 501) {
     return "Bu oyun kaynağı henüz aktif değil.";
   }
 
-  return getErrorMessage(error, "Steam oyun detayı yüklenirken bir hata oluştu.");
+  return getErrorMessage(
+    error,
+    isExternalDetail
+      ? "Harici oyun detayı yüklenirken bir hata oluştu."
+      : "Oyun detayı yüklenirken bir hata oluştu."
+  );
 };
 
 const splitTags = (value: string | null) => {
@@ -100,18 +115,23 @@ const TextBlock = ({
 };
 
 const GameDetailPage = () => {
-  const { source, externalId } = useParams();
-  const routeError =
-    !isGameSource(source) || !externalId
+  const { id, source, externalId } = useParams();
+  const isExternalRoute = source !== undefined || externalId !== undefined;
+  const backendGameId = id ? Number(id) : null;
+  const routeError = isExternalRoute
+    ? !isGameSource(source) || !externalId
       ? "Geçersiz oyun kaynağı veya oyun id bilgisi."
+      : null
+    : !backendGameId || Number.isNaN(backendGameId)
+      ? "Geçersiz oyun id bilgisi."
       : null;
-  const [game, setGame] = useState<ExternalGameDetailResponse | null>(null);
+  const [game, setGame] = useState<DetailGame | null>(null);
   const [loading, setLoading] = useState(() => routeError === null);
   const [error, setError] = useState<string | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
-    if (!isGameSource(source) || !externalId) {
+    if (routeError) {
       return;
     }
 
@@ -122,7 +142,10 @@ const GameDetailPage = () => {
       setError(null);
 
       try {
-        const nextGame = await getExternalGameDetail(source, externalId);
+        const nextGame =
+          isExternalRoute && isGameSource(source) && externalId
+            ? await getExternalGameDetail(source, externalId)
+            : await gameService.getGameById(backendGameId as number);
 
         if (active) {
           setImageFailed(false);
@@ -131,7 +154,7 @@ const GameDetailPage = () => {
       } catch (detailError) {
         if (active) {
           setGame(null);
-          setError(getDetailErrorMessage(detailError));
+          setError(getDetailErrorMessage(detailError, isExternalRoute));
         }
       } finally {
         if (active) {
@@ -145,7 +168,7 @@ const GameDetailPage = () => {
     return () => {
       active = false;
     };
-  }, [externalId, source]);
+  }, [backendGameId, externalId, isExternalRoute, routeError, source]);
 
   const genreTags = useMemo(() => splitTags(game?.genre ?? null), [game]);
   const languageTags = useMemo(
@@ -155,11 +178,13 @@ const GameDetailPage = () => {
   const visibleError = routeError ?? error;
   const detailImageUrl =
     game && !imageFailed
-      ? getExternalGameImageUrl({
-          coverImageUrl: game.coverImageUrl,
-          externalId: game.externalId,
-          source: game.source,
-        })
+      ? isExternalDetailGame(game)
+        ? getExternalGameImageUrl({
+            coverImageUrl: game.coverImageUrl,
+            externalId: game.externalId,
+            source: game.source,
+          })
+        : game.coverImageUrl?.trim() || null
       : null;
 
   if (visibleError) {
@@ -201,7 +226,7 @@ const GameDetailPage = () => {
           <section className="w-full rounded-3xl border border-red-400/20 bg-red-950/20 p-10 text-center">
             <h1 className="text-2xl font-bold text-white">Oyun bulunamadı</h1>
             <p className="mt-3 text-sm text-red-100">
-              Bu Steam oyunu için detay bilgisi bulunamadı.
+              Bu oyun için detay bilgisi bulunamadı.
             </p>
             <Link
               className="mt-6 inline-flex rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white"
@@ -286,7 +311,14 @@ const GameDetailPage = () => {
                   <InfoRow label="Geliştirici" value={game.developer} />
                   <InfoRow label="Yayıncı" value={game.publisher} />
                   <InfoRow label="Kaynak" value={game.source} />
-                  <InfoRow label="Harici ID" value={game.externalId} />
+                  {isExternalDetailGame(game) ? (
+                    <InfoRow label="Harici ID" value={game.externalId} />
+                  ) : (
+                    <>
+                      <InfoRow label="Oyun ID" value={String(game.id)} />
+                      <InfoRow label="Kategori" value={game.categoryName} />
+                    </>
+                  )}
                 </dl>
 
                 <div className="mt-6">
