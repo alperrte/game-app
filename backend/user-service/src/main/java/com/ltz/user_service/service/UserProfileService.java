@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ltz.user_service.exception.ResourceNotFoundException;
 import com.ltz.user_service.exception.BadRequestException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import com.ltz.user_service.security.JwtUserPrincipal;
 
 import java.util.List;
 import java.util.Optional;
@@ -66,8 +69,44 @@ public class UserProfileService {
     public UserProfileResponse getProfile(String userId) {
         UserProfile profile = userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User profile not found for ID: " + userId));
+
+        // Privacy check
+        String currentUserId = getCurrentUserId();
+        PrivacySettings settings = privacySettingsRepository.findByUserId(userId).orElse(null);
+        if (settings != null && ("PRIVATE".equalsIgnoreCase(settings.getProfileVisibility()) || "FRIENDS_ONLY".equalsIgnoreCase(settings.getProfileVisibility()))) {
+            if (currentUserId == null || !currentUserId.equals(userId)) {
+                throw new org.springframework.security.access.AccessDeniedException("Bu profil gizlidir.");
+            }
+        }
+
         return mapToProfileResponse(profile);
     }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfileByUsername(String username) {
+        UserProfile profile = userProfileRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User profile not found for username: " + username));
+
+        // Privacy check
+        String currentUserId = getCurrentUserId();
+        PrivacySettings settings = privacySettingsRepository.findByUserId(profile.getUserId()).orElse(null);
+        if (settings != null && ("PRIVATE".equalsIgnoreCase(settings.getProfileVisibility()) || "FRIENDS_ONLY".equalsIgnoreCase(settings.getProfileVisibility()))) {
+            if (currentUserId == null || !currentUserId.equals(profile.getUserId())) {
+                throw new org.springframework.security.access.AccessDeniedException("Bu profil gizlidir.");
+            }
+        }
+
+        return mapToProfileResponse(profile);
+    }
+
+    private String getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof JwtUserPrincipal) {
+            return ((JwtUserPrincipal) auth.getPrincipal()).userId().toString();
+        }
+        return null;
+    }
+
 
     /**
      * Kullanıcı profil bilgilerini günceller veya kullanıcı ilk defa sisteme girdiyse yeni profil oluşturur.
@@ -93,6 +132,12 @@ public class UserProfileService {
             if (request.getGamerType() != null) profile.setGamerType(request.getGamerType());
             if (request.getFavoriteCategories() != null) profile.setFavoriteCategories(request.getFavoriteCategories());
             if (request.getProfileThemeUrl() != null) profile.setProfileThemeUrl(request.getProfileThemeUrl());
+            if (request.getProfileBackgroundUrl() != null) profile.setProfileBackgroundUrl(request.getProfileBackgroundUrl());
+            if (request.getProfileMusicUrl() != null) profile.setProfileMusicUrl(request.getProfileMusicUrl());
+            if (request.getHardwareCpu() != null) profile.setHardwareCpu(request.getHardwareCpu());
+            if (request.getHardwareGpu() != null) profile.setHardwareGpu(request.getHardwareGpu());
+            if (request.getHardwareRam() != null) profile.setHardwareRam(request.getHardwareRam());
+            if (request.getHardwareOs() != null) profile.setHardwareOs(request.getHardwareOs());
         }
 
         UserProfile saved = userProfileRepository.save(profile);
@@ -218,6 +263,10 @@ public class UserProfileService {
     // ==========================================
 
     private UserProfileResponse mapToProfileResponse(UserProfile profile) {
+        List<ConnectedAccountResponse> connected = connectedAccountRepository.findByUserId(profile.getUserId()).stream()
+                .map(this::mapToConnectedAccountResponse)
+                .collect(Collectors.toList());
+
         return UserProfileResponse.builder()
                 .userId(profile.getUserId())
                 .username(profile.getUsername())
@@ -229,6 +278,13 @@ public class UserProfileService {
                 .gamerType(profile.getGamerType())
                 .favoriteCategories(profile.getFavoriteCategories())
                 .profileThemeUrl(profile.getProfileThemeUrl())
+                .profileBackgroundUrl(profile.getProfileBackgroundUrl())
+                .profileMusicUrl(profile.getProfileMusicUrl())
+                .hardwareCpu(profile.getHardwareCpu())
+                .hardwareGpu(profile.getHardwareGpu())
+                .hardwareRam(profile.getHardwareRam())
+                .hardwareOs(profile.getHardwareOs())
+                .connectedAccounts(connected)
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())
                 .build();
@@ -254,4 +310,9 @@ public class UserProfileService {
                 .connectedAt(account.getConnectedAt())
                 .build();
     }
+
+    public List<com.ltz.user_service.entity.UserAuditLog> getAuditLogs(String userId) {
+        return auditLogService.getAuditLogs(userId);
+    }
 }
+

@@ -41,7 +41,25 @@ export const ROUTES = {
   register: "/register",
   oauthCallback: "/oauth/callback",
   home: "/",
+  profile: "/profile/:username",
 } as const;
+
+/*
+ * User-service endpoint path'leri (Gateway üzerinden).
+ */
+export const USER_API_ENDPOINTS = {
+  profile: (userId: string) => `/api/users/profile/${userId}`,
+  profileByUsername: (username: string) => `/api/users/profile/username/${username}`,
+  me: "/api/users/me",
+  setupProfile: "/api/users/profile/setup",
+  updateProfile: "/api/users/profile",
+  privacy: "/api/users/privacy",
+  connectedAccounts: "/api/users/connected-accounts",
+  disconnectAccount: (id: number | string) => `/api/users/connected-accounts/${id}`,
+  upload: "/api/users/profile/upload",
+  auditLogs: "/api/users/audit-logs",
+} as const;
+
 
 /*
  * Game-service frontend route adresleri.
@@ -111,4 +129,19 @@ export const STORAGE_KEYS = {
 export const ROLES = {
   user: "USER",
   admin: "ADMIN",
+} as const;
+
+/*
+ * Social-service endpoint path'leri (Gateway üzerinden).
+ */
+export const SOCIAL_API_ENDPOINTS = {
+  users: {
+    friends: (userId: number | string) => `/api/social/users/${userId}/friends`,
+    followers: (userId: number | string) => `/api/social/users/${userId}/followers`,
+    following: (userId: number | string) => `/api/social/users/${userId}/following`,
+    posts: (userId: number | string) => `/api/social/users/${userId}/posts`,
+  },
+  follows: "/api/social/follows",
+  friendRequests: "/api/social/friend-requests",
+  posts: "/api/social/posts",
 } as const;

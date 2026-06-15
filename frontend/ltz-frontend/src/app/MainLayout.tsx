@@ -1,77 +1,32 @@
-import { useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
-
-import { Button } from "../components/ui/Button";
-import { APP_NAME, ROUTES } from "../lib/constants";
-import { getRefreshToken } from "../lib/token";
-import { clearAuth, useAuthStore } from "../store/authStore";
-import { authService } from "../features/auth/services/authService";
+import { Outlet, useLocation } from "react-router-dom";
+import GameNavbar from "../features/game/components/GameNavbar";
 
 /*
  * MainLayout: Login / register dışındaki ana uygulama ekranlarının ortak kabuğu.
  * Giriş sonrası sayfalar bu layout içindeki <Outlet /> alanında açılır.
  *
- * Game-service sayfalarında sidebar kullanılmaz.
- * Game-service sayfalarının kendi yatay navbar yapısı feature içinde yönetilir.
+ * Game-service sayfalarında da artık ortak GameNavbar kullanılır.
  */
 
 export function MainLayout() {
-  const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const location = useLocation();
 
-  async function handleLogout() {
-    setIsLoggingOut(true);
-
-    const refreshToken = getRefreshToken();
-
-    try {
-      /*
-       * Refresh token'ı backend'de iptal et. Hata olsa bile
-       * istemci tarafında oturumu yine de temizleriz.
-       */
-      if (refreshToken) {
-        await authService.logout({ refreshToken });
-      }
-    } catch {
-      /* logout hatası kullanıcıyı engellememeli */
-    } finally {
-      clearAuth();
-      navigate(ROUTES.login, { replace: true });
-    }
-  }
+  const getActiveItem = () => {
+    const path = location.pathname;
+    if (path.startsWith("/games/categories")) return "Categories";
+    if (path.startsWith("/games/platforms")) return "Platforms";
+    if (path.startsWith("/games/developers")) return "Developers";
+    if (path.startsWith("/games/publishers")) return "Publishers";
+    if (path.startsWith("/games/system-requirements")) return "SystemRequirements";
+    if (path.startsWith("/profile")) return "Profile";
+    return "Games";
+  };
 
   return (
     <div className="min-h-screen bg-ltz-bg text-white">
-      <header className="border-b border-white/10 bg-ltz-panel/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <span className="text-sm font-bold tracking-widest text-fuchsia-300">
-            {APP_NAME}
-          </span>
+      <GameNavbar activeItem={getActiveItem()} />
 
-          <div className="flex items-center gap-3">
-            {user && (
-              <span className="text-sm text-zinc-300">
-                {user.username}
-              </span>
-            )}
-
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-9 px-3 text-xs"
-              isLoading={isLoggingOut}
-              leftIcon={<LogOut size={15} />}
-              onClick={handleLogout}
-            >
-              Çıkış
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="min-h-[calc(100vh-57px)]">
+      <main className="min-h-[calc(100vh-80px)]">
         <Outlet />
       </main>
     </div>

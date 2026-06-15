@@ -23,4 +23,22 @@ public class UserProfileRequest {
 
     @Size(max = 255, message = "Profile theme URL cannot exceed 255 characters")
     private String profileThemeUrl;
+
+    @Size(max = 255, message = "Profile background URL cannot exceed 255 characters")
+    private String profileBackgroundUrl;
+
+    @Size(max = 255, message = "Profile music URL cannot exceed 255 characters")
+    private String profileMusicUrl;
+
+    @Size(max = 100, message = "Hardware CPU cannot exceed 100 characters")
+    private String hardwareCpu;
+
+    @Size(max = 100, message = "Hardware GPU cannot exceed 100 characters")
+    private String hardwareGpu;
+
+    @Size(max = 100, message = "Hardware RAM cannot exceed 100 characters")
+    private String hardwareRam;
+
+    @Size(max = 100, message = "Hardware OS cannot exceed 100 characters")
+    private String hardwareOs;
 }
