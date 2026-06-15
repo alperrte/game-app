@@ -8,8 +8,7 @@ import type { ExternalGamePlatform } from "../types/externalGame.types";
 import type { Platform, PlatformRequest } from "../types/platformTypes";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 
-type PlatformOrigin = "external" | "manual";
-type PlatformSourceFilter = "all" | PlatformOrigin;
+type PlatformStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 type PlatformFormMode = "create" | "edit";
 
 type PlatformForm = {
@@ -25,23 +24,16 @@ type PlatformForm = {
   totalGames: string;
 };
 
-type PlatformRow = {
-  id: number | null;
+type PlatformRow = Platform & {
   activeUsers: string | null;
-  createdAt: string | null;
-  dataSource: string;
-  description: string | null;
-  developer: string;
+  dataSource: string | null;
+  developer: string | null;
   initials: string;
   logoUrl: string | null;
-  name: string;
-  origin: PlatformOrigin;
   releaseYear: number | null;
-  rowKey: string;
-  source: string;
-  status: string;
-  totalGames: number;
-  updatedAt: string | null;
+  source: string | null;
+  status: string | null;
+  totalGames: number | null;
 };
 
 const initialForm: PlatformForm = {
@@ -62,6 +54,22 @@ const emptyToNull = (value: string | null | undefined) => {
   return trimmedValue ? trimmedValue : null;
 };
 
+const platformAliasMap: Record<string, string> = {
+  epicgames: "epicgames",
+  epicgamesstore: "epicgames",
+  epicgamestore: "epicgames",
+  steam: "steam",
+};
+
+const normalizePlatformLookupName = (name: string) => {
+  const compactName = name
+    .trim()
+    .toLocaleLowerCase("tr")
+    .replace(/[^a-z0-9]/g, "");
+
+  return platformAliasMap[compactName] ?? compactName;
+};
+
 const optionalNumber = (value: string) => {
   const trimmedValue = value.trim();
 
@@ -71,10 +79,6 @@ const optionalNumber = (value: string) => {
 
   const numericValue = Number(trimmedValue);
   return Number.isNaN(numericValue) ? null : numericValue;
-};
-
-const normalizePlatformName = (name: string) => {
-  return name.trim().toLocaleLowerCase("tr");
 };
 
 const normalizePlatformRequest = (value: PlatformForm): PlatformRequest => ({
@@ -90,33 +94,26 @@ const normalizePlatformRequest = (value: PlatformForm): PlatformRequest => ({
   logoUrl: emptyToNull(value.logoUrl),
 });
 
-const toPlatformFormValue = (
-  platform: Platform,
-  fallback?: PlatformRow
-): PlatformForm => ({
+const toPlatformFormValue = (platform: Platform): PlatformForm => ({
   name: platform.name,
   description: platform.description ?? "",
-  source: platform.source ?? fallback?.source ?? "",
-  status: platform.status ?? fallback?.status ?? "ACTIVE",
+  source: platform.source ?? "",
+  status: platform.status ?? "ACTIVE",
   totalGames:
     platform.totalGames !== undefined && platform.totalGames !== null
       ? String(platform.totalGames)
-      : fallback
-        ? String(fallback.totalGames)
-        : "",
-  activeUsers: platform.activeUsers ?? fallback?.activeUsers ?? "",
+      : "",
+  activeUsers: platform.activeUsers ?? "",
   releaseYear:
     platform.releaseYear !== undefined && platform.releaseYear !== null
       ? String(platform.releaseYear)
-      : fallback?.releaseYear
-        ? String(fallback.releaseYear)
-        : "",
-  developer: platform.developer ?? fallback?.developer ?? "",
-  dataSource: platform.dataSource ?? fallback?.dataSource ?? "",
-  logoUrl: platform.logoUrl ?? fallback?.logoUrl ?? "",
+      : "",
+  developer: platform.developer ?? "",
+  dataSource: platform.dataSource ?? "",
+  logoUrl: platform.logoUrl ?? "",
 });
 
-const getInitials = (name: string, fallback = "PF") => {
+const getInitials = (name: string) => {
   const initials = name
     .split(" ")
     .map((part) => part.trim().charAt(0))
@@ -125,69 +122,34 @@ const getInitials = (name: string, fallback = "PF") => {
     .slice(0, 2)
     .toUpperCase();
 
-  return initials || fallback;
+  return initials || "PF";
 };
 
-const toExternalPlatformRow = (platform: ExternalGamePlatform): PlatformRow => ({
-  id: null,
-  activeUsers: platform.activeUsers,
-  createdAt: null,
-  dataSource: platform.dataSource,
-  description: platform.description,
-  developer: platform.developer,
-  initials: getInitials(platform.name, platform.source.charAt(0)),
-  logoUrl: platform.logoUrl ?? null,
-  name: platform.name,
-  origin: "external",
-  releaseYear: platform.releaseYear,
-  rowKey: `external-${platform.source}-${normalizePlatformName(platform.name)}`,
-  source: platform.source,
-  status: platform.status,
-  totalGames: platform.totalGames,
-  updatedAt: null,
-});
+const buildExternalPlatformMap = (platforms: ExternalGamePlatform[]) => {
+  const platformMap = new Map<string, ExternalGamePlatform>();
 
-const toManualPlatformRow = (
+  platforms.forEach((platform) => {
+    platformMap.set(normalizePlatformLookupName(platform.name), platform);
+  });
+
+  return platformMap;
+};
+
+const toPlatformRow = (
   platform: Platform,
-  externalPlatform?: PlatformRow
+  externalPlatform?: ExternalGamePlatform
 ): PlatformRow => ({
-  id: platform.id,
-  activeUsers: platform.activeUsers ?? externalPlatform?.activeUsers ?? null,
-  createdAt: platform.createdAt,
-  dataSource: platform.dataSource ?? externalPlatform?.dataSource ?? "Backend",
-  description: platform.description,
-  developer: platform.developer ?? externalPlatform?.developer ?? "Manual",
+  ...platform,
+  activeUsers: externalPlatform?.activeUsers ?? "N/A",
+  dataSource: externalPlatform ? "Backend + External" : "Backend",
+  developer: externalPlatform?.developer ?? "N/A",
   initials: getInitials(platform.name),
-  logoUrl: platform.logoUrl ?? externalPlatform?.logoUrl ?? null,
-  name: platform.name,
-  origin: "manual",
-  releaseYear: platform.releaseYear ?? externalPlatform?.releaseYear ?? null,
-  rowKey: `manual-${platform.id}`,
-  source: platform.source ?? externalPlatform?.source ?? "MANUAL",
-  status: platform.status ?? externalPlatform?.status ?? "ACTIVE",
-  totalGames: platform.totalGames ?? externalPlatform?.totalGames ?? 0,
-  updatedAt: platform.updatedAt,
+  logoUrl: platform.logoUrl ?? null,
+  releaseYear: externalPlatform?.releaseYear ?? null,
+  source: platform.source ?? externalPlatform?.source ?? null,
+  status: externalPlatform?.status ?? "UNKNOWN",
+  totalGames: externalPlatform?.totalGames ?? 0,
 });
-
-const mergePlatformRows = (
-  externalPlatforms: ExternalGamePlatform[],
-  manualPlatforms: Platform[]
-) => {
-  const rowsByName = new Map<string, PlatformRow>();
-
-  externalPlatforms.forEach((platform) => {
-    rowsByName.set(normalizePlatformName(platform.name), toExternalPlatformRow(platform));
-  });
-
-  manualPlatforms.forEach((platform) => {
-    const key = normalizePlatformName(platform.name);
-    rowsByName.set(key, toManualPlatformRow(platform, rowsByName.get(key)));
-  });
-
-  return Array.from(rowsByName.values()).sort((leftPlatform, rightPlatform) =>
-    leftPlatform.name.localeCompare(rightPlatform.name, "tr")
-  );
-};
 
 const getFormErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
@@ -205,22 +167,14 @@ const getFormErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-const normalizeStatus = (status: string) => status.trim().toUpperCase();
+const normalizeStatus = (status: string | null) => {
+  return status?.trim().toUpperCase() || "UNKNOWN";
+};
 
-const statusBadgeClass = (status: string) => {
+const statusBadgeClass = (status: string | null) => {
   return normalizeStatus(status) === "ACTIVE"
     ? "border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
     : "border-red-400/20 bg-red-500/15 text-red-200";
-};
-
-const originBadgeClass = (origin: PlatformOrigin) => {
-  return origin === "external"
-    ? "border-sky-400/20 bg-sky-500/15 text-sky-200"
-    : "border-emerald-400/20 bg-emerald-500/15 text-emerald-200";
-};
-
-const originLabel = (origin: PlatformOrigin) => {
-  return origin === "external" ? "Harici" : "Manuel";
 };
 
 const formatActiveUsers = (activeUsers: string | null) => {
@@ -300,11 +254,12 @@ const GamePlatformsPage = () => {
   );
   const [formValue, setFormValue] = useState<PlatformForm>(initialForm);
   const [search, setSearch] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<PlatformSourceFilter>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<PlatformStatusFilter>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [loadingEditKey, setLoadingEditKey] = useState<string | null>(null);
-  const [deletingPlatformKey, setDeletingPlatformKey] = useState<string | null>(
+  const [loadingEditId, setLoadingEditId] = useState<number | null>(null);
+  const [deletingPlatformId, setDeletingPlatformId] = useState<number | null>(
     null
   );
   const [error, setError] = useState<string | null>(null);
@@ -316,10 +271,41 @@ const GamePlatformsPage = () => {
     null
   );
 
-  const setNextPlatforms = (
-    nextPlatforms: PlatformRow[],
-    selectFirst: boolean
-  ) => {
+  const loadPlatforms = async (selectFirst = true) => {
+    setLoading(true);
+    setError(null);
+
+    const [backendPlatformsResult, externalPlatformsResult] =
+      await Promise.allSettled([
+        platformService.getPlatforms(),
+        getExternalGamePlatforms(),
+      ]);
+
+    if (backendPlatformsResult.status === "rejected") {
+      setPlatforms([]);
+      setSelectedPlatform(null);
+      setError(
+        getErrorMessage(
+          backendPlatformsResult.reason,
+          "Platformlar yüklenirken bir hata oluştu."
+        )
+      );
+      setLoading(false);
+      return;
+    }
+
+    const externalPlatformMap =
+      externalPlatformsResult.status === "fulfilled"
+        ? buildExternalPlatformMap(externalPlatformsResult.value)
+        : new Map<string, ExternalGamePlatform>();
+
+    const nextPlatforms = backendPlatformsResult.value.map((platform) =>
+      toPlatformRow(
+        platform,
+        externalPlatformMap.get(normalizePlatformLookupName(platform.name))
+      )
+    );
+
     setPlatforms(nextPlatforms);
     setSelectedPlatform((currentPlatform) => {
       if (!selectFirst) {
@@ -331,59 +317,17 @@ const GamePlatformsPage = () => {
       }
 
       return (
-        nextPlatforms.find(
-          (platform) => platform.rowKey === currentPlatform.rowKey
-        ) ??
+        nextPlatforms.find((platform) => platform.id === currentPlatform.id) ??
         nextPlatforms[0] ??
         null
       );
     });
-  };
 
-  const loadPlatforms = async (selectFirst = true) => {
-    setLoading(true);
-    setError(null);
-
-    const [externalPlatformsResult, manualPlatformsResult] =
-      await Promise.allSettled([
-        getExternalGamePlatforms(),
-        platformService.getPlatforms(),
-      ]);
-
-    const externalPlatforms =
-      externalPlatformsResult.status === "fulfilled"
-        ? externalPlatformsResult.value
-        : [];
-    const manualPlatforms =
-      manualPlatformsResult.status === "fulfilled"
-        ? manualPlatformsResult.value
-        : [];
-    const nextPlatforms = mergePlatformRows(externalPlatforms, manualPlatforms);
-
-    setNextPlatforms(nextPlatforms, selectFirst);
-
-    if (
-      externalPlatformsResult.status === "rejected" &&
-      manualPlatformsResult.status === "rejected"
-    ) {
+    if (externalPlatformsResult.status === "rejected") {
       setError(
         getErrorMessage(
           externalPlatformsResult.reason,
-          "Platformlar yüklenirken bir hata oluştu."
-        )
-      );
-    } else if (externalPlatformsResult.status === "rejected") {
-      setError(
-        getErrorMessage(
-          externalPlatformsResult.reason,
-          "Harici platformlar yüklenemedi; manuel platformlar gösteriliyor."
-        )
-      );
-    } else if (manualPlatformsResult.status === "rejected") {
-      setError(
-        getErrorMessage(
-          manualPlatformsResult.reason,
-          "Manuel platformlar yüklenemedi; harici platformlar gösteriliyor."
+          "Harici platform detayları yüklenemedi; backend platformları fallback değerlerle gösteriliyor."
         )
       );
     }
@@ -396,18 +340,18 @@ const GamePlatformsPage = () => {
   }, []);
 
   const stats = useMemo(() => {
-    const manualPlatforms = platforms.filter(
-      (platform) => platform.origin === "manual"
+    const activePlatforms = platforms.filter(
+      (platform) => normalizeStatus(platform.status) === "ACTIVE"
     ).length;
-    const externalPlatforms = platforms.length - manualPlatforms;
     const totalGames = platforms.reduce(
-      (total, platform) => total + platform.totalGames,
+      (total, platform) => total + (platform.totalGames ?? 0),
       0
     );
+    const logoCount = platforms.filter((platform) => platform.logoUrl).length;
 
     return {
-      externalPlatforms,
-      manualPlatforms,
+      activePlatforms,
+      logoCount,
       totalGames,
       totalPlatforms: platforms.length,
     };
@@ -429,12 +373,13 @@ const GamePlatformsPage = () => {
         .toLocaleLowerCase("tr");
       const matchesSearch =
         !normalizedSearch || searchableText.includes(normalizedSearch);
-      const matchesSource =
-        sourceFilter === "all" || platform.origin === sourceFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        normalizeStatus(platform.status) === statusFilter;
 
-      return matchesSearch && matchesSource;
+      return matchesSearch && matchesStatus;
     });
-  }, [platforms, search, sourceFilter]);
+  }, [platforms, search, statusFilter]);
 
   const openCreateModal = () => {
     setFormValue(initialForm);
@@ -453,27 +398,19 @@ const GamePlatformsPage = () => {
     setSaving(false);
   };
 
-  const openEditModal = async (platform: PlatformRow) => {
-    if (platform.id === null) {
-      setNotice("Harici platformlar düzenlenemez.");
-      return;
-    }
-
-    setLoadingEditKey(platform.rowKey);
+  const openEditModal = async (platformId: number) => {
+    setLoadingEditId(platformId);
     setFormError(null);
     setNotice(null);
 
     try {
-      const manualPlatform = await platformService.getPlatformById(platform.id);
+      const platform = await platformService.getPlatformById(platformId);
+      const platformRow = toPlatformRow(platform);
 
-      setSelectedPlatform({
-        ...platform,
-        description: manualPlatform.description,
-        name: manualPlatform.name,
-      });
-      setFormValue(toPlatformFormValue(manualPlatform, platform));
+      setSelectedPlatform(platformRow);
+      setFormValue(toPlatformFormValue(platform));
       setFormMode("edit");
-      setEditingPlatformId(manualPlatform.id);
+      setEditingPlatformId(platform.id);
       setIsModalOpen(true);
     } catch (editLoadError) {
       setError(
@@ -483,7 +420,7 @@ const GamePlatformsPage = () => {
         )
       );
     } finally {
-      setLoadingEditKey(null);
+      setLoadingEditId(null);
     }
   };
 
@@ -539,11 +476,6 @@ const GamePlatformsPage = () => {
   };
 
   const handleDeletePlatform = async (platform: PlatformRow) => {
-    if (platform.id === null) {
-      setNotice("Harici platformlar silinemez.");
-      return;
-    }
-
     const confirmed = window.confirm(
       `${platform.name} platformunu silmek istediğinizden emin misiniz?`
     );
@@ -552,9 +484,9 @@ const GamePlatformsPage = () => {
       return;
     }
 
-    const wasSelectedPlatform = selectedPlatform?.rowKey === platform.rowKey;
+    const wasSelectedPlatform = selectedPlatform?.id === platform.id;
 
-    setDeletingPlatformKey(platform.rowKey);
+    setDeletingPlatformId(platform.id);
     setError(null);
     setNotice(null);
 
@@ -572,7 +504,7 @@ const GamePlatformsPage = () => {
         getFormErrorMessage(deleteError, "Platform silinirken bir hata oluştu.")
       );
     } finally {
-      setDeletingPlatformKey(null);
+      setDeletingPlatformId(null);
     }
   };
 
@@ -590,8 +522,7 @@ const GamePlatformsPage = () => {
                 Game Platforms
               </h1>
               <p className="mt-2 text-base text-slate-400">
-                Harici Steam/Epic platformlarını ve manuel platformları birlikte
-                görüntüle.
+                Backend API üzerinden platformları ve logolarını yönet.
               </p>
             </div>
 
@@ -608,31 +539,31 @@ const GamePlatformsPage = () => {
           <div className="mb-6 grid gap-4 lg:grid-cols-4">
             <StatCard
               accent="bg-violet-500/15 text-violet-300"
-              helper="Harici + manuel"
+              helper="GET /games/platforms"
               icon="P"
               label="Total Platforms"
               value={String(stats.totalPlatforms)}
             />
             <StatCard
-              accent="bg-sky-500/15 text-sky-300"
-              helper="Steam/Epic provider verisi"
-              icon="H"
-              label="External Platforms"
-              value={String(stats.externalPlatforms)}
-            />
-            <StatCard
               accent="bg-emerald-500/15 text-emerald-300"
-              helper="POST /games/platforms kayıtları"
-              icon="M"
-              label="Manual Platforms"
-              value={String(stats.manualPlatforms)}
+              helper="Status equals ACTIVE"
+              icon="A"
+              label="Active Platforms"
+              value={String(stats.activePlatforms)}
             />
             <StatCard
-              accent="bg-violet-500/15 text-violet-300"
-              helper="Harici provider toplamı"
+              accent="bg-sky-500/15 text-sky-300"
+              helper="Across listed platforms"
               icon="G"
               label="Total Games"
               value={stats.totalGames.toLocaleString("en")}
+            />
+            <StatCard
+              accent="bg-violet-500/15 text-violet-300"
+              helper="logoUrl dolu kayıtlar"
+              icon="L"
+              label="Logos"
+              value={String(stats.logoCount)}
             />
           </div>
 
@@ -654,13 +585,13 @@ const GamePlatformsPage = () => {
               <select
                 className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
                 onChange={(event) =>
-                  setSourceFilter(event.target.value as PlatformSourceFilter)
+                  setStatusFilter(event.target.value as PlatformStatusFilter)
                 }
-                value={sourceFilter}
+                value={statusFilter}
               >
-                <option value="all">All Sources</option>
-                <option value="external">External</option>
-                <option value="manual">Manual</option>
+                <option value="all">Filter by Status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
               </select>
             </div>
 
@@ -690,8 +621,7 @@ const GamePlatformsPage = () => {
                       Platform bulunamadı.
                     </h2>
                     <p className="mt-2 text-sm text-slate-400">
-                      Harici veya manuel platform verisi dönmedi ya da filtreler
-                      eşleşmedi.
+                      Backend kayıt döndürmedi veya filtreler eşleşmedi.
                     </p>
                   </div>
                 </div>
@@ -703,7 +633,6 @@ const GamePlatformsPage = () => {
                     <thead className="border-b border-white/10 bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
                       <tr>
                         <th className="px-5 py-4">Platform</th>
-                        <th className="px-5 py-4">Source</th>
                         <th className="px-5 py-4">Status</th>
                         <th className="px-5 py-4">Total Games</th>
                         <th className="px-5 py-4">Active Users</th>
@@ -717,11 +646,11 @@ const GamePlatformsPage = () => {
                       {filteredPlatforms.map((platform) => (
                         <tr
                           className={`border-b border-white/10 hover:bg-white/[0.03] ${
-                            selectedPlatform?.rowKey === platform.rowKey
+                            selectedPlatform?.id === platform.id
                               ? "outline outline-1 outline-violet-500"
                               : ""
                           }`}
-                          key={platform.rowKey}
+                          key={platform.id}
                         >
                           <td className="px-5 py-4">
                             <button
@@ -735,19 +664,10 @@ const GamePlatformsPage = () => {
                                   {platform.name}
                                 </span>
                                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                  {platform.source}
+                                  {platform.source || `ID ${platform.id}`}
                                 </p>
                               </div>
                             </button>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span
-                              className={`rounded-lg border px-3 py-1 text-xs font-bold ${originBadgeClass(
-                                platform.origin
-                              )}`}
-                            >
-                              {originLabel(platform.origin)}
-                            </span>
                           </td>
                           <td className="px-5 py-4">
                             <span
@@ -755,11 +675,11 @@ const GamePlatformsPage = () => {
                                 platform.status
                               )}`}
                             >
-                              {platform.status}
+                              {platform.status || "UNKNOWN"}
                             </span>
                           </td>
                           <td className="px-5 py-4 text-slate-200">
-                            {platform.totalGames.toLocaleString("en")}
+                            {(platform.totalGames ?? 0).toLocaleString("en")}
                           </td>
                           <td className="px-5 py-4 text-slate-200">
                             {formatActiveUsers(platform.activeUsers)}
@@ -768,42 +688,40 @@ const GamePlatformsPage = () => {
                             {platform.releaseYear ?? "N/A"}
                           </td>
                           <td className="px-5 py-4 text-slate-300">
-                            {platform.developer}
+                            {platform.developer || "N/A"}
                           </td>
                           <td className="px-5 py-4 text-slate-300">
-                            {platform.dataSource}
+                            {platform.dataSource || "Backend"}
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex justify-end gap-2">
                               <button
                                 className="cursor-pointer rounded-lg border border-violet-400/30 px-3 py-2 text-xs font-bold text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
                                 disabled={
-                                  platform.id === null ||
-                                  loadingEditKey === platform.rowKey ||
-                                  deletingPlatformKey === platform.rowKey
+                                  loadingEditId === platform.id ||
+                                  deletingPlatformId === platform.id
                                 }
                                 onClick={() => {
-                                  void openEditModal(platform);
+                                  void openEditModal(platform.id);
                                 }}
                                 type="button"
                               >
-                                {loadingEditKey === platform.rowKey
+                                {loadingEditId === platform.id
                                   ? "Yükleniyor..."
                                   : "Seç"}
                               </button>
                               <button
                                 className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
                                 disabled={
-                                  platform.id === null ||
-                                  deletingPlatformKey === platform.rowKey ||
-                                  loadingEditKey === platform.rowKey
+                                  deletingPlatformId === platform.id ||
+                                  loadingEditId === platform.id
                                 }
                                 onClick={() => {
                                   void handleDeletePlatform(platform);
                                 }}
                                 type="button"
                               >
-                                {deletingPlatformKey === platform.rowKey
+                                {deletingPlatformId === platform.id
                                   ? "Siliniyor..."
                                   : "Sil"}
                               </button>
@@ -826,9 +744,7 @@ const GamePlatformsPage = () => {
                       {selectedPlatform.name}
                     </h2>
                     <p className="text-sm text-slate-400">
-                      {selectedPlatform.id
-                        ? `Platform ID: ${selectedPlatform.id}`
-                        : selectedPlatform.source}
+                      {selectedPlatform.source || `Platform ID: ${selectedPlatform.id}`}
                     </p>
                   </div>
                 </div>
@@ -837,20 +753,22 @@ const GamePlatformsPage = () => {
                 </p>
                 <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
                   <div>
-                    <dt className="text-slate-400">Source</dt>
-                    <dd>{originLabel(selectedPlatform.origin)}</dd>
-                  </div>
-                  <div>
                     <dt className="text-slate-400">Total Games</dt>
-                    <dd>{selectedPlatform.totalGames}</dd>
+                    <dd>{selectedPlatform.totalGames ?? 0}</dd>
                   </div>
                   <div>
                     <dt className="text-slate-400">Developer</dt>
-                    <dd>{selectedPlatform.developer}</dd>
+                    <dd>{selectedPlatform.developer || "N/A"}</dd>
                   </div>
                   <div>
                     <dt className="text-slate-400">Data Source</dt>
-                    <dd>{selectedPlatform.dataSource}</dd>
+                    <dd>{selectedPlatform.dataSource || "Backend"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">Logo URL</dt>
+                    <dd className="break-all">
+                      {selectedPlatform.logoUrl || "Yok"}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-slate-400">Created</dt>
@@ -881,8 +799,8 @@ const GamePlatformsPage = () => {
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {formMode === "edit"
-                    ? "Backend API ile manuel platform kaydını güncelle."
-                    : "Backend API ile yeni manuel platform kaydı oluştur."}
+                    ? "Backend API ile platform kaydını güncelle."
+                    : "Backend API ile yeni platform kaydı oluştur."}
                 </p>
               </div>
               <button
@@ -925,7 +843,7 @@ const GamePlatformsPage = () => {
                     setField("description", event.target.value)
                   }
                   placeholder="Describe this platform..."
-                  value={formValue.description ?? ""}
+                  value={formValue.description}
                 />
               </label>
 
@@ -936,7 +854,7 @@ const GamePlatformsPage = () => {
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={100}
                     onChange={(event) => setField("source", event.target.value)}
-                    placeholder="STEAM, EPIC, MANUAL..."
+                    placeholder="STEAM, EPIC..."
                     value={formValue.source}
                   />
                 </label>

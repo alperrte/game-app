@@ -23,6 +23,10 @@ public class GamePlatform {
     @Column(name = "description", length = 500)
     private String description;
 
+    @Size(max = 500, message = "Logo URL en fazla 500 karakter olabilir.")
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -60,6 +64,14 @@ public class GamePlatform {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public void setLogoUrl(String logoUrl) {
+        this.logoUrl = logoUrl;
     }
 
     public LocalDateTime getCreatedAt() {

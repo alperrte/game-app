@@ -50,6 +50,10 @@ public class SecurityConfig {
                         // Public external game endpoints
                         .requestMatchers(HttpMethod.GET, "/api/games/external/**").permitAll()
 
+                        // Public platform read endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/games/platforms").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/games/platforms/**").permitAll()
+
                         // Protected game management endpoints
                         .requestMatchers(HttpMethod.POST, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
                         .requestMatchers(HttpMethod.PUT, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")

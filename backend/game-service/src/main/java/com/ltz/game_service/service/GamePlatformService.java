@@ -37,8 +37,9 @@ public class GamePlatformService {
         }
 
         GamePlatform platform = new GamePlatform();
-        platform.setName(request.getName());
-        platform.setDescription(request.getDescription());
+        platform.setName(trimOrNull(request.getName()));
+        platform.setDescription(trimOrNull(request.getDescription()));
+        platform.setLogoUrl(trimOrNull(request.getLogoUrl()));
 
         GamePlatform savedPlatform = gamePlatformRepository.save(platform);
 
@@ -49,8 +50,9 @@ public class GamePlatformService {
         GamePlatform platform = gamePlatformRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Güncellenecek platform bulunamadı. ID: " + id));
 
-        platform.setName(request.getName());
-        platform.setDescription(request.getDescription());
+        platform.setName(trimOrNull(request.getName()));
+        platform.setDescription(trimOrNull(request.getDescription()));
+        platform.setLogoUrl(trimOrNull(request.getLogoUrl()));
 
         GamePlatform updatedPlatform = gamePlatformRepository.save(platform);
 
@@ -70,8 +72,17 @@ public class GamePlatformService {
                 platform.getId(),
                 platform.getName(),
                 platform.getDescription(),
+                platform.getLogoUrl(),
                 platform.getCreatedAt(),
                 platform.getUpdatedAt()
         );
+    }
+
+    private String trimOrNull(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        return value.trim();
     }
 }
