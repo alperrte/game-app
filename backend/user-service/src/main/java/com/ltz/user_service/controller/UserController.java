@@ -55,6 +55,14 @@ public class UserController {
     }
 
     /**
+     * 🔍 Profil Çekme (Kullanıcı Adı ile)
+     */
+    @GetMapping("/profile/username/{username}")
+    public ResponseEntity<UserProfileResponse> getProfileByUsername(@PathVariable String username) {
+        return ResponseEntity.ok(userProfileService.getProfileByUsername(username));
+    }
+
+    /**
      * 👤 Kendi Profilimi Çekme
      */
     @GetMapping("/me")
@@ -147,15 +155,20 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> uploadProfileFile(
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("type") String type // "avatar" | "cover" | "theme"
+            @RequestParam("type") String type // "avatar" | "cover" | "background"
     ) {
         if (file.isEmpty()) {
             throw new BadRequestException("Uploaded file cannot be empty.");
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || (!contentType.startsWith("image/") && !contentType.equals("image/gif"))) {
-            throw new BadRequestException("Only image and GIF uploads are allowed.");
+        if (contentType == null || !contentType.startsWith("image/") || "image/gif".equals(contentType)) {
+            throw new BadRequestException("Only static image uploads are allowed (JPEG, PNG, WebP).");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null && originalFilename.toLowerCase().endsWith(".gif")) {
+            throw new BadRequestException("GIF uploads are not allowed.");
         }
 
         try {
@@ -166,7 +179,6 @@ public class UserController {
             }
 
             String userId = userId(principal);
-            String originalFilename = file.getOriginalFilename();
             String extension = originalFilename != null && originalFilename.contains(".") 
                     ? originalFilename.substring(originalFilename.lastIndexOf(".")) 
                     : ".bin";
@@ -183,8 +195,8 @@ public class UserController {
                 request.setAvatarUrl(fileUrl);
             } else if ("cover".equalsIgnoreCase(type)) {
                 request.setCoverUrl(fileUrl);
-            } else if ("theme".equalsIgnoreCase(type)) {
-                request.setProfileThemeUrl(fileUrl);
+            } else if ("background".equalsIgnoreCase(type)) {
+                request.setProfileBackgroundUrl(fileUrl);
             } else {
                 throw new BadRequestException("Invalid upload type: " + type);
             }
@@ -194,6 +206,11 @@ public class UserController {
         } catch (IOException e) {
             throw new RuntimeException("Failed to save uploaded file locally.", e);
         }
+    }
+
+    @GetMapping("/audit-logs")
+    public ResponseEntity<List<com.ltz.user_service.entity.UserAuditLog>> getMyAuditLogs(@AuthenticationPrincipal JwtUserPrincipal principal) {
+        return ResponseEntity.ok(userProfileService.getAuditLogs(userId(principal)));
     }
 
     private String getClientIp() {
