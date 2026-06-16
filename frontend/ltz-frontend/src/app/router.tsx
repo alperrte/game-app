@@ -94,10 +94,10 @@ export function AppRouter() {
                         element={<GameSystemRequirementsPage />}
                     />
                     <Route
-                        path={GAME_ROUTES.externalGameDetail}
+                        path="/games/external/:source/:externalId"
                         element={<GameDetailPage />}
                     />
-                    <Route path={GAME_ROUTES.gameDetail} element={<GameDetailPage />} />
+                    <Route path="/games/:id" element={<GameDetailPage />} />
 
                     <Route path="/games/:id/edit" element={<GameEditPage />} />
                     <Route path={ROUTES.profile} element={<ProfilePage />} />
