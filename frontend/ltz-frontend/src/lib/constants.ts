@@ -88,9 +88,9 @@ export const GAME_API_ENDPOINTS = {
 
   externalGameSearch: "/api/games/external/search",
   externalApps: "/api/games/external/apps",
-  externalPopularGames: "/api/games/external/popular",
   externalGameDetail: "/api/games/external/detail",
   externalGameCategories: "/api/games/external/categories",
+  externalGameTags: "/api/games/external/tags",
   externalGamePlatforms: "/api/games/external/platforms",
 } as const;
 

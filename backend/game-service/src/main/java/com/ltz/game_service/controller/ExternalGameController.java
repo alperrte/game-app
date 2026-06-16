@@ -5,6 +5,7 @@ import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
+import com.ltz.game_service.dto.response.external.ExternalGameTagResponse;
 import com.ltz.game_service.enums.GameSource;
 import com.ltz.game_service.service.ExternalGameService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,6 +63,13 @@ public class ExternalGameController {
             @RequestParam(required = false) String query
     ) {
         return externalGameService.getCategories(source, query);
+    }
+
+    @GetMapping("/tags")
+    public List<ExternalGameTagResponse> getTags(
+            @RequestParam GameSource source
+    ) {
+        return externalGameService.getTags(source);
     }
 
     @GetMapping("/platforms")

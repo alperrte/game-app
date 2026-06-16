@@ -95,18 +95,3 @@ export type GameCategoryRequest = {
   name: string;
   description?: string | null;
 };
-
-export type ExternalGameSearchItem = {
-  source: GameSource;
-  externalId: string;
-  title: string;
-  coverImageUrl: string | null;
-};
-
-export type ExternalGamePageResponse = {
-  items: ExternalGameSearchItem[];
-  page: number;
-  size: number;
-  totalItems: number;
-  totalPages: number;
-};

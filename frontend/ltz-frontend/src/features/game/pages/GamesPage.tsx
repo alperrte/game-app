@@ -8,11 +8,13 @@ import type { GameCardViewMode } from "../components/GameCard";
 import GameNavbar from "../components/GameNavbar";
 import {
   createGame,
-  getExternalAppsPage,
   getGameCategories,
   getGamesByFilter,
 } from "../services/gameService";
-import { searchExternalGames } from "../services/externalGameService";
+import {
+  getExternalAppsPage,
+  searchExternalGames,
+} from "../services/externalGameService";
 import type { Game, GameCategory, GameRequest } from "../types/gameTypes";
 import type {
   ExternalGameSearchResponse,
@@ -26,6 +28,7 @@ import {
 } from "../utils/gameAdmin";
 
 const SEARCH_DEBOUNCE_MS = 450;
+const PAGINATION_WINDOW_SIZE = 30;
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
 
 type GameListItem =
@@ -60,6 +63,22 @@ const initialGameForm: GameRequest = {
 
 const sourceLabel = (source: GameSource) => {
   return source === "STEAM" ? "Steam" : "Epic";
+};
+
+const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
+  const startPage =
+      Math.floor((currentPage - 1) / PAGINATION_WINDOW_SIZE) *
+      PAGINATION_WINDOW_SIZE +
+      1;
+  const endPage = Math.min(
+      totalPages,
+      startPage + PAGINATION_WINDOW_SIZE - 1
+  );
+
+  return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, index) => startPage + index
+  );
 };
 
 const getSearchErrorMessage = (error: unknown, source: GameSource) => {
@@ -447,6 +466,7 @@ const GamesPage = () => {
   const searchTotalPages = Math.max(1, Math.ceil(listedGames.length / perPage));
   const totalPages = isSearchMode ? searchTotalPages : externalTotalPages;
   const currentPage = Math.min(page, totalPages);
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages);
 
   const visibleGames = useMemo(() => {
     if (!isSearchMode) {
@@ -696,10 +716,8 @@ const GamesPage = () => {
                       >
                         Önceki
                       </button>
-                      {Array.from({ length: Math.min(totalPages, 5) }).map(
-                          (_, index) => {
-                            const pageNumber = index + 1;
-
+                      {visiblePageNumbers.map(
+                          (pageNumber) => {
                             return (
                                 <button
                                     className={`grid h-10 w-10 place-items-center rounded-xl text-sm font-semibold ${
@@ -716,9 +734,6 @@ const GamesPage = () => {
                             );
                           }
                       )}
-                      {totalPages > 5 ? (
-                          <span className="px-2 text-slate-500">...</span>
-                      ) : null}
                       <button
                           className="grid h-10 place-items-center rounded-xl bg-slate-900/80 px-3 text-sm text-slate-300 disabled:opacity-40"
                           disabled={currentPage === totalPages}
@@ -739,9 +754,15 @@ const GamesPage = () => {
                           }
                           value={perPage}
                       >
-                        <option value={6}>Sayfa başına 6</option>
-                        <option value={12}>Sayfa başına 12</option>
-                        <option value={24}>Sayfa başına 24</option>
+                        <option className="bg-slate-950 text-white" value={6}>
+                          Sayfa başına 6
+                        </option>
+                        <option className="bg-slate-950 text-white" value={12}>
+                          Sayfa başına 12
+                        </option>
+                        <option className="bg-slate-950 text-white" value={24}>
+                          Sayfa başına 24
+                        </option>
                       </select>
                     </label>
                   </footer>

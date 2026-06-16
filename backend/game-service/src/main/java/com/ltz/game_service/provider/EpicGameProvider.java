@@ -5,6 +5,7 @@ import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
+import com.ltz.game_service.dto.response.external.ExternalGameTagResponse;
 import com.ltz.game_service.enums.GameSource;
 import org.springframework.stereotype.Component;
 
@@ -47,6 +48,11 @@ public class EpicGameProvider implements ExternalGameProvider {
     @Override
     public List<ExternalGameCategoryResponse> getCategories(String query) {
         throw new UnsupportedOperationException("Epic Games provider henüz aktif değil.");
+    }
+
+    @Override
+    public List<ExternalGameTagResponse> getTags() {
+        return List.of();
     }
 
     @Override

@@ -1,7 +1,6 @@
 import { apiClient } from "../../../lib/axios";
 import { GAME_API_ENDPOINTS } from "../../../lib/constants";
 import type {
-  ExternalGamePageResponse,
   Game,
   GameCategory,
   GameCategoryRequest,
@@ -30,23 +29,11 @@ export const getGameCategories = (source?: GameSource) =>
 export const createGameCategory = (request: GameCategoryRequest) =>
     apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request);
 
-export const getExternalAppsPage = (
-    source: GameSource,
-    page: number,
-    size: number
-) =>
-    apiClient.get<ExternalGamePageResponse>(GAME_API_ENDPOINTS.externalApps, {
-      source,
-      page,
-      size,
-    });
-
 export const gameService = {
   getGames: () => apiClient.get<Game[]>(GAME_API_ENDPOINTS.games),
   filterGames: getGamesByFilter,
   getPopularGames: () =>
       apiClient.get<Game[]>(GAME_API_ENDPOINTS.popularGames),
-  getExternalAppsPage,
   getGameById: (id: number) =>
       apiClient.get<Game>(GAME_API_ENDPOINTS.gameById(id)),
   createGame,

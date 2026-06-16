@@ -7,6 +7,7 @@ import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
+import com.ltz.game_service.dto.response.external.ExternalGameTagResponse;
 import com.ltz.game_service.dto.steam.SteamAppDetailsResponse;
 import com.ltz.game_service.dto.steam.SteamSearchResultsResponse;
 import com.ltz.game_service.dto.steam.SteamStoreSearchResponse;
@@ -16,6 +17,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
@@ -24,6 +27,10 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
@@ -32,7 +39,9 @@ public class SteamGameProvider implements ExternalGameProvider {
     private static final int SEARCH_RESULT_LIMIT = 20;
     private static final int POPULAR_GAME_LIMIT = 80;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS = 120;
     private static final Duration STEAM_APP_LIST_CACHE_TTL = Duration.ofHours(6);
+    private static final Duration STEAM_TAG_CACHE_TTL = Duration.ofHours(6);
 
     private static final List<String> POPULAR_SEARCH_TERMS = List.of(
             "counter",
@@ -47,6 +56,69 @@ public class SteamGameProvider implements ExternalGameProvider {
             "resident evil",
             "god of war",
             "forza"
+    );
+
+    private static final Map<String, Integer> FALLBACK_TAG_IMAGE_APP_IDS = Map.ofEntries(
+            Map.entry("action", 730),
+            Map.entry("adventure", 367520),
+            Map.entry("rpg", 1086940),
+            Map.entry("role-playing", 1086940),
+            Map.entry("strategy", 289070),
+            Map.entry("simulation", 413150),
+            Map.entry("racing", 244210),
+            Map.entry("sports", 1811260),
+            Map.entry("indie", 413150),
+            Map.entry("horror", 381210),
+            Map.entry("survival", 252490),
+            Map.entry("open-world", 1174180),
+            Map.entry("multiplayer", 730),
+            Map.entry("co-op", 632360),
+            Map.entry("online-co-op", 632360),
+            Map.entry("singleplayer", 1245620),
+            Map.entry("fps", 730),
+            Map.entry("shooter", 730),
+            Map.entry("third-person-shooter", 1174180),
+            Map.entry("battle-royale", 578080),
+            Map.entry("moba", 570),
+            Map.entry("fighting", 389730),
+            Map.entry("2d", 813780),
+            Map.entry("3d", 3513350),
+            Map.entry("platformer", 367520),
+            Map.entry("2d-platformer", 2114740),
+            Map.entry("puzzle", 620),
+            Map.entry("roguelike", 646570),
+            Map.entry("roguelite", 632360),
+            Map.entry("souls-like", 1245620),
+            Map.entry("action-rpg", 2694490),
+            Map.entry("action-adventure", 3768760),
+            Map.entry("anime", 582010),
+            Map.entry("casual", 413150),
+            Map.entry("fantasy", 1245620),
+            Map.entry("sci-fi", 553850),
+            Map.entry("mmorpg", 306130),
+            Map.entry("city-builder", 255710),
+            Map.entry("colony-sim", 294100),
+            Map.entry("turn-based", 289070),
+            Map.entry("turn-based-strategy", 289070),
+            Map.entry("card-game", 646570),
+            Map.entry("deckbuilding", 646570),
+            Map.entry("sandbox", 4000),
+            Map.entry("crafting", 252490),
+            Map.entry("building", 252490),
+            Map.entry("space", 359320),
+            Map.entry("war", 394360),
+            Map.entry("military", 394360),
+            Map.entry("historical", 221380),
+            Map.entry("economy", 255710),
+            Map.entry("management", 255710),
+            Map.entry("automation", 526870),
+            Map.entry("farming", 413150),
+            Map.entry("life-sim", 413150),
+            Map.entry("crime", 271590),
+            Map.entry("driving", 244210),
+            Map.entry("football", 1811260),
+            Map.entry("basketball", 1644960),
+            Map.entry("vr", 546560)
     );
 
     private static final List<SteamCategory> STEAM_CATEGORIES = List.of(
@@ -131,6 +203,10 @@ public class SteamGameProvider implements ExternalGameProvider {
 
     private List<ExternalGameSearchResponse> cachedSteamAppList = List.of();
     private Instant cachedSteamAppListExpiresAt = Instant.EPOCH;
+
+    private List<ExternalGameTagResponse> cachedSteamTags = List.of();
+    private Instant cachedSteamTagsExpiresAt = Instant.EPOCH;
+    private boolean steamTagEnrichmentRunning = false;
 
     public SteamGameProvider(@Value("${steam.api.key:}") String steamApiKey) {
         this.objectMapper = new ObjectMapper();
@@ -289,6 +365,11 @@ public class SteamGameProvider implements ExternalGameProvider {
     }
 
     @Override
+    public List<ExternalGameTagResponse> getTags() {
+        return getCachedSteamTags();
+    }
+
+    @Override
     public ExternalGamePlatformResponse getPlatformInfo() {
         return new ExternalGamePlatformResponse(
                 GameSource.STEAM,
@@ -311,12 +392,54 @@ public class SteamGameProvider implements ExternalGameProvider {
             return cachedSteamAppList;
         }
 
-        List<ExternalGameSearchResponse> freshAppList = fetchSteamAppList();
-
-        cachedSteamAppList = freshAppList;
+        cachedSteamAppList = fetchSteamAppList();
         cachedSteamAppListExpiresAt = now.plus(STEAM_APP_LIST_CACHE_TTL);
 
         return cachedSteamAppList;
+    }
+
+    private synchronized List<ExternalGameTagResponse> getCachedSteamTags() {
+        Instant now = Instant.now();
+
+        if (!cachedSteamTags.isEmpty() && now.isBefore(cachedSteamTagsExpiresAt)) {
+            return cachedSteamTags;
+        }
+
+        cachedSteamTags = fetchSteamTags(false);
+        cachedSteamTagsExpiresAt = now.plus(STEAM_TAG_CACHE_TTL);
+
+        triggerSteamTagBackgroundEnrichment();
+
+        return cachedSteamTags;
+    }
+
+    private void triggerSteamTagBackgroundEnrichment() {
+        synchronized (this) {
+            if (steamTagEnrichmentRunning) {
+                return;
+            }
+
+            steamTagEnrichmentRunning = true;
+        }
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<ExternalGameTagResponse> enrichedTags = fetchSteamTags(true);
+
+                synchronized (this) {
+                    if (!enrichedTags.isEmpty()) {
+                        cachedSteamTags = enrichedTags;
+                        cachedSteamTagsExpiresAt = Instant.now().plus(STEAM_TAG_CACHE_TTL);
+                    }
+                }
+            } catch (Exception ignored) {
+                // İlk hızlı sonuç cache'e yazıldığı için arka plan hatası kullanıcıyı bozmaz.
+            } finally {
+                synchronized (this) {
+                    steamTagEnrichmentRunning = false;
+                }
+            }
+        });
     }
 
     private List<ExternalGameSearchResponse> fetchSteamAppList() {
@@ -391,6 +514,355 @@ public class SteamGameProvider implements ExternalGameProvider {
         }
     }
 
+    private List<ExternalGameTagResponse> fetchSteamTags(boolean allowBackgroundEnrichment) {
+        try {
+            String response = steamStoreClient.get()
+                    .uri("/tagdata/populartags/english")
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode tagsNode = objectMapper.readTree(response);
+
+            if (tagsNode.isArray()) {
+                List<ExternalGameTagResponse> tags = new ArrayList<>();
+
+                for (JsonNode tagNode : tagsNode) {
+                    String name = tagNode.path("name").asText(null);
+
+                    if (name == null || name.isBlank()) {
+                        continue;
+                    }
+
+                    JsonNode tagIdNode = tagNode.get("tagid");
+
+                    String externalId = tagIdNode != null && !tagIdNode.isNull()
+                            ? tagIdNode.asText()
+                            : slugify(name);
+
+                    Integer gameCount = readOptionalInt(
+                            tagNode,
+                            "count",
+                            "total_count",
+                            "totalCount",
+                            "tag_count",
+                            "tagCount"
+                    );
+
+                    boolean shouldEnrich =
+                            allowBackgroundEnrichment
+                                    && tags.size() < MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS;
+
+                    tags.add(buildSteamTagResponse(
+                            externalId,
+                            name,
+                            gameCount,
+                            shouldEnrich,
+                            "Steam Store tarafından sağlanan gerçek Steam etiketi."
+                    ));
+                }
+
+                if (!tags.isEmpty()) {
+                    return sortAndDeduplicateTags(tags);
+                }
+            }
+
+            return fetchSteamTagsFromBrowsePage(allowBackgroundEnrichment);
+        } catch (Exception tagDataError) {
+            return fetchSteamTagsFromBrowsePage(allowBackgroundEnrichment);
+        }
+    }
+
+    private List<ExternalGameTagResponse> fetchSteamTagsFromBrowsePage(boolean allowBackgroundEnrichment) {
+        try {
+            String html = steamStoreClient.get()
+                    .uri("/tag/browse/?l=english")
+                    .retrieve()
+                    .body(String.class);
+
+            Pattern tagLinkPattern = Pattern.compile(
+                    "(?is)<a[^>]*href\\s*=\\s*\"[^\"]*/tags/[^/]+/([^\"/]+)/?\"[^>]*>(.*?)</a>"
+            );
+
+            Matcher matcher = tagLinkPattern.matcher(html);
+            Map<String, ExternalGameTagResponse> tagsByExternalId = new LinkedHashMap<>();
+
+            while (matcher.find()) {
+                String rawTagValue = decodeUrlValue(matcher.group(1));
+                String visibleName = cleanHtml(matcher.group(2));
+
+                String name = visibleName != null && !visibleName.isBlank()
+                        ? visibleName
+                        : rawTagValue;
+
+                if (name == null || name.isBlank()) {
+                    continue;
+                }
+
+                String externalId = slugify(rawTagValue);
+
+                boolean shouldEnrich =
+                        allowBackgroundEnrichment
+                                && tagsByExternalId.size() < MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS;
+
+                ExternalGameTagResponse tagResponse = buildSteamTagResponse(
+                        externalId,
+                        name,
+                        null,
+                        shouldEnrich,
+                        "Steam Store tag sayfasından alınan gerçek Steam etiketi."
+                );
+
+                tagsByExternalId.putIfAbsent(externalId, tagResponse);
+            }
+
+            if (tagsByExternalId.isEmpty()) {
+                throw new RuntimeException("Steam tag verisi beklenen formatta değil.");
+            }
+
+            return sortAndDeduplicateTags(new ArrayList<>(tagsByExternalId.values()));
+        } catch (Exception e) {
+            if (!cachedSteamTags.isEmpty()) {
+                return cachedSteamTags;
+            }
+
+            throw new RuntimeException("Steam tag listesi alınamadı: " + e.getMessage(), e);
+        }
+    }
+
+    private List<ExternalGameTagResponse> sortAndDeduplicateTags(List<ExternalGameTagResponse> tags) {
+        return tags.stream()
+                .collect(Collectors.toMap(
+                        ExternalGameTagResponse::getExternalId,
+                        tag -> tag,
+                        (existingTag, duplicateTag) -> existingTag,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .sorted(
+                        Comparator.comparing(
+                                        (ExternalGameTagResponse tag) -> hasImage(tag)
+                                )
+                                .reversed()
+                                .thenComparing(
+                                        Comparator.comparing(
+                                                        (ExternalGameTagResponse tag) -> hasGameCount(tag)
+                                                )
+                                                .reversed()
+                                )
+                                .thenComparing(
+                                        Comparator.comparing(
+                                                        (ExternalGameTagResponse tag) -> tag.getGameCount() == null
+                                                                ? 0
+                                                                : tag.getGameCount()
+                                                )
+                                                .reversed()
+                                )
+                                .thenComparing(
+                                        tag -> normalizeText(tag.getName()),
+                                        Comparator.nullsLast(String::compareTo)
+                                )
+                )
+                .collect(Collectors.toList());
+    }
+
+    private ExternalGameTagResponse buildSteamTagResponse(
+            String externalId,
+            String name,
+            Integer gameCount,
+            boolean shouldEnrich,
+            String description
+    ) {
+        SteamCategoryStats stats = shouldEnrich
+                ? getSteamTagStats(externalId, name)
+                : new SteamCategoryStats(null, null);
+
+        Integer resolvedGameCount = gameCount != null && gameCount > 0
+                ? gameCount
+                : stats.gameCount();
+
+        String imageUrl = stats.imageUrl() != null && !stats.imageUrl().isBlank()
+                ? stats.imageUrl()
+                : getFallbackTagImageUrl(name);
+
+        return new ExternalGameTagResponse(
+                GameSource.STEAM,
+                externalId,
+                name,
+                description,
+                resolvedGameCount != null && resolvedGameCount > 0 ? resolvedGameCount : null,
+                "ACTIVE",
+                "Steam Store Tags",
+                imageUrl
+        );
+    }
+
+    private SteamCategoryStats getSteamTagStats(String externalId, String tagName) {
+        SteamCategoryStats tagIdStats = isNumeric(externalId)
+                ? fetchSteamTagSearchStats("tags", externalId)
+                : new SteamCategoryStats(null, null);
+
+        if (tagIdStats.gameCount() != null
+                && tagIdStats.gameCount() > 0
+                && tagIdStats.imageUrl() != null
+                && !tagIdStats.imageUrl().isBlank()) {
+            return tagIdStats;
+        }
+
+        SteamCategoryStats termStats = fetchSteamTagSearchStats("term", tagName);
+
+        Integer resolvedGameCount = termStats.gameCount() != null && termStats.gameCount() > 0
+                ? termStats.gameCount()
+                : tagIdStats.gameCount();
+
+        String resolvedImageUrl = termStats.imageUrl() != null && !termStats.imageUrl().isBlank()
+                ? termStats.imageUrl()
+                : tagIdStats.imageUrl();
+
+        if (resolvedGameCount != null || resolvedImageUrl != null) {
+            return new SteamCategoryStats(resolvedGameCount, resolvedImageUrl);
+        }
+
+        try {
+            return getSteamCategoryStats(tagName);
+        } catch (Exception fallbackError) {
+            return new SteamCategoryStats(null, null);
+        }
+    }
+
+    private SteamCategoryStats fetchSteamTagSearchStats(String paramName, String paramValue) {
+        if (paramValue == null || paramValue.isBlank()) {
+            return new SteamCategoryStats(null, null);
+        }
+
+        try {
+            String response = steamStoreClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/search/results/")
+                            .queryParam("cc", "tr")
+                            .queryParam("l", "turkish")
+                            .queryParam("count", 1)
+                            .queryParam("start", 0)
+                            .queryParam("infinite", 1)
+                            .queryParam(paramName, paramValue)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode rootNode = objectMapper.readTree(response);
+
+            Integer gameCount = readOptionalInt(
+                    rootNode,
+                    "total_count",
+                    "totalCount",
+                    "count"
+            );
+
+            if (gameCount != null && gameCount <= 0) {
+                gameCount = null;
+            }
+
+            String resultsHtml = rootNode.path("results_html").asText(null);
+            String imageUrl = extractFirstSteamHeaderImageUrl(resultsHtml);
+
+            return new SteamCategoryStats(gameCount, imageUrl);
+        } catch (Exception e) {
+            return new SteamCategoryStats(null, null);
+        }
+    }
+
+    private Integer readOptionalInt(JsonNode node, String... fieldNames) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+
+        for (String fieldName : fieldNames) {
+            JsonNode valueNode = node.get(fieldName);
+
+            if (valueNode == null || valueNode.isNull()) {
+                continue;
+            }
+
+            if (valueNode.isNumber()) {
+                return valueNode.asInt();
+            }
+
+            if (valueNode.isTextual()) {
+                String value = valueNode.asText()
+                        .replace(",", "")
+                        .replace(".", "")
+                        .trim();
+
+                if (value.matches("\\d+")) {
+                    return Integer.parseInt(value);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String extractFirstSteamHeaderImageUrl(String html) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+
+        Pattern dataAppIdPattern = Pattern.compile("data-ds-appid=\"(\\d+)\"");
+        Matcher dataAppIdMatcher = dataAppIdPattern.matcher(html);
+
+        if (dataAppIdMatcher.find()) {
+            return buildSteamHeaderImageUrl(Integer.parseInt(dataAppIdMatcher.group(1)));
+        }
+
+        Pattern appUrlPattern = Pattern.compile("/app/(\\d+)/");
+        Matcher appUrlMatcher = appUrlPattern.matcher(html);
+
+        if (appUrlMatcher.find()) {
+            return buildSteamHeaderImageUrl(Integer.parseInt(appUrlMatcher.group(1)));
+        }
+
+        Pattern imagePattern = Pattern.compile(
+                "https://[^\"']*/steam/apps/(\\d+)/[^\"']*?\\.jpg"
+        );
+        Matcher imageMatcher = imagePattern.matcher(html);
+
+        if (imageMatcher.find()) {
+            return buildSteamHeaderImageUrl(Integer.parseInt(imageMatcher.group(1)));
+        }
+
+        return null;
+    }
+
+    private String getFallbackTagImageUrl(String tagName) {
+        if (tagName == null || tagName.isBlank()) {
+            return null;
+        }
+
+        Integer appId = FALLBACK_TAG_IMAGE_APP_IDS.get(slugify(tagName));
+
+        if (appId == null) {
+            return null;
+        }
+
+        return buildSteamHeaderImageUrl(appId);
+    }
+
+    private boolean hasImage(ExternalGameTagResponse tag) {
+        return tag != null
+                && tag.getImageUrl() != null
+                && !tag.getImageUrl().isBlank();
+    }
+
+    private boolean hasGameCount(ExternalGameTagResponse tag) {
+        return tag != null
+                && tag.getGameCount() != null
+                && tag.getGameCount() > 0;
+    }
+
+    private boolean isNumeric(String value) {
+        return value != null && value.matches("\\d+");
+    }
+
     private SteamCategoryStats getSteamCategoryStats(String searchTerm) {
         SteamStoreSearchResponse searchResponse = fetchSteamStoreSearch(searchTerm);
 
@@ -419,10 +891,12 @@ public class SteamGameProvider implements ExternalGameProvider {
                     objectMapper.readValue(response, SteamSearchResultsResponse.class);
 
             if (searchResultsResponse == null || searchResultsResponse.getTotalCount() == null) {
-                return 0;
+                return null;
             }
 
-            return searchResultsResponse.getTotalCount();
+            Integer totalCount = searchResultsResponse.getTotalCount();
+
+            return totalCount != null && totalCount > 0 ? totalCount : null;
         } catch (Exception e) {
             throw new RuntimeException("Steam toplam arama sonucu alınamadı. Query: " + query, e);
         }
@@ -582,6 +1056,26 @@ public class SteamGameProvider implements ExternalGameProvider {
                 .replace("ı", "i")
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    private String slugify(String value) {
+        return normalizeText(value)
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-|-$", "");
+    }
+
+    private String decodeUrlValue(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return value;
+        }
     }
 
     private String buildSteamHeaderImageUrl(Integer appId) {

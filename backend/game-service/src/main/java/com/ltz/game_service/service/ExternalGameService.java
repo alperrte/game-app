@@ -6,6 +6,7 @@ import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
+import com.ltz.game_service.dto.response.external.ExternalGameTagResponse;
 import com.ltz.game_service.enums.GameSource;
 import com.ltz.game_service.provider.ExternalGameProvider;
 import org.springframework.cache.annotation.Cacheable;
@@ -71,6 +72,15 @@ public class ExternalGameService {
     )
     public List<ExternalGameCategoryResponse> getCategories(GameSource source, String query) {
         return getProvider(source).getCategories(query);
+    }
+
+    @Cacheable(
+            cacheNames = CacheConfig.EXTERNAL_GAME_TAGS,
+            key = "T(java.lang.String).valueOf(#source).toLowerCase()",
+            unless = "#result == null"
+    )
+    public List<ExternalGameTagResponse> getTags(GameSource source) {
+        return getProvider(source).getTags();
     }
 
     @Cacheable(
