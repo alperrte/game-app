@@ -22,6 +22,13 @@ public class UserProfileResponse {
     private String gamerType;
     private String favoriteCategories;
     private String profileThemeUrl;
+    private String profileBackgroundUrl;
+    private String profileMusicUrl;
+    private String hardwareCpu;
+    private String hardwareGpu;
+    private String hardwareRam;
+    private String hardwareOs;
+    private java.util.List<ConnectedAccountResponse> connectedAccounts;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

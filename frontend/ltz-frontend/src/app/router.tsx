@@ -9,6 +9,8 @@ import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 
 import { useAuthStore } from "../store/authStore";
 import { GAME_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
+import { ROUTES } from "../lib/constants";
+import { ProfilePage } from "../features/user/pages/ProfilePage";
 
 import GamesPage from "../features/game/pages/GamesPage";
 import GameCreatePage from "../features/game/pages/GameCreatePage";
@@ -95,6 +97,7 @@ export function AppRouter() {
 
           <Route path="/games/:id/edit" element={<GameEditPage />} />
           <Route path="/games/:id" element={<GameDetailPage />} />
+          <Route path={ROUTES.profile} element={<ProfilePage />} />
         </Route>
       </Route>
 

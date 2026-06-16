@@ -3,7 +3,8 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../lib/constants";
 import { getRefreshToken } from "../../../lib/token";
 import { authService } from "../../auth/services/authService";
-import { clearAuth } from "../../../store/authStore";
+import { clearAuth, useAuthStore } from "../../../store/authStore";
+import ltzLogo from "../../../assets/ltz-yazi.png";
 
 type GameNavbarActiveItem =
   | "Feed"
@@ -12,7 +13,8 @@ type GameNavbarActiveItem =
   | "Games"
   | "Platforms"
   | "Publishers"
-  | "SystemRequirements";
+  | "SystemRequirements"
+  | "Profile";
 
 type GameNavbarProps = {
   activeItem: GameNavbarActiveItem;
@@ -36,6 +38,7 @@ const navItems = [
 const GameNavbar = ({ activeItem }: GameNavbarProps) => {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { user } = useAuthStore();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -56,15 +59,10 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050b18]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-[1840px] items-center gap-3 px-4 2xl:gap-5 2xl:px-7">
-        <NavLink className="mr-1 block shrink-0 2xl:mr-4" to="/" aria-label="LobbyTwoZero akış">
-          <div className="bg-gradient-to-r from-cyan-300 via-indigo-400 to-violet-500 bg-clip-text text-4xl font-black italic leading-none tracking-tight text-transparent 2xl:text-5xl">
-            LTZ
-          </div>
-          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.38em] text-white/70 2xl:text-[10px] 2xl:tracking-[0.45em]">
-            Lobby Two Zero
-          </div>
-        </NavLink>
+      <div className="mx-auto flex h-20 max-w-[1840px] items-center gap-8 px-8">
+        <a className="mr-8 block shrink-0" href="/games" aria-label="LobbyTwoZero games">
+          <img src={ltzLogo} alt="LobbyTwoZero" className="h-10 max-w-full object-contain filter drop-shadow-[0_0_8px_rgba(168,85,247,0.35)]" />
+        </a>
 
         <nav className="flex h-full min-w-0 flex-1 items-center justify-between gap-3 overflow-x-auto [scrollbar-width:none] 2xl:gap-4 [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => {
@@ -126,16 +124,36 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           {isLoggingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
         </button>
 
-        <div className="hidden shrink-0 items-center gap-3 2xl:flex">
-          <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-orange-700 text-sm font-bold text-slate-950">
-            AD
+        {/* Dynamic User Profile Navigation */}
+        {user ? (
+          <div
+            onClick={() => navigate(`/profile/${user.username}`)}
+            className={`hidden items-center gap-3 lg:flex cursor-pointer transition duration-150 select-none group px-3 py-1.5 rounded-xl border ${
+              activeItem === "Profile"
+                ? "border-violet-500/50 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.35)]"
+                : "border-transparent hover:bg-white/5"
+            }`}
+          >
+            <div className={`grid h-11 w-11 place-items-center rounded-full text-sm font-bold text-white transition-all ${
+              activeItem === "Profile"
+                ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.5)] scale-105"
+                : "bg-gradient-to-br from-violet-400 to-indigo-600 shadow-[0_0_10px_rgba(139,92,246,0.2)] group-hover:shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+            }`}>
+              {user.username.substring(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div className={`text-sm font-semibold transition-colors ${
+                activeItem === "Profile" ? "text-violet-300 font-bold" : "text-white group-hover:text-violet-300"
+              }`}>
+                {user.username}
+              </div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider">
+                {user.role}
+              </div>
+            </div>
+            <span className="text-slate-500 group-hover:text-white transition-colors">⌄</span>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-white">Arda Demir</div>
-            <div className="text-xs text-slate-400">Yönetici</div>
-          </div>
-          <span className="text-slate-500">⌄</span>
-        </div>
+        ) : null}
       </div>
     </header>
   );

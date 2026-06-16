@@ -46,9 +46,15 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/error"
                         ).permitAll()
+
+                        // Public external game endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/games/external/**").permitAll()
+
+                        // Protected game management endpoints
                         .requestMatchers(HttpMethod.POST, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
                         .requestMatchers(HttpMethod.PUT, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
                         .requestMatchers(HttpMethod.DELETE, "/api/games/**").hasAnyRole("ADMIN", "DEVELOPER")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

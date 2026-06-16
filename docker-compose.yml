@@ -163,6 +163,8 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION}
     ports:
       - "${SERVER_PORT_USER}:${SERVER_PORT_USER}"
+    volumes:
+      - ./backend/user-service/uploads:/app/uploads
     restart: unless-stopped
 
   # -------------------------------
