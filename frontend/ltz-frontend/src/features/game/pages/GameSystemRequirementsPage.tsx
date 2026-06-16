@@ -1,10 +1,19 @@
 import { isAxiosError } from "axios";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import GameNavbar from "../components/GameNavbar";
+import {
+  getExternalGameDetail,
+  searchExternalGames,
+} from "../services/externalGameService";
 import { gameService } from "../services/gameService";
 import { systemRequirementService } from "../services/systemRequirementService";
-import type { Game } from "../types/gameTypes";
+import type {
+  ExternalGameDetailResponse,
+  ExternalGameSearchResponse,
+  GameSource,
+} from "../types/externalGame.types";
+import type { Game, GameRequest } from "../types/gameTypes";
 import type {
   SystemRequirement,
   SystemRequirementRequest,
@@ -17,6 +26,34 @@ import {
 } from "../utils/gameAdmin";
 
 type RequirementFormMode = "create" | "edit";
+type RequirementSortOption = "newest" | "oldest" | "game-asc" | "game-desc";
+
+type ManualRequirementRow = {
+  origin: "manual";
+  game: Game;
+  requirement: SystemRequirement;
+};
+
+type GameOption =
+  | {
+      game: Game;
+      id: number;
+      label: string;
+      source: GameSource;
+      type: "manual";
+      value: string;
+    }
+  | {
+      externalGame: ExternalGameSearchResponse;
+      externalId: string;
+      label: string;
+      source: GameSource;
+      type: "external";
+      value: string;
+    };
+
+const ALL_GAMES_VALUE = "all";
+const DEFAULT_EXTERNAL_REQUIREMENT_QUERY = "a";
 
 const initialForm: SystemRequirementRequest = {
   minimumOs: "",
@@ -126,6 +163,44 @@ const formatDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
+const manualGameOptionValue = (gameId: number) => `manual:${gameId}`;
+
+const externalGameOptionValue = (source: GameSource, externalId: string) =>
+  `external:${source}:${externalId}`;
+
+const getGameOptionSourceLabel = (source: GameSource) => {
+  return source === "STEAM" ? "Steam" : "Epic";
+};
+
+const truncateNullable = (value: string | null | undefined, max: number) => {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue.slice(0, max) : null;
+};
+
+const toIsoDateOrNull = (value: string | null | undefined) => {
+  const trimmedValue = value?.trim();
+  return trimmedValue && /^\d{4}-\d{2}-\d{2}$/.test(trimmedValue)
+    ? trimmedValue
+    : null;
+};
+
+const toGameRequestFromExternalDetail = (
+  externalGame: ExternalGameDetailResponse
+): GameRequest => ({
+  coverImageUrl: truncateNullable(externalGame.coverImageUrl, 500),
+  description: truncateNullable(externalGame.description, 3000),
+  developer: truncateNullable(externalGame.developer, 150),
+  genre: truncateNullable(externalGame.genre, 100),
+  onSale: externalGame.onSale,
+  platform: truncateNullable(externalGame.platform, 100),
+  publisher: truncateNullable(externalGame.publisher, 150),
+  releaseDate: toIsoDateOrNull(externalGame.releaseDate),
+  source: externalGame.source,
+  supportedLanguages: truncateNullable(externalGame.supportedLanguages, 500),
+  title: externalGame.title.trim().slice(0, 150),
+  turkishLanguageSupport: externalGame.turkishLanguageSupport,
+});
+
 const getRequirementErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     const status = error.response?.status;
@@ -194,27 +269,163 @@ const RequirementValue = ({
   </div>
 );
 
+const GameOptionCombobox = ({
+  allLabel = "Tüm Oyunlar",
+  disabled = false,
+  emptyLabel = "Oyun bulunamadı",
+  includeAllOption = false,
+  onChange,
+  onSearchChange,
+  options,
+  placeholder = "Oyun ara...",
+  value,
+}: {
+  allLabel?: string;
+  disabled?: boolean;
+  emptyLabel?: string;
+  includeAllOption?: boolean;
+  onChange: (value: string) => void;
+  onSearchChange?: (query: string) => void;
+  options: GameOption[];
+  placeholder?: string;
+  value: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedOption = options.find((option) => option.value === value);
+  const selectedLabel =
+    value === ALL_GAMES_VALUE ? allLabel : (selectedOption?.label ?? "");
+  const normalizedQuery = query.trim().toLocaleLowerCase("tr");
+  const visibleOptions = options.filter((option) =>
+    option.label.toLocaleLowerCase("tr").includes(normalizedQuery)
+  );
+
+  const optionButtonClass =
+    "w-full cursor-pointer px-4 py-3 text-left text-sm font-semibold text-slate-100 hover:bg-violet-500/15";
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        const nextFocusTarget = event.relatedTarget;
+
+        if (
+          !(nextFocusTarget instanceof Node) ||
+          !event.currentTarget.contains(nextFocusTarget)
+        ) {
+          setIsOpen(false);
+          setQuery("");
+        }
+      }}
+    >
+      <input
+        className="h-12 w-full cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disabled}
+        onChange={(event) => {
+          const nextQuery = event.target.value;
+          setQuery(nextQuery);
+          onSearchChange?.(nextQuery);
+          setIsOpen(true);
+        }}
+        onFocus={() => {
+          setIsOpen(true);
+          setQuery("");
+        }}
+        placeholder={placeholder}
+        value={isOpen ? query : selectedLabel}
+      />
+
+      {isOpen && !disabled ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[160] max-h-80 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950 py-2 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+          {includeAllOption &&
+          allLabel.toLocaleLowerCase("tr").includes(normalizedQuery) ? (
+            <button
+              className={optionButtonClass}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(ALL_GAMES_VALUE);
+                setIsOpen(false);
+                setQuery("");
+              }}
+              type="button"
+            >
+              {allLabel}
+            </button>
+          ) : null}
+
+          {visibleOptions.map((option) => (
+            <button
+              className={`${optionButtonClass} ${
+                option.value === value ? "bg-violet-500/20 text-violet-100" : ""
+              }`}
+              key={option.value}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+                setQuery("");
+              }}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+
+          {visibleOptions.length === 0 &&
+          !(includeAllOption &&
+            allLabel.toLocaleLowerCase("tr").includes(normalizedQuery)) ? (
+            <div className="px-4 py-3 text-sm text-slate-400">{emptyLabel}</div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const GameSystemRequirementsPage = () => {
   const { user } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [selectedGameOptionValue, setSelectedGameOptionValue] =
+    useState(ALL_GAMES_VALUE);
+  const [selectedExternalGame, setSelectedExternalGame] =
+    useState<ExternalGameSearchResponse | null>(null);
+  const [isAllGamesSelected, setIsAllGamesSelected] = useState(true);
   const [requirement, setRequirement] = useState<SystemRequirement | null>(null);
+  const [allRequirementRows, setAllRequirementRows] = useState<
+    ManualRequirementRow[]
+  >([]);
+  const [externalGames, setExternalGames] = useState<
+    ExternalGameSearchResponse[]
+  >([]);
+  const [sourceFilter, setSourceFilter] = useState<GameSource | "all">("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<RequirementSortOption>("newest");
+  const [externalGameQuery, setExternalGameQuery] = useState(
+    DEFAULT_EXTERNAL_REQUIREMENT_QUERY
+  );
   const [loadingGames, setLoadingGames] = useState(true);
   const [loadingRequirement, setLoadingRequirement] = useState(false);
+  const [externalLoading, setExternalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteTargetGame, setDeleteTargetGame] = useState<Game | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [externalWarning, setExternalWarning] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<RequirementFormMode>("create");
   const [formGameId, setFormGameId] = useState<number | null>(null);
+  const [formGameOptionValue, setFormGameOptionValue] = useState("");
+  const [formExternalGame, setFormExternalGame] =
+    useState<ExternalGameSearchResponse | null>(null);
   const [formValue, setFormValue] =
     useState<SystemRequirementRequest>(initialForm);
+  const externalRequestIdRef = useRef(0);
 
   const selectedGame = useMemo(() => {
     return games.find((game) => game.id === selectedGameId) ?? null;
@@ -224,56 +435,145 @@ const GameSystemRequirementsPage = () => {
     return games.find((game) => game.id === formGameId) ?? null;
   }, [formGameId, games]);
 
-  const minimumCoverage = useMemo(() => {
-    return getCoverage(requirement, minimumFields);
-  }, [requirement]);
+  const gameOptions = useMemo<GameOption[]>(() => {
+    const manualOptions = games.map((game): GameOption => ({
+      game,
+      id: game.id,
+      label: `${game.title} (${getGameOptionSourceLabel(game.source)} - Manuel)`,
+      source: game.source,
+      type: "manual",
+      value: manualGameOptionValue(game.id),
+    }));
+    const externalOptions = externalGames.map(
+      (externalGame): GameOption => ({
+        externalGame,
+        externalId: externalGame.externalId,
+        label: `${externalGame.title} (${getGameOptionSourceLabel(
+          externalGame.source
+        )} - Harici)`,
+        source: externalGame.source,
+        type: "external",
+        value: externalGameOptionValue(
+          externalGame.source,
+          externalGame.externalId
+        ),
+      })
+    );
 
-  const recommendedCoverage = useMemo(() => {
-    return getCoverage(requirement, recommendedFields);
-  }, [requirement]);
+    return [...manualOptions, ...externalOptions]
+      .filter(
+        (option) => sourceFilter === "all" || option.source === sourceFilter
+      )
+      .sort((leftOption, rightOption) =>
+        leftOption.label.localeCompare(rightOption.label, "tr")
+      );
+  }, [externalGames, games, sourceFilter]);
 
-  const filteredRequirements = useMemo(() => {
-    if (!requirement || !selectedGame) {
+  const filteredRequirementRows = useMemo(() => {
+    if (selectedExternalGame) {
+      return [];
+    }
+
+    const requirementRows =
+      isAllGamesSelected || !selectedGame
+        ? allRequirementRows
+        : requirement
+          ? [{ origin: "manual" as const, game: selectedGame, requirement }]
+          : [];
+
+    if (requirementRows.length === 0) {
       return [];
     }
 
     const normalizedSearch = search.trim().toLocaleLowerCase("tr");
+    const filteredRows = normalizedSearch
+      ? requirementRows.filter(({ game, requirement: nextRequirement }) => {
+          const searchableText = [
+            game.title,
+            game.platform,
+            game.source,
+            nextRequirement.minimumOs,
+            nextRequirement.minimumCpu,
+            nextRequirement.minimumGpu,
+            nextRequirement.recommendedOs,
+            nextRequirement.recommendedCpu,
+            nextRequirement.recommendedGpu,
+            nextRequirement.notes,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLocaleLowerCase("tr");
 
-    if (!normalizedSearch) {
-      return [requirement];
-    }
+          return searchableText.includes(normalizedSearch);
+        })
+      : requirementRows;
 
-    const searchableText = [
-      selectedGame.title,
-      selectedGame.platform,
-      selectedGame.source,
-      requirement.minimumOs,
-      requirement.minimumCpu,
-      requirement.minimumGpu,
-      requirement.recommendedOs,
-      requirement.recommendedCpu,
-      requirement.recommendedGpu,
-      requirement.notes,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLocaleLowerCase("tr");
+    return [...filteredRows].sort((leftRow, rightRow) => {
+      if (sortBy === "game-asc") {
+        return leftRow.game.title.localeCompare(rightRow.game.title, "tr");
+      }
 
-    return searchableText.includes(normalizedSearch) ? [requirement] : [];
-  }, [requirement, search, selectedGame]);
+      if (sortBy === "game-desc") {
+        return rightRow.game.title.localeCompare(leftRow.game.title, "tr");
+      }
+
+      const leftDate =
+        leftRow.requirement.updatedAt ?? leftRow.requirement.createdAt;
+      const rightDate =
+        rightRow.requirement.updatedAt ?? rightRow.requirement.createdAt;
+
+      return sortBy === "oldest"
+        ? leftDate.localeCompare(rightDate)
+        : rightDate.localeCompare(leftDate);
+    });
+  }, [
+    allRequirementRows,
+    isAllGamesSelected,
+    requirement,
+    search,
+    selectedGame,
+    selectedExternalGame,
+    sortBy,
+  ]);
 
   const stats = useMemo(() => {
+    if (isAllGamesSelected) {
+      return {
+        minimumFields: "-",
+        recommendedFields: "-",
+        selectedGames: String(gameOptions.length),
+        totalSets: String(allRequirementRows.length),
+      };
+    }
+
+    if (selectedExternalGame) {
+      return {
+        minimumFields: "-",
+        recommendedFields: "-",
+        selectedGames: "1",
+        totalSets: "0",
+      };
+    }
+
     return {
       minimumFields: `${getFilledCount(requirement, minimumFields)}/5`,
       recommendedFields: `${getFilledCount(requirement, recommendedFields)}/5`,
       selectedGames: selectedGame ? "1" : "0",
       totalSets: requirement ? "1" : "0",
     };
-  }, [requirement, selectedGame]);
+  }, [
+    allRequirementRows.length,
+    gameOptions.length,
+    isAllGamesSelected,
+    requirement,
+    selectedGame,
+    selectedExternalGame,
+  ]);
 
   const loadSystemRequirements = async (gameId: number) => {
     setLoadingRequirement(true);
     setError(null);
+    setAllRequirementRows([]);
 
     try {
       const nextRequirement =
@@ -292,6 +592,81 @@ const GameSystemRequirementsPage = () => {
       }
     } finally {
       setLoadingRequirement(false);
+    }
+  };
+
+  const loadAllSystemRequirements = async (nextGames: Game[]) => {
+    setLoadingRequirement(true);
+    setError(null);
+    setRequirement(null);
+
+    try {
+      const results = await Promise.allSettled(
+        nextGames.map(async (game) => {
+          const nextRequirement =
+            await systemRequirementService.getSystemRequirements(game.id);
+
+          return {
+            game,
+            origin: "manual" as const,
+            requirement: nextRequirement,
+          };
+        })
+      );
+      const nextRows: ManualRequirementRow[] = [];
+      const loadErrors: unknown[] = [];
+
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          nextRows.push(result.value);
+          return;
+        }
+
+        if (!isNotFoundError(result.reason)) {
+          loadErrors.push(result.reason);
+        }
+      });
+
+      setAllRequirementRows(nextRows);
+
+      if (loadErrors.length > 0) {
+        setError("Bazı oyunların sistem gereksinimleri yüklenirken hata oluştu.");
+      }
+    } finally {
+      setLoadingRequirement(false);
+    }
+  };
+
+  const loadExternalGames = async (rawQuery: string) => {
+    const requestId = externalRequestIdRef.current + 1;
+    externalRequestIdRef.current = requestId;
+    const externalQuery =
+      rawQuery.trim().length >= 2
+        ? rawQuery.trim()
+        : DEFAULT_EXTERNAL_REQUIREMENT_QUERY;
+
+    setExternalLoading(true);
+    setExternalWarning(null);
+
+    try {
+      const searchResults = await searchExternalGames("STEAM", externalQuery);
+
+      if (externalRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setExternalGames(searchResults);
+    } catch {
+      if (externalRequestIdRef.current === requestId) {
+        setExternalGames([]);
+        setExternalWarning(
+          "Harici oyunlar yüklenemedi; manuel oyunlar gösteriliyor."
+        );
+      }
+    } finally {
+      if (externalRequestIdRef.current === requestId) {
+        setExternalLoading(false);
+      }
     }
   };
 
@@ -334,8 +709,30 @@ const GameSystemRequirementsPage = () => {
   }, []);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadExternalGames(externalGameQuery);
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      externalRequestIdRef.current += 1;
+    };
+  }, [externalGameQuery]);
+
+  useEffect(() => {
     setRequirement(null);
+    setAllRequirementRows([]);
     setFormError(null);
+
+    if (isAllGamesSelected) {
+      if (games.length === 0) {
+        setLoadingRequirement(false);
+        return;
+      }
+
+      void loadAllSystemRequirements(games);
+      return;
+    }
 
     if (selectedGameId === null) {
       setLoadingRequirement(false);
@@ -343,13 +740,82 @@ const GameSystemRequirementsPage = () => {
     }
 
     void loadSystemRequirements(selectedGameId);
-  }, [selectedGameId]);
+  }, [games, isAllGamesSelected, selectedGameId]);
 
   const setField = <TKey extends keyof SystemRequirementRequest>(
     key: TKey,
     value: SystemRequirementRequest[TKey]
   ) => {
     setFormValue((currentValue) => ({ ...currentValue, [key]: value }));
+  };
+
+  const applySelectedGameOption = (value: string) => {
+    setSelectedGameOptionValue(value);
+    setRequirement(null);
+    setSelectedExternalGame(null);
+    setNotice(null);
+
+    if (value === ALL_GAMES_VALUE) {
+      setIsAllGamesSelected(true);
+      setSelectedGameId(null);
+      return;
+    }
+
+    setIsAllGamesSelected(false);
+
+    if (value.startsWith("manual:")) {
+      setSelectedGameId(Number(value.replace("manual:", "")));
+      return;
+    }
+
+    const externalOption = gameOptions.find(
+      (option) => option.type === "external" && option.value === value
+    );
+
+    if (externalOption?.type === "external") {
+      setSelectedGameId(null);
+      setSelectedExternalGame(externalOption.externalGame);
+    }
+  };
+
+  const applyFormGameOption = (value: string) => {
+    setFormGameOptionValue(value);
+    setFormError(null);
+
+    if (value.startsWith("manual:")) {
+      setFormExternalGame(null);
+      setFormGameId(Number(value.replace("manual:", "")));
+      return;
+    }
+
+    const externalOption = gameOptions.find(
+      (option) => option.type === "external" && option.value === value
+    );
+
+    if (externalOption?.type === "external") {
+      setFormGameId(null);
+      setFormExternalGame(externalOption.externalGame);
+      return;
+    }
+
+    setFormGameId(null);
+    setFormExternalGame(null);
+  };
+
+  const handleSourceFilterChange = (value: GameSource | "all") => {
+    setSourceFilter(value);
+
+    if (selectedGameOptionValue === ALL_GAMES_VALUE) {
+      return;
+    }
+
+    const selectedOption = gameOptions.find(
+      (option) => option.value === selectedGameOptionValue
+    );
+
+    if (selectedOption && value !== "all" && selectedOption.source !== value) {
+      applySelectedGameOption(ALL_GAMES_VALUE);
+    }
   };
 
   const openCreateModal = () => {
@@ -359,19 +825,25 @@ const GameSystemRequirementsPage = () => {
     }
 
     setFormValue(initialForm);
-    setFormGameId(selectedGameId);
+    if (!isAllGamesSelected && selectedGameOptionValue !== ALL_GAMES_VALUE) {
+      applyFormGameOption(selectedGameOptionValue);
+    } else if (gameOptions[0]) {
+      applyFormGameOption(gameOptions[0].value);
+    } else {
+      applyFormGameOption("");
+    }
     setFormError(null);
     setFormMode("create");
     setIsModalOpen(true);
   };
 
-  const openEditModal = async () => {
+  const openEditModal = async (targetGameId = selectedGameId) => {
     if (!isAdmin) {
       setNotice(ADMIN_ACTION_MESSAGE);
       return;
     }
 
-    if (selectedGameId === null) {
+    if (targetGameId === null) {
       setNotice("Sistem gereksinimini düzenlemek için önce bir oyun seçin.");
       return;
     }
@@ -382,10 +854,15 @@ const GameSystemRequirementsPage = () => {
 
     try {
       const nextRequirement =
-        await systemRequirementService.getSystemRequirements(selectedGameId);
+        await systemRequirementService.getSystemRequirements(targetGameId);
+      setIsAllGamesSelected(false);
+      setSelectedExternalGame(null);
+      setSelectedGameId(targetGameId);
       setRequirement(nextRequirement);
       setFormValue(toRequirementFormValue(nextRequirement));
-      setFormGameId(selectedGameId);
+      setFormGameId(targetGameId);
+      setFormGameOptionValue(manualGameOptionValue(targetGameId));
+      setFormExternalGame(null);
       setFormMode("edit");
       setIsModalOpen(true);
     } catch (editLoadError) {
@@ -404,6 +881,8 @@ const GameSystemRequirementsPage = () => {
     setIsModalOpen(false);
     setFormValue(initialForm);
     setFormGameId(null);
+    setFormGameOptionValue("");
+    setFormExternalGame(null);
     setFormError(null);
     setFormMode("create");
     setSaving(false);
@@ -415,9 +894,9 @@ const GameSystemRequirementsPage = () => {
       return;
     }
 
-    const targetGameId = formMode === "edit" ? selectedGameId : formGameId;
+    let targetGameId = formMode === "edit" ? selectedGameId : formGameId;
 
-    if (targetGameId === null) {
+    if (targetGameId === null && !formExternalGame) {
       setFormError("Lütfen bir oyun seçin.");
       return;
     }
@@ -428,6 +907,46 @@ const GameSystemRequirementsPage = () => {
     setFormError(null);
 
     try {
+      if (formMode === "create" && formExternalGame) {
+        const externalDetail = await getExternalGameDetail(
+          formExternalGame.source,
+          formExternalGame.externalId
+        );
+        const existingGame = games.find(
+          (game) =>
+            game.source === externalDetail.source &&
+            game.title.trim().toLocaleLowerCase("tr") ===
+              externalDetail.title.trim().toLocaleLowerCase("tr")
+        );
+
+        if (existingGame) {
+          if (!existingGame.platform && externalDetail.platform) {
+            const updatedGame = await gameService.updateGame(
+              existingGame.id,
+              toGameRequestFromExternalDetail(externalDetail)
+            );
+            setGames((currentGames) =>
+              currentGames.map((game) =>
+                game.id === updatedGame.id ? updatedGame : game
+              )
+            );
+          }
+
+          targetGameId = existingGame.id;
+        } else {
+          const createdGame = await gameService.createGame(
+            toGameRequestFromExternalDetail(externalDetail)
+          );
+          setGames((currentGames) => [createdGame, ...currentGames]);
+          targetGameId = createdGame.id;
+        }
+      }
+
+      if (targetGameId === null) {
+        setFormError("Lütfen bir oyun seçin.");
+        return;
+      }
+
       if (formMode === "edit") {
         await systemRequirementService.updateSystemRequirements(
           targetGameId,
@@ -441,6 +960,9 @@ const GameSystemRequirementsPage = () => {
       }
 
       closeModal();
+      setIsAllGamesSelected(false);
+      setSelectedExternalGame(null);
+      setSelectedGameOptionValue(manualGameOptionValue(targetGameId));
       setSelectedGameId(targetGameId);
       setNotice(
         formMode === "edit"
@@ -462,17 +984,25 @@ const GameSystemRequirementsPage = () => {
     }
   };
 
-  const requestDeleteRequirement = () => {
+  const requestDeleteRequirement = (
+    targetGame = selectedGame,
+    targetRequirement = requirement
+  ) => {
     if (!isAdmin) {
       setError(ADMIN_ACTION_MESSAGE);
       return;
     }
 
-    if (selectedGameId === null || !selectedGame) {
+    if (!targetGame) {
       setError("Sistem gereksinimini silmek için önce bir oyun seçin.");
       return;
     }
 
+    if (targetRequirement) {
+      setRequirement(targetRequirement);
+    }
+
+    setDeleteTargetGame(targetGame);
     setIsDeleteModalOpen(true);
   };
 
@@ -482,6 +1012,7 @@ const GameSystemRequirementsPage = () => {
     }
 
     setIsDeleteModalOpen(false);
+    setDeleteTargetGame(null);
   };
 
   const confirmDeleteRequirement = async () => {
@@ -490,7 +1021,9 @@ const GameSystemRequirementsPage = () => {
       return;
     }
 
-    if (selectedGameId === null || !selectedGame) {
+    const targetGameId = deleteTargetGame?.id ?? selectedGameId;
+
+    if (targetGameId === null) {
       setError("Sistem gereksinimini silmek için önce bir oyun seçin.");
       setIsDeleteModalOpen(false);
       return;
@@ -501,10 +1034,13 @@ const GameSystemRequirementsPage = () => {
     setNotice(null);
 
     try {
-      await systemRequirementService.deleteSystemRequirements(selectedGameId);
+      await systemRequirementService.deleteSystemRequirements(targetGameId);
       setRequirement(null);
-      await loadSystemRequirements(selectedGameId);
+      setDeleteTargetGame(null);
       setIsDeleteModalOpen(false);
+      setIsAllGamesSelected(false);
+      setSelectedGameId(targetGameId);
+      await loadSystemRequirements(targetGameId);
       setNotice("Sistem gereksinimi başarıyla silindi.");
     } catch (deleteError) {
       setError(
@@ -600,45 +1136,43 @@ const GameSystemRequirementsPage = () => {
                   />
                 </label>
 
-                <select
-                  className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                <GameOptionCombobox
                   disabled={loadingGames}
-                  onChange={(event) => {
-                    const nextGameId = event.target.value
-                      ? Number(event.target.value)
-                      : null;
-                    setNotice(null);
-                    setSelectedGameId(nextGameId);
-                  }}
-                  value={selectedGameId ?? ""}
-                >
-                  <option value="">
-                    {loadingGames ? "Oyunlar yükleniyor..." : "Oyun seçin"}
-                  </option>
-                  {games.map((game) => (
-                    <option key={game.id} value={game.id}>
-                      {game.title}
-                    </option>
-                  ))}
-                </select>
+                  includeAllOption
+                  onChange={applySelectedGameOption}
+                  onSearchChange={setExternalGameQuery}
+                  options={gameOptions}
+                  placeholder="Oyun adı yazın..."
+                  value={selectedGameOptionValue}
+                />
 
                 <select
                   className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                  value={selectedGame?.source ?? ""}
-                  disabled
+                  onChange={(event) =>
+                    handleSourceFilterChange(
+                      event.target.value as GameSource | "all"
+                    )
+                  }
+                  value={sourceFilter}
                 >
-                  <option value="">
-                    {selectedGame ? selectedGame.source : "Kaynak yok"}
-                  </option>
+                  <option value="all">Tüm Kaynaklar</option>
+                  <option value="STEAM">Steam</option>
+                  <option value="EPIC">Epic</option>
                 </select>
 
                 <label className="grid h-12 grid-cols-[0.8fr_1.2fr] items-center gap-3 text-sm text-slate-400">
                   <span className="text-right">Sırala:</span>
                   <select
-                    className="h-12 cursor-not-allowed rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none opacity-70"
-                    disabled
+                    className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                    onChange={(event) =>
+                      setSortBy(event.target.value as RequirementSortOption)
+                    }
+                    value={sortBy}
                   >
-                    <option>En Yeni Önce</option>
+                    <option value="newest">En Yeni Önce</option>
+                    <option value="oldest">En Eski Önce</option>
+                    <option value="game-asc">Oyun Adı A-Z</option>
+                    <option value="game-desc">Oyun Adı Z-A</option>
                   </select>
                 </label>
               </div>
@@ -655,11 +1189,29 @@ const GameSystemRequirementsPage = () => {
                 </div>
               ) : null}
 
+              {externalWarning ? (
+                <div className="m-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-5 py-3 text-sm text-amber-100">
+                  {externalWarning}
+                </div>
+              ) : null}
+
+              {externalLoading && !loadingGames && !loadingRequirement ? (
+                <div className="m-4 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-5 py-3 text-sm text-sky-100">
+                  Harici oyunlar yükleniyor...
+                </div>
+              ) : null}
+
               {loadingGames || loadingRequirement ? (
                 <div className="h-96 animate-pulse bg-slate-900/70" />
               ) : null}
 
-              {!loadingGames && !loadingRequirement && selectedGameId === null ? (
+              {!loadingGames &&
+              !loadingRequirement &&
+              selectedGameId === null &&
+              !isAllGamesSelected &&
+              !selectedExternalGame &&
+              !externalLoading &&
+              filteredRequirementRows.length === 0 ? (
                 <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
                   <div>
                     <h2 className="text-xl font-bold text-white">
@@ -674,8 +1226,46 @@ const GameSystemRequirementsPage = () => {
 
               {!loadingGames &&
               !loadingRequirement &&
+              isAllGamesSelected &&
+              !externalLoading &&
+              filteredRequirementRows.length === 0 ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      Sistem gereksinimi bulunamadı
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Tüm oyunlar içinde sistem gereksinimi kaydı bulunamadı.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!loadingGames &&
+              !loadingRequirement &&
+              !isAllGamesSelected &&
+              selectedExternalGame &&
+              filteredRequirementRows.length === 0 ? (
+                <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      Manuel sistem gereksinimi yok
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Bu harici oyun için kendi sistem gereksinimi önerinizi
+                      ekleyebilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!loadingGames &&
+              !loadingRequirement &&
+              !isAllGamesSelected &&
               selectedGameId !== null &&
-              !requirement ? (
+              !requirement &&
+              !externalLoading &&
+              filteredRequirementRows.length === 0 ? (
                 <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
                   <div>
                     <h2 className="text-xl font-bold text-white">
@@ -691,9 +1281,10 @@ const GameSystemRequirementsPage = () => {
 
               {!loadingGames &&
               !loadingRequirement &&
+              !isAllGamesSelected &&
               selectedGameId !== null &&
               requirement &&
-              filteredRequirements.length === 0 ? (
+              filteredRequirementRows.length === 0 ? (
                 <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
                   <div>
                     <h2 className="text-xl font-bold text-white">
@@ -709,8 +1300,7 @@ const GameSystemRequirementsPage = () => {
 
               {!loadingGames &&
               !loadingRequirement &&
-              filteredRequirements.length > 0 &&
-              selectedGame ? (
+              filteredRequirementRows.length > 0 ? (
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
@@ -723,110 +1313,172 @@ const GameSystemRequirementsPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRequirements.map((nextRequirement) => (
-                      <tr
-                        className="border-b border-white/10 outline outline-1 outline-violet-500"
-                        key={nextRequirement.id}
-                      >
-                        <td className="px-6 py-5">
-                          <button
-                            className="flex cursor-pointer items-center gap-4 text-left"
-                            onClick={() => setRequirement(nextRequirement)}
-                            type="button"
-                          >
-                            <span className="grid h-14 w-14 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-600 text-lg font-black text-white">
-                              {getInitials(selectedGame.title)}
-                            </span>
-                            <span>
-                              <span className="font-bold text-white">
-                                {selectedGame.title}
-                              </span>
-                              <span className="mt-1 block text-sm text-slate-400">
-                                Oyun ID: {selectedGame.id}
-                              </span>
-                            </span>
-                          </button>
-                        </td>
-                        <td className="px-6 py-5 text-slate-300">
-                          {selectedGame.platform || "Bilinmiyor"}
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className="rounded-lg border border-violet-400/30 bg-violet-500/15 px-3 py-1 text-sm text-violet-100">
-                            Sistem Gereksinimi
-                          </span>
-                        </td>
-                        <td className="px-6 py-5 text-slate-300">
-                          {formatDate(
-                            nextRequirement.updatedAt ??
-                              nextRequirement.createdAt
-                          )}
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="mb-2 font-bold text-white">
-                            {minimumCoverage}% / {recommendedCoverage}%
-                          </div>
-                          <div className="grid gap-1">
-                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                              <div
-                                className="h-full rounded-full bg-emerald-400"
-                                style={{ width: `${minimumCoverage}%` }}
-                              />
-                            </div>
-                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                              <div
-                                className="h-full rounded-full bg-violet-500"
-                                style={{ width: `${recommendedCoverage}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex justify-end gap-3">
+                    {filteredRequirementRows.map((row) => {
+                      const rowMinimumCoverage = getCoverage(
+                        row.requirement,
+                        minimumFields
+                      );
+                      const rowRecommendedCoverage = getCoverage(
+                        row.requirement,
+                        recommendedFields
+                      );
+
+                      return (
+                        <tr
+                          className={`border-b border-white/10 ${
+                            selectedGameId === row.game.id
+                              ? "outline outline-1 outline-violet-500"
+                              : ""
+                          }`}
+                          key={`manual-${row.game.id}-${row.requirement.id}`}
+                        >
+                          <td className="px-6 py-5">
                             <button
-                              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-white/10 text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-                              onClick={() => setRequirement(nextRequirement)}
-                              title="Detay"
-                              type="button"
-                            >
-                              Detay
-                            </button>
-                            {isAdmin ? (
-                              <>
-                                <button
-                              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-violet-400/30 text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
-                              disabled={loadingEdit || deleting}
+                              className="flex cursor-pointer items-center gap-4 text-left"
                               onClick={() => {
-                                void openEditModal();
+                                setSelectedGameId(row.game.id);
+                                setSelectedExternalGame(null);
+                                setRequirement(row.requirement);
                               }}
-                              title="Düzenle"
                               type="button"
                             >
-                              {loadingEdit ? "..." : "Düzenle"}
+                              <span className="grid h-14 w-14 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-sky-600 text-lg font-black text-white">
+                                {getInitials(row.game.title)}
+                              </span>
+                              <span>
+                                <span className="font-bold text-white">
+                                  {row.game.title}
+                                </span>
+                                <span className="mt-1 block text-sm text-slate-400">
+                                  Oyun ID: {row.game.id}
+                                </span>
+                              </span>
                             </button>
-                            <button
-                              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-red-400/30 text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
-                              disabled={deleting || loadingEdit}
-                              onClick={() => {
-                                requestDeleteRequirement();
-                              }}
-                              title="Sil"
-                              type="button"
-                            >
-                              {deleting ? "..." : "Sil"}
-                            </button>
-                              </>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-5 text-slate-300">
+                            {getGameOptionSourceLabel(row.game.source)}
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex flex-wrap gap-2">
+                              <span className="rounded-lg border border-violet-400/30 bg-violet-500/15 px-3 py-1 text-sm text-violet-100">
+                                Sistem Gereksinimi
+                              </span>
+                              <span className="rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 py-1 text-sm text-emerald-100">
+                                Manuel
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-slate-300">
+                            {formatDate(
+                              row.requirement.updatedAt ??
+                                row.requirement.createdAt
+                            )}
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="mb-2 font-bold text-white">
+                              {rowMinimumCoverage}% / {rowRecommendedCoverage}%
+                            </div>
+                            <div className="grid gap-1">
+                              <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                                <div
+                                  className="h-full rounded-full bg-emerald-400"
+                                  style={{ width: `${rowMinimumCoverage}%` }}
+                                />
+                              </div>
+                              <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                                <div
+                                  className="h-full rounded-full bg-violet-500"
+                                  style={{
+                                    width: `${rowRecommendedCoverage}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex justify-end gap-3">
+                              {isAdmin ? (
+                                  <>
+                                    <button
+                                        className="grid h-11 min-w-[76px] cursor-pointer place-items-center rounded-xl border border-violet-400/30 px-3 text-sm text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+                                        disabled={loadingEdit || deleting}
+                                        onClick={() => {
+                                          void openEditModal(row.game.id);
+                                        }}
+                                        title="Düzenle"
+                                        type="button"
+                                    >
+                                      {loadingEdit ? "..." : "Düzenle"}
+                                    </button>
+
+                                    <button
+                                        className="grid h-11 min-w-[56px] cursor-pointer place-items-center rounded-xl border border-red-400/30 px-3 text-sm text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                                        disabled={deleting || loadingEdit}
+                                        onClick={() => {
+                                          requestDeleteRequirement(row.game, row.requirement);
+                                        }}
+                                        title="Sil"
+                                        type="button"
+                                    >
+                                      {deleting ? "..." : "Sil"}
+                                    </button>
+                                  </>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : null}
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              {selectedGame ? (
+              {selectedExternalGame ? (
+                <div className="grid min-h-[520px] place-items-center p-8 text-center">
+                  <div>
+                    {selectedExternalGame.coverImageUrl ? (
+                      <img
+                        alt={selectedExternalGame.title}
+                        className="mx-auto h-24 w-24 rounded-2xl object-cover"
+                        src={selectedExternalGame.coverImageUrl}
+                      />
+                    ) : (
+                      <div className="mx-auto grid h-20 w-20 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-sky-600 text-2xl font-black text-white">
+                        {getInitials(selectedExternalGame.title)}
+                      </div>
+                    )}
+                    <h2 className="mt-5 text-xl font-bold text-white">
+                      {selectedExternalGame.title}
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Bu harici oyun için sistem gereksinimi kaydı henüz yok.
+                      Sistem Gereksinimi Ekle ile kendi önerinizi
+                      ekleyebilirsiniz.
+                    </p>
+                    <p className="mt-3 text-xs font-bold text-sky-200">
+                      {getGameOptionSourceLabel(selectedExternalGame.source)} -
+                      Harici
+                    </p>
+                  </div>
+                </div>
+              ) : isAllGamesSelected && !selectedGame ? (
+                <div className="grid min-h-[520px] place-items-center p-8 text-center">
+                  <div>
+                    <div className="mx-auto grid h-20 w-20 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-sky-600 text-2xl font-black text-white">
+                      ALL
+                    </div>
+                    <h2 className="mt-5 text-xl font-bold text-white">
+                      Tüm Oyunlar
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      {allRequirementRows.length} sistem gereksinimi kaydı
+                      gösteriliyor. Detay için listeden bir oyun seçin.
+                    </p>
+                  </div>
+                </div>
+              ) : selectedGame ? (
                 <>
                   <div className="flex items-center gap-5">
                     <div className="grid h-20 w-20 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-sky-600 text-2xl font-black text-white">
@@ -960,7 +1612,9 @@ const GameSystemRequirementsPage = () => {
                 <p className="mt-2 text-sm leading-6 text-slate-400">
                   {formGame
                     ? `${formGame.title} için sistem gereksinimi kaydı.`
-                    : "Sistem gereksinimi için bir oyun seçin."}
+                    : formExternalGame
+                      ? `${formExternalGame.title} için manuel sistem gereksinimi kaydı.`
+                      : "Sistem gereksinimi için bir oyun seçin."}
                 </p>
               </div>
               <button
@@ -982,26 +1636,19 @@ const GameSystemRequirementsPage = () => {
             >
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-white">Oyun</span>
-                <select
-                  className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={loadingGames || formMode === "edit"}
-                  onChange={(event) => {
-                    const nextGameId = event.target.value
-                      ? Number(event.target.value)
-                      : null;
-                    setFormGameId(nextGameId);
-                  }}
-                  value={formGameId ?? ""}
-                >
-                  <option value="">
-                    {loadingGames ? "Oyunlar yükleniyor..." : "Oyun seçin"}
-                  </option>
-                  {games.map((game) => (
-                    <option key={game.id} value={game.id}>
-                      {game.title}
-                    </option>
-                  ))}
-                </select>
+                <GameOptionCombobox
+                  disabled={
+                    loadingGames ||
+                    formMode === "edit" ||
+                    gameOptions.length === 0
+                  }
+                  emptyLabel="Oyun bulunamadı"
+                  onChange={applyFormGameOption}
+                  onSearchChange={setExternalGameQuery}
+                  options={gameOptions}
+                  placeholder="Oyun adı yazın..."
+                  value={formGameOptionValue}
+                />
               </label>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -1190,7 +1837,7 @@ const GameSystemRequirementsPage = () => {
         description="Seçili oyun için sistem gereksinimi kaydı silinecek. Devam etmek istiyor musunuz?"
         isDeleting={deleting}
         isOpen={isDeleteModalOpen}
-        itemName={selectedGame?.title}
+        itemName={deleteTargetGame?.title ?? selectedGame?.title}
         onCancel={closeDeleteModal}
         onConfirm={() => {
           void confirmDeleteRequirement();
