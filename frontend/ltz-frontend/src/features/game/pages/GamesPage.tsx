@@ -5,7 +5,6 @@ import type { FormEvent } from "react";
 import { Button } from "../../../components/ui/Button";
 import GameCard from "../components/GameCard";
 import type { GameCardViewMode } from "../components/GameCard";
-import GameNavbar from "../components/GameNavbar";
 import {
   createGame,
   getGameCategories,
@@ -490,11 +489,10 @@ const GamesPage = () => {
       !gameForm.title.trim();
 
   return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
+      <div className="relative bg-[#020817] text-white">
         <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.20),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.14),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
         <div className="relative min-h-screen">
-          <GameNavbar activeItem="Games" />
 
           <main className="mx-auto max-w-[1840px] px-8 py-8">
             <section className="mb-7 flex flex-wrap items-center justify-between gap-5">

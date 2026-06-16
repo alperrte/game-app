@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { GAME_ROUTES } from "../../../lib/constants";
 import { useAuthStore } from "../../../store/authStore";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
-import GameNavbar from "../components/GameNavbar";
 import { gameService } from "../services/gameService";
 import type { Game, GameRequest } from "../types/gameTypes";
 import {
@@ -293,8 +292,7 @@ const GameEditPage = () => {
 
   if (initialLoading) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto max-w-[1840px] px-8 py-8">
           <div className="h-[680px] animate-pulse rounded-3xl border border-white/10 bg-slate-900/70" />
         </main>
@@ -304,8 +302,7 @@ const GameEditPage = () => {
 
   if (!formValue || !originalGame) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto grid min-h-[calc(100vh-80px)] max-w-[900px] place-items-center px-8 py-8">
           <section className="w-full rounded-3xl border border-red-400/20 bg-red-950/20 p-10 text-center">
             <h1 className="text-2xl font-bold text-white">Oyun bulunamadı</h1>
@@ -325,11 +322,10 @@ const GameEditPage = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
+    <div className="relative bg-[#020817] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
       <div className="relative min-h-screen">
-        <GameNavbar activeItem="Games" />
 
         <main className="mx-auto max-w-[1840px] px-8 py-7">
           <section className="mb-5 flex flex-wrap items-center justify-between gap-5">

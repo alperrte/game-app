@@ -105,3 +105,51 @@ export function clearAuthStorage(): void {
 export function isAuthenticated(): boolean {
     return Boolean(getAccessToken());
 }
+
+/*
+ * JWT'nin payload (orta) bölümünü güvenli şekilde decode eder.
+ * Token bir JWT değilse veya bozuksa null döner.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+    try {
+        const part = token.split(".")[1];
+        if (!part) return null;
+
+        const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
+        const padding = (4 - (base64.length % 4)) % 4;
+        const padded = base64.padEnd(base64.length + padding, "=");
+
+        const json = decodeURIComponent(
+            atob(padded)
+                .split("")
+                .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+                .join(""),
+        );
+
+        const parsed: unknown = JSON.parse(json);
+        return parsed && typeof parsed === "object"
+            ? (parsed as Record<string, unknown>)
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+/*
+ * Token'ın süresinin dolup dolmadığını JWT exp alanına göre döndürür.
+ *
+ * - token yoksa: süresi dolmuş kabul edilir (true).
+ * - JWT değilse veya exp yoksa (örn. opaque refresh token): süresiz kabul edilir
+ *   (false) — geçerliliği sunucu belirler.
+ * - skewSeconds: saat farkı/gecikme payı (varsayılan 10sn).
+ */
+export function isTokenExpired(token: string | null, skewSeconds = 10): boolean {
+    if (!token) return true;
+
+    const payload = decodeJwtPayload(token);
+    const exp = payload?.exp;
+
+    if (typeof exp !== "number") return false;
+
+    return Date.now() >= (exp - skewSeconds) * 1000;
+}

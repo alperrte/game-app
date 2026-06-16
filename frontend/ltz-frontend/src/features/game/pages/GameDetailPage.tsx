@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getErrorMessage } from "../../../utils/getErrorMessage";
-import GameNavbar from "../components/GameNavbar";
 import { getExternalGameDetail } from "../services/externalGameService";
 import { gameService } from "../services/gameService";
 import type {
@@ -189,8 +188,7 @@ const GameDetailPage = () => {
 
   if (visibleError) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto grid min-h-[calc(100vh-80px)] max-w-[900px] place-items-center px-8 py-8">
           <section className="w-full rounded-3xl border border-red-400/20 bg-red-950/20 p-10 text-center">
             <h1 className="text-2xl font-bold text-white">Oyun detayı alınamadı</h1>
@@ -209,8 +207,7 @@ const GameDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto max-w-[1840px] px-8 py-8">
           <div className="h-[420px] animate-pulse rounded-3xl border border-white/10 bg-slate-900/70" />
         </main>
@@ -220,8 +217,7 @@ const GameDetailPage = () => {
 
   if (!game) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto grid min-h-[calc(100vh-80px)] max-w-[900px] place-items-center px-8 py-8">
           <section className="w-full rounded-3xl border border-red-400/20 bg-red-950/20 p-10 text-center">
             <h1 className="text-2xl font-bold text-white">Oyun bulunamadı</h1>
@@ -241,11 +237,10 @@ const GameDetailPage = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
+    <div className="relative bg-[#020817] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.13),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
       <div className="relative min-h-screen">
-        <GameNavbar activeItem="Games" />
 
         <main className="mx-auto max-w-[1840px] space-y-5 px-8 py-7">
           <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/55 p-8 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">

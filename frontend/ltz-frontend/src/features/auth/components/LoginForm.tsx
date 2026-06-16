@@ -36,7 +36,7 @@ export function LoginForm() {
 
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
-    const [rememberMe, setRememberMe] = useState(true);
+    const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<LoginFormErrors>({});

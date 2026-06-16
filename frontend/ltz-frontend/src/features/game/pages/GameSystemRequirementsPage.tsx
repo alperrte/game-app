@@ -1,7 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
-import GameNavbar from "../components/GameNavbar";
 import {
   getExternalGameDetail,
   searchExternalGames,
@@ -1055,11 +1054,10 @@ const GameSystemRequirementsPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
+    <div className="relative bg-[#020817] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
       <div className="relative min-h-screen">
-        <GameNavbar activeItem="SystemRequirements" />
 
         <main className="mx-auto max-w-[1840px] px-8 py-8">
           <section className="mb-7 flex flex-wrap items-center justify-between gap-5">
