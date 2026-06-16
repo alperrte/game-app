@@ -3,6 +3,7 @@ package com.ltz.game_service.service;
 import com.ltz.game_service.config.CacheConfig;
 import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.enums.GameSource;
@@ -34,6 +35,24 @@ public class ExternalGameService {
     )
     public List<ExternalGameSearchResponse> search(GameSource source, String query) {
         return getProvider(source).searchGames(query);
+    }
+
+    @Cacheable(
+            cacheNames = CacheConfig.EXTERNAL_GAME_POPULAR,
+            key = "T(java.lang.String).valueOf(#source).toLowerCase()",
+            unless = "#result == null"
+    )
+    public List<ExternalGameSearchResponse> getPopularGames(GameSource source) {
+        return getProvider(source).getPopularGames();
+    }
+
+    @Cacheable(
+            cacheNames = CacheConfig.EXTERNAL_GAME_APPS,
+            key = "T(java.lang.String).valueOf(#source).toLowerCase() + ':' + #page + ':' + #size",
+            unless = "#result == null"
+    )
+    public ExternalGamePageResponse getGames(GameSource source, int page, int size) {
+        return getProvider(source).getGames(page, size);
     }
 
     @Cacheable(

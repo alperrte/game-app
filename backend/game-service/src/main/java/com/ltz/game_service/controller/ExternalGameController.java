@@ -2,6 +2,7 @@ package com.ltz.game_service.controller;
 
 import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.enums.GameSource;
@@ -29,6 +30,22 @@ public class ExternalGameController {
             @RequestParam String query
     ) {
         return externalGameService.search(source, query);
+    }
+
+    @GetMapping("/popular")
+    public List<ExternalGameSearchResponse> getPopularGames(
+            @RequestParam GameSource source
+    ) {
+        return externalGameService.getPopularGames(source);
+    }
+
+    @GetMapping("/apps")
+    public ExternalGamePageResponse getGames(
+            @RequestParam GameSource source,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return externalGameService.getGames(source, page, size);
     }
 
     @GetMapping("/detail")

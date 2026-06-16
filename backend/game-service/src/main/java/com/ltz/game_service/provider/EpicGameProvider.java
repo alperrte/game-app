@@ -2,6 +2,7 @@ package com.ltz.game_service.provider;
 
 import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.enums.GameSource;
@@ -20,6 +21,22 @@ public class EpicGameProvider implements ExternalGameProvider {
     @Override
     public List<ExternalGameSearchResponse> searchGames(String query) {
         throw new UnsupportedOperationException("Epic Games provider henüz aktif değil.");
+    }
+
+    @Override
+    public List<ExternalGameSearchResponse> getPopularGames() {
+        return List.of();
+    }
+
+    @Override
+    public ExternalGamePageResponse getGames(int page, int size) {
+        return new ExternalGamePageResponse(
+                List.of(),
+                page,
+                size,
+                0,
+                0
+        );
     }
 
     @Override

@@ -4,18 +4,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ltz.game_service.dto.response.external.ExternalGameCategoryResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameDetailResponse;
+import com.ltz.game_service.dto.response.external.ExternalGamePageResponse;
 import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.dto.steam.SteamAppDetailsResponse;
 import com.ltz.game_service.dto.steam.SteamSearchResultsResponse;
 import com.ltz.game_service.dto.steam.SteamStoreSearchResponse;
 import com.ltz.game_service.enums.GameSource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.text.Normalizer;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -24,6 +30,24 @@ import java.util.stream.Collectors;
 public class SteamGameProvider implements ExternalGameProvider {
 
     private static final int SEARCH_RESULT_LIMIT = 20;
+    private static final int POPULAR_GAME_LIMIT = 80;
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Duration STEAM_APP_LIST_CACHE_TTL = Duration.ofHours(6);
+
+    private static final List<String> POPULAR_SEARCH_TERMS = List.of(
+            "counter",
+            "gta",
+            "elden",
+            "witcher",
+            "cyberpunk",
+            "red dead",
+            "call of duty",
+            "battlefield",
+            "assassin",
+            "resident evil",
+            "god of war",
+            "forza"
+    );
 
     private static final List<SteamCategory> STEAM_CATEGORIES = List.of(
             new SteamCategory(
@@ -101,18 +125,33 @@ public class SteamGameProvider implements ExternalGameProvider {
     );
 
     private final RestClient steamStoreClient;
+    private final RestClient steamApiClient;
     private final ObjectMapper objectMapper;
+    private final String steamApiKey;
 
-    public SteamGameProvider() {
+    private List<ExternalGameSearchResponse> cachedSteamAppList = List.of();
+    private Instant cachedSteamAppListExpiresAt = Instant.EPOCH;
+
+    public SteamGameProvider(@Value("${steam.api.key:}") String steamApiKey) {
         this.objectMapper = new ObjectMapper();
+        this.steamApiKey = steamApiKey;
 
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(3));
-        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+        SimpleClientHttpRequestFactory storeRequestFactory = new SimpleClientHttpRequestFactory();
+        storeRequestFactory.setConnectTimeout(Duration.ofSeconds(3));
+        storeRequestFactory.setReadTimeout(Duration.ofSeconds(10));
+
+        SimpleClientHttpRequestFactory steamApiRequestFactory = new SimpleClientHttpRequestFactory();
+        steamApiRequestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        steamApiRequestFactory.setReadTimeout(Duration.ofSeconds(45));
 
         this.steamStoreClient = RestClient.builder()
                 .baseUrl("https://store.steampowered.com")
-                .requestFactory(requestFactory)
+                .requestFactory(storeRequestFactory)
+                .build();
+
+        this.steamApiClient = RestClient.builder()
+                .baseUrl("https://api.steampowered.com")
+                .requestFactory(steamApiRequestFactory)
                 .build();
     }
 
@@ -145,6 +184,57 @@ public class SteamGameProvider implements ExternalGameProvider {
                         item.getTinyImage() != null ? item.getTinyImage() : buildSteamHeaderImageUrl(item.getId())
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ExternalGameSearchResponse> getPopularGames() {
+        return POPULAR_SEARCH_TERMS.stream()
+                .flatMap(searchTerm -> searchGames(searchTerm).stream())
+                .collect(Collectors.toMap(
+                        ExternalGameSearchResponse::getExternalId,
+                        game -> game,
+                        (existingGame, duplicateGame) -> existingGame,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .limit(POPULAR_GAME_LIMIT)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ExternalGamePageResponse getGames(int page, int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+
+        List<ExternalGameSearchResponse> allGames = getCachedSteamAppList();
+
+        int totalItems = allGames.size();
+        int totalPages = totalItems == 0
+                ? 0
+                : (int) Math.ceil((double) totalItems / safeSize);
+
+        int fromIndex = (safePage - 1) * safeSize;
+
+        if (fromIndex >= totalItems) {
+            return new ExternalGamePageResponse(
+                    List.of(),
+                    safePage,
+                    safeSize,
+                    totalItems,
+                    totalPages
+            );
+        }
+
+        int toIndex = Math.min(fromIndex + safeSize, totalItems);
+
+        return new ExternalGamePageResponse(
+                allGames.subList(fromIndex, toIndex),
+                safePage,
+                safeSize,
+                totalItems,
+                totalPages
+        );
     }
 
     @Override
@@ -212,6 +302,93 @@ public class SteamGameProvider implements ExternalGameProvider {
                 "Steam Store API",
                 null
         );
+    }
+
+    private synchronized List<ExternalGameSearchResponse> getCachedSteamAppList() {
+        Instant now = Instant.now();
+
+        if (!cachedSteamAppList.isEmpty() && now.isBefore(cachedSteamAppListExpiresAt)) {
+            return cachedSteamAppList;
+        }
+
+        List<ExternalGameSearchResponse> freshAppList = fetchSteamAppList();
+
+        cachedSteamAppList = freshAppList;
+        cachedSteamAppListExpiresAt = now.plus(STEAM_APP_LIST_CACHE_TTL);
+
+        return cachedSteamAppList;
+    }
+
+    private List<ExternalGameSearchResponse> fetchSteamAppList() {
+        try {
+            if (steamApiKey == null || steamApiKey.isBlank()) {
+                throw new RuntimeException("Steam API key tanımlı değil. STEAM_API_KEY environment değişkenini ekleyin.");
+            }
+
+            String response = steamApiClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/IStoreService/GetAppList/v1/")
+                            .queryParam("key", steamApiKey)
+                            .queryParam("include_games", true)
+                            .queryParam("max_results", 50000)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode appsNode = objectMapper.readTree(response)
+                    .path("response")
+                    .path("apps");
+
+            if (!appsNode.isArray()) {
+                throw new RuntimeException("Steam app listesi beklenen formatta değil.");
+            }
+
+            List<ExternalGameSearchResponse> games = new ArrayList<>();
+
+            for (JsonNode appNode : appsNode) {
+                JsonNode appIdNode = appNode.get("appid");
+                JsonNode nameNode = appNode.get("name");
+
+                if (appIdNode == null || nameNode == null) {
+                    continue;
+                }
+
+                String externalId = appIdNode.asText();
+                String title = nameNode.asText();
+
+                if (externalId == null || externalId.isBlank() || title == null || title.isBlank()) {
+                    continue;
+                }
+
+                games.add(new ExternalGameSearchResponse(
+                        GameSource.STEAM,
+                        externalId,
+                        title,
+                        buildSteamHeaderImageUrl(Integer.parseInt(externalId))
+                ));
+            }
+
+            return games.stream()
+                    .collect(Collectors.toMap(
+                            ExternalGameSearchResponse::getExternalId,
+                            game -> game,
+                            (existingGame, duplicateGame) -> existingGame,
+                            LinkedHashMap::new
+                    ))
+                    .values()
+                    .stream()
+                    .sorted(Comparator.comparing(
+                            game -> normalizeText(game.getTitle()),
+                            Comparator.nullsLast(String::compareTo)
+                    ))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            if (!cachedSteamAppList.isEmpty()) {
+                return cachedSteamAppList;
+            }
+
+            throw new RuntimeException("Steam app listesi alınamadı: " + e.getMessage(), e);
+        }
     }
 
     private SteamCategoryStats getSteamCategoryStats(String searchTerm) {

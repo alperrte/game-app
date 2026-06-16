@@ -7,7 +7,7 @@ export const APP_SHORT_NAME = "LTZ";
  * Değer .env içindeki VITE_API_BASE_URL'den gelir.
  */
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:7070";
+    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:7070";
 
 /*
  * Sosyal medya bağlantıları.
@@ -15,8 +15,8 @@ export const API_BASE_URL =
  */
 export const SOCIAL_LINKS = {
   discord:
-    import.meta.env.VITE_DISCORD_INVITE_URL ??
-    "https://discord.gg/aFc7HRBpfh",
+      import.meta.env.VITE_DISCORD_INVITE_URL ??
+      "https://discord.gg/aFc7HRBpfh",
   instagram: "#",
   x: "#",
   youtube: "#",
@@ -53,14 +53,14 @@ export const GAME_ROUTES = {
   createGame: "/games/create",
   editGame: (id: number | string) => `/games/${id}/edit`,
   gameSystemRequirements: (id: number | string) =>
-    `/games/${id}/system-requirements`,
+      `/games/${id}/system-requirements`,
   systemRequirements: "/games/system-requirements",
   categories: "/games/categories",
   platforms: "/games/platforms",
   developers: "/games/developers",
   publishers: "/games/publishers",
   externalGameDetail: (source: string, externalId: string) =>
-    `/games/external/${source}/${externalId}`,
+      `/games/external/${source}/${externalId}`,
 } as const;
 
 /*
@@ -72,7 +72,7 @@ export const GAME_API_ENDPOINTS = {
   popularGames: "/api/games/popular",
   gameById: (id: number | string) => `/api/games/${id}`,
   gameSystemRequirements: (gameId: number | string) =>
-    `/api/games/${gameId}/system-requirements`,
+      `/api/games/${gameId}/system-requirements`,
 
   categories: "/api/games/categories",
   categoryById: (id: number | string) => `/api/games/categories/${id}`,
@@ -87,6 +87,8 @@ export const GAME_API_ENDPOINTS = {
   publisherById: (id: number | string) => `/api/games/publishers/${id}`,
 
   externalGameSearch: "/api/games/external/search",
+  externalApps: "/api/games/external/apps",
+  externalPopularGames: "/api/games/external/popular",
   externalGameDetail: "/api/games/external/detail",
   externalGameCategories: "/api/games/external/categories",
   externalGamePlatforms: "/api/games/external/platforms",

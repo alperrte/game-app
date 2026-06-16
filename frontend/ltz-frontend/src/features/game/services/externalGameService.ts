@@ -80,6 +80,19 @@ export function searchExternalGames(
   );
 }
 
+export function getPopularExternalGames(
+  source: GameSource
+): Promise<ExternalGameSearchResponse[]> {
+  return getCachedExternalData(
+    buildCacheKey(GAME_API_ENDPOINTS.externalPopularGames, { source }),
+    () =>
+      apiClient.get<ExternalGameSearchResponse[]>(
+        GAME_API_ENDPOINTS.externalPopularGames,
+        { source }
+      )
+  );
+}
+
 export function getExternalGameDetail(
   source: GameSource,
   externalId: string

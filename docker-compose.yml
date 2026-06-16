@@ -132,6 +132,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
 
+      STEAM_API_KEY: ${STEAM_API_KEY}
+
     ports:
       - "${SERVER_PORT_GAME}:${SERVER_PORT_GAME}"
     restart: unless-stopped
