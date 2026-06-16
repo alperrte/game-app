@@ -1,5 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import GameNavbar from "../components/GameNavbar";
 import { developerService } from "../services/developerService";
 import type { Developer, DeveloperRequest } from "../types/developerTypes";
@@ -183,6 +184,8 @@ const GameDevelopersPage = () => {
   const [deletingDeveloperId, setDeletingDeveloperId] = useState<number | null>(
     null
   );
+  const [developerToDelete, setDeveloperToDelete] =
+    useState<DeveloperRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -455,33 +458,47 @@ const GameDevelopersPage = () => {
     }
   };
 
-  const handleDeleteDeveloper = async (developer: DeveloperRow) => {
+  const requestDeleteDeveloper = (developer: DeveloperRow) => {
     if (!isAdmin) {
       setError(ADMIN_ACTION_MESSAGE);
       return;
     }
 
-    const confirmed = window.confirm(
-      `${developer.name} geliştiricisini silmek istediğinizden emin misiniz?`
-    );
+    setDeveloperToDelete(developer);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deletingDeveloperId !== null) {
       return;
     }
 
-    const wasSelectedDeveloper = selectedDeveloper?.id === developer.id;
+    setDeveloperToDelete(null);
+  };
 
-    setDeletingDeveloperId(developer.id);
+  const confirmDeleteDeveloper = async () => {
+    if (!developerToDelete) {
+      return;
+    }
+
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    const wasSelectedDeveloper = selectedDeveloper?.id === developerToDelete.id;
+
+    setDeletingDeveloperId(developerToDelete.id);
     setError(null);
     setNotice(null);
 
     try {
-      await developerService.deleteDeveloper(developer.id);
+      await developerService.deleteDeveloper(developerToDelete.id);
 
       if (wasSelectedDeveloper) {
         setSelectedDeveloper(null);
       }
 
+      setDeveloperToDelete(null);
       await loadDevelopers(!wasSelectedDeveloper);
       setNotice("Geliştirici başarıyla silindi.");
     } catch (deleteError) {
@@ -747,7 +764,7 @@ const GameDevelopersPage = () => {
                                 loadingEditId === developer.id
                               }
                               onClick={() => {
-                                void handleDeleteDeveloper(developer);
+                                requestDeleteDeveloper(developer);
                               }}
                               type="button"
                             >
@@ -1052,6 +1069,17 @@ const GameDevelopersPage = () => {
           </section>
         </div>
       ) : null}
+      <DeleteConfirmModal
+        description="Bu geliştirici kaydı kalıcı olarak silinecek. Devam etmek istiyor musunuz?"
+        isDeleting={deletingDeveloperId !== null}
+        isOpen={developerToDelete !== null}
+        itemName={developerToDelete?.name}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDeleteDeveloper();
+        }}
+        title="Geliştiriciyi Sil"
+      />
     </div>
   );
 };

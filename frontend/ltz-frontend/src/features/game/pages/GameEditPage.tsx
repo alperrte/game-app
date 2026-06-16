@@ -2,6 +2,7 @@ import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { GAME_ROUTES } from "../../../lib/constants";
 import { useAuthStore } from "../../../store/authStore";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import GameNavbar from "../components/GameNavbar";
 import { gameService } from "../services/gameService";
 import type { Game, GameRequest } from "../types/gameTypes";
@@ -149,6 +150,7 @@ const GameEditPage = () => {
   const [initialLoading, setInitialLoading] = useState(() => gameId !== null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(() =>
     gameId ? null : "Invalid game id."
   );
@@ -236,7 +238,7 @@ const GameEditPage = () => {
     }
   };
 
-  const handleDelete = async () => {
+  const requestDelete = () => {
     if (!isAdmin) {
       setError(ADMIN_ACTION_MESSAGE);
       return;
@@ -246,11 +248,24 @@ const GameEditPage = () => {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Oyunu silmek kalıcıdır. Devam etmek istiyor musunuz?"
-    );
+    setIsDeleteModalOpen(true);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deleting) {
+      return;
+    }
+
+    setIsDeleteModalOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    if (!gameId) {
       return;
     }
 
@@ -260,9 +275,11 @@ const GameEditPage = () => {
 
     try {
       await gameService.deleteGame(gameId);
+      setIsDeleteModalOpen(false);
       window.history.pushState({}, "", GAME_ROUTES.games);
       window.dispatchEvent(new Event("popstate"));
     } catch (deleteError) {
+      setIsDeleteModalOpen(false);
       setError(
         getGameEditErrorMessage(
           deleteError,
@@ -623,7 +640,7 @@ const GameEditPage = () => {
                     <button
                       className="h-12 rounded-xl border border-red-500/50 bg-red-500/10 px-6 text-sm font-bold text-red-200 disabled:opacity-60"
                       disabled={submitting || deleting}
-                      onClick={() => void handleDelete()}
+                      onClick={requestDelete}
                       type="button"
                     >
                       {deleting ? "Siliniyor..." : "Oyunu Sil"}
@@ -639,6 +656,17 @@ const GameEditPage = () => {
           </div>
         </main>
       </div>
+      <DeleteConfirmModal
+        description="Oyunu silmek kalıcıdır ve geri alınamaz. Devam etmek istiyor musunuz?"
+        isDeleting={deleting}
+        isOpen={isDeleteModalOpen}
+        itemName={formValue.title}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        title="Oyunu Sil"
+      />
     </div>
   );
 };

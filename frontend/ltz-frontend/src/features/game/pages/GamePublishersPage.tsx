@@ -1,5 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import GameNavbar from "../components/GameNavbar";
 import { publisherService } from "../services/publisherService";
 import type { Publisher, PublisherRequest } from "../types/publisherTypes";
@@ -177,6 +178,8 @@ const GamePublishersPage = () => {
   const [deletingPublisherId, setDeletingPublisherId] = useState<number | null>(
     null
   );
+  const [publisherToDelete, setPublisherToDelete] =
+    useState<PublisherRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -449,33 +452,47 @@ const GamePublishersPage = () => {
     }
   };
 
-  const handleDeletePublisher = async (publisher: PublisherRow) => {
+  const requestDeletePublisher = (publisher: PublisherRow) => {
     if (!isAdmin) {
       setError(ADMIN_ACTION_MESSAGE);
       return;
     }
 
-    const confirmed = window.confirm(
-      `${publisher.name} yayıncısını silmek istediğinizden emin misiniz?`
-    );
+    setPublisherToDelete(publisher);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deletingPublisherId !== null) {
       return;
     }
 
-    const wasSelectedPublisher = selectedPublisher?.id === publisher.id;
+    setPublisherToDelete(null);
+  };
 
-    setDeletingPublisherId(publisher.id);
+  const confirmDeletePublisher = async () => {
+    if (!publisherToDelete) {
+      return;
+    }
+
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    const wasSelectedPublisher = selectedPublisher?.id === publisherToDelete.id;
+
+    setDeletingPublisherId(publisherToDelete.id);
     setError(null);
     setNotice(null);
 
     try {
-      await publisherService.deletePublisher(publisher.id);
+      await publisherService.deletePublisher(publisherToDelete.id);
 
       if (wasSelectedPublisher) {
         setSelectedPublisher(null);
       }
 
+      setPublisherToDelete(null);
       await loadPublishers(!wasSelectedPublisher);
       setNotice("Yayıncı başarıyla silindi.");
     } catch (deleteError) {
@@ -741,7 +758,7 @@ const GamePublishersPage = () => {
                                 loadingEditId === publisher.id
                               }
                               onClick={() => {
-                                void handleDeletePublisher(publisher);
+                                requestDeletePublisher(publisher);
                               }}
                               type="button"
                             >
@@ -1017,6 +1034,17 @@ const GamePublishersPage = () => {
           </section>
         </div>
       ) : null}
+      <DeleteConfirmModal
+        description="Bu yayıncı kaydı kalıcı olarak silinecek. Devam etmek istiyor musunuz?"
+        isDeleting={deletingPublisherId !== null}
+        isOpen={publisherToDelete !== null}
+        itemName={publisherToDelete?.name}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDeletePublisher();
+        }}
+        title="Yayıncıyı Sil"
+      />
     </div>
   );
 };

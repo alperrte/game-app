@@ -1,6 +1,7 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import GameNavbar from "../components/GameNavbar";
 import { getExternalGamePlatforms } from "../services/externalGameService";
 import { platformService } from "../services/platformService";
@@ -296,6 +297,8 @@ const GamePlatformsPage = () => {
   const [deletingPlatformId, setDeletingPlatformId] = useState<number | null>(
     null
   );
+  const [platformToDelete, setPlatformToDelete] =
+    useState<PlatformRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -571,33 +574,47 @@ const GamePlatformsPage = () => {
     }
   };
 
-  const handleDeletePlatform = async (platform: PlatformRow) => {
+  const requestDeletePlatform = (platform: PlatformRow) => {
     if (!isAdmin) {
       setNotice(ADMIN_ACTION_MESSAGE);
       return;
     }
 
-    const confirmed = window.confirm(
-      `${platform.name} platformunu silmek istediğinizden emin misiniz?`
-    );
+    setPlatformToDelete(platform);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deletingPlatformId !== null) {
       return;
     }
 
-    const wasSelectedPlatform = selectedPlatform?.id === platform.id;
+    setPlatformToDelete(null);
+  };
 
-    setDeletingPlatformId(platform.id);
+  const confirmDeletePlatform = async () => {
+    if (!platformToDelete) {
+      return;
+    }
+
+    if (!isAdmin) {
+      setNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    const wasSelectedPlatform = selectedPlatform?.id === platformToDelete.id;
+
+    setDeletingPlatformId(platformToDelete.id);
     setError(null);
     setNotice(null);
 
     try {
-      await platformService.deletePlatform(platform.id);
+      await platformService.deletePlatform(platformToDelete.id);
 
       if (wasSelectedPlatform) {
         setSelectedPlatform(null);
       }
 
+      setPlatformToDelete(null);
       await loadPlatforms(!wasSelectedPlatform);
       setNotice("Platform başarıyla silindi.");
     } catch (deleteError) {
@@ -827,7 +844,7 @@ const GamePlatformsPage = () => {
                                     loadingEditId === platform.id
                                   }
                                   onClick={() => {
-                                    void handleDeletePlatform(platform);
+                                    requestDeletePlatform(platform);
                                   }}
                                   type="button"
                                 >
@@ -1097,6 +1114,17 @@ const GamePlatformsPage = () => {
           </section>
         </div>
       ) : null}
+      <DeleteConfirmModal
+        description="Bu platform kaydı kalıcı olarak silinecek. Devam etmek istiyor musunuz?"
+        isDeleting={deletingPlatformId !== null}
+        isOpen={platformToDelete !== null}
+        itemName={platformToDelete?.name}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDeletePlatform();
+        }}
+        title="Platformu Sil"
+      />
     </div>
   );
 };

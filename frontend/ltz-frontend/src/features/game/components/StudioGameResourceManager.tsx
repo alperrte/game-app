@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DeleteConfirmModal from "./DeleteConfirmModal";
 
 type StudioResource = {
   id: number;
@@ -63,6 +64,8 @@ const StudioGameResourceManager = ({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<StudioResource | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -130,26 +133,41 @@ const StudioGameResourceManager = ({
     });
   };
 
-  const handleDelete = async (item: StudioResource) => {
-    const confirmed = window.confirm(`${item.name} kaydını silmek istiyor musun?`);
+  const requestDelete = (item: StudioResource) => {
+    setItemToDelete(item);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deletingId !== null) {
       return;
     }
 
+    setItemToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) {
+      return;
+    }
+
+    setDeletingId(itemToDelete.id);
     setError(null);
 
     try {
-      await deleteItem(item.id);
+      await deleteItem(itemToDelete.id);
       setItems((currentItems) =>
-        currentItems.filter((currentItem) => currentItem.id !== item.id)
+        currentItems.filter((currentItem) => currentItem.id !== itemToDelete.id)
       );
 
-      if (editingId === item.id) {
+      if (editingId === itemToDelete.id) {
         resetForm();
       }
+
+      setItemToDelete(null);
     } catch {
       setError(`${resourceName} silinirken bir hata oluştu.`);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -294,17 +312,28 @@ const StudioGameResourceManager = ({
                   Düzenle
                 </button>
                 <button
-                  className="rounded-md border border-red-800 px-3 py-2 text-sm text-red-200"
-                  onClick={() => void handleDelete(item)}
+                  className="rounded-md border border-red-800 px-3 py-2 text-sm text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={deletingId === item.id}
+                  onClick={() => requestDelete(item)}
                   type="button"
                 >
-                  Sil
+                  {deletingId === item.id ? "Siliniyor..." : "Sil"}
                 </button>
               </div>
             </article>
           ))}
         </div>
       ) : null}
+      <DeleteConfirmModal
+        description={`${resourceName} kaydı kalıcı olarak silinecek. Devam etmek istiyor musunuz?`}
+        isDeleting={deletingId !== null}
+        isOpen={itemToDelete !== null}
+        itemName={itemToDelete?.name}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+      />
     </section>
   );
 };

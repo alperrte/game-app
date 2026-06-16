@@ -1,5 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import GameNavbar from "../components/GameNavbar";
 import { gameService } from "../services/gameService";
 import { systemRequirementService } from "../services/systemRequirementService";
@@ -209,6 +210,7 @@ const GameSystemRequirementsPage = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<RequirementFormMode>("create");
   const [formGameId, setFormGameId] = useState<number | null>(null);
   const [formValue, setFormValue] =
@@ -460,7 +462,7 @@ const GameSystemRequirementsPage = () => {
     }
   };
 
-  const handleDeleteRequirement = async () => {
+  const requestDeleteRequirement = () => {
     if (!isAdmin) {
       setError(ADMIN_ACTION_MESSAGE);
       return;
@@ -471,11 +473,26 @@ const GameSystemRequirementsPage = () => {
       return;
     }
 
-    const confirmed = window.confirm(
-      `${selectedGame.title} için sistem gereksinimini silmek istediğinizden emin misiniz?`
-    );
+    setIsDeleteModalOpen(true);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deleting) {
+      return;
+    }
+
+    setIsDeleteModalOpen(false);
+  };
+
+  const confirmDeleteRequirement = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    if (selectedGameId === null || !selectedGame) {
+      setError("Sistem gereksinimini silmek için önce bir oyun seçin.");
+      setIsDeleteModalOpen(false);
       return;
     }
 
@@ -487,6 +504,7 @@ const GameSystemRequirementsPage = () => {
       await systemRequirementService.deleteSystemRequirements(selectedGameId);
       setRequirement(null);
       await loadSystemRequirements(selectedGameId);
+      setIsDeleteModalOpen(false);
       setNotice("Sistem gereksinimi başarıyla silindi.");
     } catch (deleteError) {
       setError(
@@ -789,7 +807,7 @@ const GameSystemRequirementsPage = () => {
                               className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-red-400/30 text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={deleting || loadingEdit}
                               onClick={() => {
-                                void handleDeleteRequirement();
+                                requestDeleteRequirement();
                               }}
                               title="Sil"
                               type="button"
@@ -1168,6 +1186,17 @@ const GameSystemRequirementsPage = () => {
           </section>
         </div>
       ) : null}
+      <DeleteConfirmModal
+        description="Seçili oyun için sistem gereksinimi kaydı silinecek. Devam etmek istiyor musunuz?"
+        isDeleting={deleting}
+        isOpen={isDeleteModalOpen}
+        itemName={selectedGame?.title}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDeleteRequirement();
+        }}
+        title="Sistem Gereksinimini Sil"
+      />
     </div>
   );
 };
