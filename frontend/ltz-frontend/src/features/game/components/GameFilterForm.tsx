@@ -141,7 +141,7 @@ const GameFilterForm = ({
 
         <div className="flex h-12 overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
           <button
-            aria-label="Grid view"
+            aria-label="Izgara görünümü"
             className={`grid w-12 place-items-center rounded-lg text-lg transition ${
               viewMode === "grid"
                 ? "bg-violet-600 text-white"
@@ -153,7 +153,7 @@ const GameFilterForm = ({
             ▦
           </button>
           <button
-            aria-label="List view"
+            aria-label="Liste görünümü"
             className={`grid w-12 place-items-center rounded-lg text-lg transition ${
               viewMode === "list"
                 ? "bg-violet-600 text-white"

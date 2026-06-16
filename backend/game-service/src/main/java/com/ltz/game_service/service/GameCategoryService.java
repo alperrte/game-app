@@ -3,6 +3,7 @@ package com.ltz.game_service.service;
 import com.ltz.game_service.dto.request.GameCategoryRequest;
 import com.ltz.game_service.dto.response.GameCategoryResponse;
 import com.ltz.game_service.entity.GameCategory;
+import com.ltz.game_service.enums.GameSource;
 import com.ltz.game_service.repository.GameCategoryRepository;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,13 @@ public class GameCategoryService {
                 .toList();
     }
 
+    public List<GameCategoryResponse> getCategoriesBySource(GameSource source) {
+        return gameCategoryRepository.findBySource(source)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     public GameCategoryResponse getCategoryById(Long id) {
         GameCategory category = gameCategoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Kategori bulunamadı. ID: " + id));
@@ -32,11 +40,10 @@ public class GameCategoryService {
     }
 
     public GameCategoryResponse createCategory(GameCategoryRequest request) {
-        if (gameCategoryRepository.existsByNameIgnoreCase(request.getName())) {
-            throw new RuntimeException("Bu kategori zaten mevcut: " + request.getName());
-        }
+        validateCategoryDoesNotExist(request);
 
         GameCategory category = new GameCategory();
+        category.setSource(request.getSource());
         category.setName(request.getName());
         category.setDescription(request.getDescription());
 
@@ -49,6 +56,7 @@ public class GameCategoryService {
         GameCategory category = gameCategoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Güncellenecek kategori bulunamadı. ID: " + id));
 
+        category.setSource(request.getSource());
         category.setName(request.getName());
         category.setDescription(request.getDescription());
 
@@ -65,9 +73,27 @@ public class GameCategoryService {
         gameCategoryRepository.deleteById(id);
     }
 
+    private void validateCategoryDoesNotExist(GameCategoryRequest request) {
+        boolean exists;
+
+        if (request.getSource() != null) {
+            exists = gameCategoryRepository.existsBySourceAndNameIgnoreCase(
+                    request.getSource(),
+                    request.getName()
+            );
+        } else {
+            exists = gameCategoryRepository.existsByNameIgnoreCase(request.getName());
+        }
+
+        if (exists) {
+            throw new RuntimeException("Bu kategori zaten mevcut: " + request.getName());
+        }
+    }
+
     private GameCategoryResponse mapToResponse(GameCategory category) {
         return new GameCategoryResponse(
                 category.getId(),
+                category.getSource(),
                 category.getName(),
                 category.getDescription(),
                 category.getCreatedAt(),
