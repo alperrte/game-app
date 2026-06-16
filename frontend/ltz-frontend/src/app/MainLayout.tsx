@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 
 import { Button } from "../components/ui/Button";
@@ -7,6 +7,7 @@ import { ROUTES } from "../lib/constants";
 import { getRefreshToken } from "../lib/token";
 import { clearAuth, useAuthStore } from "../store/authStore";
 import { authService } from "../features/auth/services/authService";
+import GameNavbar from "../features/game/components/GameNavbar";
 import ltzLogo from "../assets/ltz-yazi.png";
 import {
   getUserDisplayName,
@@ -16,11 +17,30 @@ import {
 
 export function MainLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const displayName = getUserDisplayName(user);
   const roleLabel = getUserRoleLabel(user);
   const initials = getUserInitials(user);
+
+  const getActiveItem = () => {
+    const path = location.pathname;
+
+    if (path === "/") return "Feed";
+    if (path.startsWith("/games/categories")) return "Categories";
+    if (path.startsWith("/games/platforms")) return "Platforms";
+    if (path.startsWith("/games/developers")) return "Developers";
+    if (path.startsWith("/games/publishers")) return "Publishers";
+    if (path.startsWith("/games/system-requirements")) {
+      return "SystemRequirements";
+    }
+    if (path === "/games" || path.startsWith("/games/")) return "Games";
+    if (path.startsWith("/profile")) return "Profile";
+
+    return "Games";
+  };
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -60,10 +80,12 @@ export function MainLayout() {
               <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-violet-300 to-fuchsia-600 text-xs font-bold text-slate-950">
                 {initials}
               </div>
+
               <div className="min-w-0 text-right">
                 <div className="max-w-40 truncate text-sm font-semibold text-white">
                   {displayName}
                 </div>
+
                 {roleLabel ? (
                   <div className="max-w-40 truncate text-xs text-zinc-400">
                     {roleLabel}
@@ -86,7 +108,9 @@ export function MainLayout() {
         </div>
       </header>
 
-      <main className="min-h-[calc(100vh-57px)]">
+      <GameNavbar activeItem={getActiveItem()} />
+
+      <main className="min-h-[calc(100vh-112px)]">
         <Outlet />
       </main>
     </div>

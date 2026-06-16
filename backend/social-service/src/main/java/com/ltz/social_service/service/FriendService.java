@@ -70,8 +70,12 @@ public class FriendService {
         return toFriendRequestResponse(savedFriendRequest);
     }
 
-    public FriendRequestResponse acceptFriendRequest(Long requestId) {
+    public FriendRequestResponse acceptFriendRequest(Long requestId, Long currentUserId) {
         FriendRequest friendRequest = getFriendRequestById(requestId);
+
+        if (!friendRequest.getReceiverUserId().equals(currentUserId)) {
+            throw new IllegalStateException("Only the receiver can accept this friend request");
+        }
 
         if (friendRequest.getStatus() != FriendRequestStatus.PENDING) {
             throw new IllegalStateException("Only pending friend requests can be accepted");
@@ -107,8 +111,12 @@ public class FriendService {
         return toFriendRequestResponse(friendRequestRepository.save(friendRequest));
     }
 
-    public FriendRequestResponse rejectFriendRequest(Long requestId) {
+    public FriendRequestResponse rejectFriendRequest(Long requestId, Long currentUserId) {
         FriendRequest friendRequest = getFriendRequestById(requestId);
+
+        if (!friendRequest.getReceiverUserId().equals(currentUserId)) {
+            throw new IllegalStateException("Only the receiver can reject this friend request");
+        }
 
         if (friendRequest.getStatus() != FriendRequestStatus.PENDING) {
             throw new IllegalStateException("Only pending friend requests can be rejected");
@@ -119,8 +127,12 @@ public class FriendService {
         return toFriendRequestResponse(friendRequestRepository.save(friendRequest));
     }
 
-    public FriendRequestResponse cancelFriendRequest(Long requestId) {
+    public FriendRequestResponse cancelFriendRequest(Long requestId, Long currentUserId) {
         FriendRequest friendRequest = getFriendRequestById(requestId);
+
+        if (!friendRequest.getSenderUserId().equals(currentUserId)) {
+            throw new IllegalStateException("Only the sender can cancel this friend request");
+        }
 
         if (friendRequest.getStatus() != FriendRequestStatus.PENDING) {
             throw new IllegalStateException("Only pending friend requests can be cancelled");
@@ -132,7 +144,9 @@ public class FriendService {
     }
 
     @Transactional(readOnly = true)
-    public List<FriendRequestResponse> getIncomingPendingRequests(Long userId) {
+    public List<FriendRequestResponse> getIncomingPendingRequests(Long userId, Long currentUserId) {
+        validateSameUser(userId, currentUserId);
+
         return friendRequestRepository
                 .findByReceiverUserIdAndStatus(userId, FriendRequestStatus.PENDING)
                 .stream()
@@ -141,7 +155,9 @@ public class FriendService {
     }
 
     @Transactional(readOnly = true)
-    public List<FriendRequestResponse> getOutgoingPendingRequests(Long userId) {
+    public List<FriendRequestResponse> getOutgoingPendingRequests(Long userId, Long currentUserId) {
+        validateSameUser(userId, currentUserId);
+
         return friendRequestRepository
                 .findBySenderUserIdAndStatus(userId, FriendRequestStatus.PENDING)
                 .stream()
@@ -181,6 +197,12 @@ public class FriendService {
     private void validateDifferentUsers(Long firstUserId, Long secondUserId) {
         if (firstUserId.equals(secondUserId)) {
             throw new IllegalArgumentException("User cannot perform this action on themselves");
+        }
+    }
+
+    private void validateSameUser(Long requestedUserId, Long currentUserId) {
+        if (!requestedUserId.equals(currentUserId)) {
+            throw new IllegalStateException("User can only access their own friend requests");
         }
     }
 

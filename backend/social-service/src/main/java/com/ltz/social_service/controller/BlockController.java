@@ -47,7 +47,10 @@ public class BlockController {
     }
 
     @GetMapping("/users/{userId}/blocks")
-    public List<UserBlockResponse> getBlockedUsers(@PathVariable Long userId) {
-        return blockService.getBlockedUsers(userId);
+    public List<UserBlockResponse> getBlockedUsers(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long userId
+    ) {
+        return blockService.getBlockedUsers(userId, principal.userId());
     }
 }

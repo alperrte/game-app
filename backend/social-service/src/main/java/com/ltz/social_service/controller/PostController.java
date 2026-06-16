@@ -40,19 +40,27 @@ public class PostController {
     }
 
     @GetMapping("/posts/public")
-    public List<PostResponse> getPublicPosts() {
-        return postService.getPublicPosts();
+    public List<PostResponse> getPublicPosts(
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return postService.getPublicPosts(principal == null ? null : principal.userId());
     }
 
     @GetMapping("/users/{userId}/posts")
-    public List<PostResponse> getPostsByUser(@PathVariable Long userId) {
-        return postService.getPostsByUser(userId);
+    public List<PostResponse> getPostsByUser(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return postService.getPostsByUser(userId, principal == null ? null : principal.userId());
     }
 
     @DeleteMapping("/posts/{postId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePost(@PathVariable Long postId) {
-        postService.deletePost(postId);
+    public void deletePost(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        postService.deletePost(postId, principal.userId());
     }
 
     @PostMapping("/posts/{postId}/likes")
@@ -71,6 +79,11 @@ public class PostController {
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         postService.unlikePost(postId, principal.userId());
+    }
+
+    @GetMapping("/posts/{postId}/likes")
+    public List<PostLikeResponse> getLikesByPost(@PathVariable Long postId) {
+        return postService.getLikesByPost(postId);
     }
 
     @PostMapping("/posts/{postId}/comments")
@@ -92,7 +105,10 @@ public class PostController {
 
     @DeleteMapping("/comments/{commentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteComment(@PathVariable Long commentId) {
-        postService.deleteComment(commentId);
+    public void deleteComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        postService.deleteComment(commentId, principal.userId());
     }
 }

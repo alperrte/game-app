@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
+import { ToastProvider } from "../components/ui/Toast";
 
 /*
  * Uygulama genelinde kullanılan sağlayıcıların toplandığı dosya.
@@ -12,5 +13,9 @@ type AppProvidersProps = {
 };
 
 export const AppProviders = ({ children }: AppProvidersProps) => {
-  return <BrowserRouter>{children}</BrowserRouter>;
-};
+  return (
+    <ToastProvider>
+      <BrowserRouter>{children}</BrowserRouter>
+    </ToastProvider>
+  );
+};

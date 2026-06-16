@@ -8,7 +8,8 @@ import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 
 import { useAuthStore } from "../store/authStore";
-import { ROUTES } from "../lib/constants";
+import { GAME_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
+import { ProfilePage } from "../features/user/pages/ProfilePage";
 
 import GamesPage from "../features/game/pages/GamesPage";
 import GameCreatePage from "../features/game/pages/GameCreatePage";
@@ -19,18 +20,7 @@ import GamePlatformsPage from "../features/game/pages/GamePlatformsPage";
 import GameDevelopersPage from "../features/game/pages/GameDevelopersPage";
 import GamePublishersPage from "../features/game/pages/GamePublishersPage";
 import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequirementsPage";
-
-const GAME_ROUTES = {
-  games: "/games",
-  gameDetail: "/games/:id",
-  createGame: "/games/create",
-  categories: "/games/categories",
-  platforms: "/games/platforms",
-  developers: "/games/developers",
-  publishers: "/games/publishers",
-  systemRequirements: "/games/system-requirements",
-  externalGameDetail: "/games/external/:source/:externalId",
-};
+import SocialFeedPage from "../features/social/pages/SocialFeedPage";
 
 /*
  * Giriş yapılmamışsa login sayfasına yönlendiren koruma.
@@ -52,7 +42,7 @@ function PublicOnlyRoute() {
   const { isAuthenticated } = useAuthStore();
 
   if (isAuthenticated) {
-    return <Navigate to={GAME_ROUTES.games} replace />;
+    return <Navigate to={SOCIAL_ROUTES.feed} replace />;
   }
 
   return <Outlet />;
@@ -61,10 +51,6 @@ function PublicOnlyRoute() {
 /*
  * Giriş sonrası geçici ana sayfa yönlendirmesi.
  */
-function HomeRedirect() {
-  return <Navigate to={GAME_ROUTES.games} replace />;
-}
-
 export function AppRouter() {
   return (
     <Routes>
@@ -82,7 +68,7 @@ export function AppRouter() {
       {/* Private: MainLayout içinde, giriş gerektirir */}
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
-          <Route path={ROUTES.home} element={<HomeRedirect />} />
+          <Route path={ROUTES.home} element={<SocialFeedPage />} />
 
           <Route path={GAME_ROUTES.games} element={<GamesPage />} />
           <Route path={GAME_ROUTES.createGame} element={<GameCreatePage />} />
@@ -114,11 +100,12 @@ export function AppRouter() {
           <Route path={GAME_ROUTES.gameDetail} element={<GameDetailPage />} />
 
           <Route path="/games/:id/edit" element={<GameEditPage />} />
+          <Route path={ROUTES.profile} element={<ProfilePage />} />
         </Route>
       </Route>
 
-      {/* Bilinmeyen yollar oyun listeleme sayfasına */}
-      <Route path="*" element={<Navigate to={GAME_ROUTES.games} replace />} />
+      {/* Bilinmeyen yollar sosyal akış sayfasına */}
+      <Route path="*" element={<Navigate to={SOCIAL_ROUTES.feed} replace />} />
     </Routes>
   );
 }

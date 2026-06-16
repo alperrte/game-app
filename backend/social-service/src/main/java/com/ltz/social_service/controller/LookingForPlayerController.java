@@ -52,12 +52,18 @@ public class LookingForPlayerController {
     }
 
     @PutMapping("/looking-for-player/{postId}/close")
-    public LookingForPlayerPostResponse closePost(@PathVariable Long postId) {
-        return lookingForPlayerService.closePost(postId);
+    public LookingForPlayerPostResponse closePost(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long postId
+    ) {
+        return lookingForPlayerService.closePost(postId, principal.userId());
     }
 
     @PutMapping("/looking-for-player/{postId}/cancel")
-    public LookingForPlayerPostResponse cancelPost(@PathVariable Long postId) {
-        return lookingForPlayerService.cancelPost(postId);
+    public LookingForPlayerPostResponse cancelPost(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long postId
+    ) {
+        return lookingForPlayerService.cancelPost(postId, principal.userId());
     }
 }

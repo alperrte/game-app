@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -14,10 +15,13 @@ public class PostResponse {
     private Long userId;
     private String content;
     private String imageUrl;
+    private String mediaType;
+    private List<PostMediaResponse> media;
     private PostVisibility visibility;
     private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long likeCount;
     private Long commentCount;
+    private Boolean likedByCurrentUser;
 }

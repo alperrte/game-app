@@ -165,8 +165,10 @@ export const apiClient = {
     return data;
   },
 
-  delete: async (endpoint: string) => {
-    await axiosClient.delete<void>(endpoint);
+  delete: async (endpoint: string, query?: QueryParams) => {
+    await axiosClient.delete<void>(endpoint, {
+      params: cleanQueryParams(query),
+    });
   },
 };
 
