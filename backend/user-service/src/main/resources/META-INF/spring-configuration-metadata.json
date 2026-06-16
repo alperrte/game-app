@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "jwt.secret",
+      "type": "java.lang.String",
+      "description": "Secret key used for JWT signing and verification.",
+      "defaultValue": "LTZ_AUTH_SERVICE_SECRET_KEY_2026_SUPER_SECURE_123456"
+    }
+  ]
+}

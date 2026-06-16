@@ -39,28 +39,43 @@ public class FriendController {
     }
 
     @PutMapping("/friend-requests/{requestId}/accept")
-    public FriendRequestResponse acceptFriendRequest(@PathVariable Long requestId) {
-        return friendService.acceptFriendRequest(requestId);
+    public FriendRequestResponse acceptFriendRequest(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long requestId
+    ) {
+        return friendService.acceptFriendRequest(requestId, principal.userId());
     }
 
     @PutMapping("/friend-requests/{requestId}/reject")
-    public FriendRequestResponse rejectFriendRequest(@PathVariable Long requestId) {
-        return friendService.rejectFriendRequest(requestId);
+    public FriendRequestResponse rejectFriendRequest(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long requestId
+    ) {
+        return friendService.rejectFriendRequest(requestId, principal.userId());
     }
 
     @PutMapping("/friend-requests/{requestId}/cancel")
-    public FriendRequestResponse cancelFriendRequest(@PathVariable Long requestId) {
-        return friendService.cancelFriendRequest(requestId);
+    public FriendRequestResponse cancelFriendRequest(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long requestId
+    ) {
+        return friendService.cancelFriendRequest(requestId, principal.userId());
     }
 
     @GetMapping("/users/{userId}/friend-requests/incoming")
-    public List<FriendRequestResponse> getIncomingPendingRequests(@PathVariable Long userId) {
-        return friendService.getIncomingPendingRequests(userId);
+    public List<FriendRequestResponse> getIncomingPendingRequests(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long userId
+    ) {
+        return friendService.getIncomingPendingRequests(userId, principal.userId());
     }
 
     @GetMapping("/users/{userId}/friend-requests/outgoing")
-    public List<FriendRequestResponse> getOutgoingPendingRequests(@PathVariable Long userId) {
-        return friendService.getOutgoingPendingRequests(userId);
+    public List<FriendRequestResponse> getOutgoingPendingRequests(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long userId
+    ) {
+        return friendService.getOutgoingPendingRequests(userId, principal.userId());
     }
 
     @GetMapping("/users/{userId}/friends")

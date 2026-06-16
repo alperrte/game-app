@@ -52,6 +52,24 @@ public class UserProfile {
     @Column(name = "profile_theme_url")
     private String profileThemeUrl;
 
+    @Column(name = "profile_background_url")
+    private String profileBackgroundUrl;
+
+    @Column(name = "profile_music_url")
+    private String profileMusicUrl;
+
+    @Column(name = "hardware_cpu", length = 100)
+    private String hardwareCpu;
+
+    @Column(name = "hardware_gpu", length = 100)
+    private String hardwareGpu;
+
+    @Column(name = "hardware_ram", length = 100)
+    private String hardwareRam;
+
+    @Column(name = "hardware_os", length = 100)
+    private String hardwareOs;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

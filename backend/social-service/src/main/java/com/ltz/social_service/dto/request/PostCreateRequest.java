@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class PostCreateRequest {
@@ -19,6 +21,9 @@ public class PostCreateRequest {
 
     @Size(max = 500, message = "Image url can be at most 500 characters")
     private String imageUrl;
+
+    @Size(max = 3, message = "A post can include at most 3 media files")
+    private List<@Size(max = 500, message = "Media url can be at most 500 characters") String> mediaUrls;
 
     private PostVisibility visibility;
 }
