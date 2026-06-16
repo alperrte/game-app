@@ -31,3 +31,5 @@ build/
 
 ### VS Code ###
 .vscode/
+# Social Service uploaded files
+/backend/social-service/uploads/
