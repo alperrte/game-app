@@ -38,7 +38,7 @@ public class SteamGameProvider implements ExternalGameProvider {
 
     private static final int SEARCH_RESULT_LIMIT = 20;
     private static final int POPULAR_GAME_LIMIT = 80;
-    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 50000;
     private static final int MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS = 120;
     private static final int INITIAL_TAG_ENRICHMENT_LIMIT = 60;
     private static final Duration STEAM_APP_LIST_CACHE_TTL = Duration.ofHours(6);

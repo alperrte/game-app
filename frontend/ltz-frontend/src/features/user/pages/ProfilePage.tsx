@@ -63,11 +63,6 @@ type SocialSummary = {
   friends: number[];
 };
 
-type FriendRequestSummary = {
-  incoming: Awaited<ReturnType<typeof socialService.getIncomingFriendRequests>>;
-  outgoing: Awaited<ReturnType<typeof socialService.getOutgoingFriendRequests>>;
-};
-
 type ChatState = {
   open: boolean;
   room: ChatRoomResponse | null;
@@ -114,9 +109,6 @@ export const ProfilePage: React.FC = () => {
     title: string;
     group: Map<number, ProfileIdentity>;
   } | null>(null);
-  const [friendRequestIdentities, setFriendRequestIdentities] = useState<Map<number, ProfileIdentity>>(
-      new Map(),
-  );
   const [postsRefreshKey, setPostsRefreshKey] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [relationship, setRelationship] = useState<RelationshipSnapshot | null>(null);
@@ -143,10 +135,6 @@ export const ProfilePage: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [gamesLoading, setGamesLoading] = useState(false);
   const [gameRequirements, setGameRequirements] = useState<Map<number, GameSystemRequirement>>(new Map());
-  const [friendRequests, setFriendRequests] = useState<FriendRequestSummary>({
-    incoming: [],
-    outgoing: [],
-  });
   const [relationshipBusyAction, setRelationshipBusyAction] = useState<string | null>(null);
   const [busyPostId, setBusyPostId] = useState<number | string | null>(null);
   const [chatState, setChatState] = useState<ChatState>({
@@ -449,37 +437,6 @@ export const ProfilePage: React.FC = () => {
     };
   }, [profile, visibility.showGameLibrary]);
 
-  useEffect(() => {
-    if (!isOwnProfile || !currentUserId || !isAuthenticated) return;
-    let active = true;
-    void Promise.all([
-      socialService.getIncomingFriendRequests(currentUserId),
-      socialService.getOutgoingFriendRequests(currentUserId),
-    ]).then(([incoming, outgoing]) => {
-      if (active) {
-        setFriendRequests({ incoming, outgoing });
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [isOwnProfile, currentUserId, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isOwnProfile) return;
-    let active = true;
-    const ids = [
-      ...friendRequests.incoming.map((request) => request.senderUserId),
-      ...friendRequests.outgoing.map((request) => request.receiverUserId),
-    ].filter((id): id is number => typeof id === "number");
-    void resolveIdentities(ids).then((resolved) => {
-      if (active) setFriendRequestIdentities(resolved);
-    });
-    return () => {
-      active = false;
-    };
-  }, [friendRequests, isOwnProfile, resolveIdentities]);
-
   const badges = useMemo(
       () =>
           profile
@@ -505,32 +462,6 @@ export const ProfilePage: React.FC = () => {
       }),
       [socialSummary, posts.length],
   );
-
-  const renderFriendRequestBox = async (
-      requestId: number,
-      requestType: "accept" | "reject" | "cancel",
-  ) => {
-    if (requestType === "accept") await socialService.acceptFriendRequest(requestId);
-    if (requestType === "reject") await socialService.rejectFriendRequest(requestId);
-    if (requestType === "cancel") await socialService.cancelFriendRequest(requestId);
-    if (!currentUserId || !profile || !Number.isFinite(profileUserId)) return;
-    const [incoming, outgoing] = await Promise.all([
-      socialService.getIncomingFriendRequests(currentUserId),
-      socialService.getOutgoingFriendRequests(currentUserId),
-    ]);
-    setFriendRequests({ incoming, outgoing });
-    if (requestType === "accept" && visibility.showFriendList) {
-      try {
-        const friends = await socialService.getFriends(profileUserId);
-        const friendIds = friends.map((item) => item.friendUserId);
-        setSocialSummary((prev) => ({ ...prev, friends: friendIds }));
-        const friendMap = await resolveIdentities(friendIds);
-        setSocialIdentityGroups((prev) => ({ ...prev, friends: friendMap }));
-      } catch {
-        /* social graph refresh is best-effort */
-      }
-    }
-  };
 
   const openChat = async () => {
     if (!currentUserId || !profileUserId || !profile || isOwnProfile) return;
@@ -1001,10 +932,6 @@ export const ProfilePage: React.FC = () => {
 
           <div className="space-y-8">
             <ProfileSocialSidebar
-                friendRequestIdentities={friendRequestIdentities}
-                friendRequests={friendRequests}
-                isOwnProfile={isOwnProfile}
-                onFriendRequestAction={(requestId, action) => void renderFriendRequestBox(requestId, action)}
                 onOpenList={(title, group) => setConnectionModal({ title, group })}
                 showFollowers={visibility.showFollowerList}
                 showFollowing={visibility.showFollowerList}

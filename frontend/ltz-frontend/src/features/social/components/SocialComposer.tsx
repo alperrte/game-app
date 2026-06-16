@@ -8,12 +8,13 @@ import {
   ListFilter,
   Mic,
   Plus,
+  Search,
   Smile,
   Tag,
   Video,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -25,6 +26,7 @@ import {
   EmojiPickerPopover,
 } from "../../../components/ui/EmojiPickerPopover";
 import type { Game } from "../../game/types/gameTypes";
+import type { GamePlatform } from "../../game/types/gameTypes";
 import type {
   ComposerMediaType,
   ComposerSubmitPayload,
@@ -55,6 +57,7 @@ const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_VIDEO_SIZE_MB = 50;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 const MAX_IMAGE_COUNT = 3;
+const GAMES_PER_PICKER_PAGE = 50;
 const VIDEO_FILE_ACCEPT = "video/mp4,video/webm,video/ogg";
 const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/ogg"]);
 
@@ -66,6 +69,7 @@ interface SelectedMedia {
 
 interface SocialComposerProps {
   games: Game[];
+  platforms: GamePlatform[];
   user: SocialUser;
   isSubmitting?: boolean;
   onCreateLookingForPlayer: (
@@ -77,6 +81,7 @@ interface SocialComposerProps {
 
 export function SocialComposer({
                                  games,
+                                 platforms,
                                  user,
                                  isSubmitting = false,
                                  onCreateLookingForPlayer,
@@ -92,6 +97,9 @@ export function SocialComposer({
   const [pollOptionEmojiOpenId, setPollOptionEmojiOpenId] = useState<string | null>(null);
   const [draggedPollOptionId, setDraggedPollOptionId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState<"game" | "listingGame" | "platform" | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [gamePickerPage, setGamePickerPage] = useState(1);
   const [fileAccept, setFileAccept] = useState("image/*");
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState<PollOption[]>(createDefaultPollOptions);
@@ -114,6 +122,73 @@ export function SocialComposer({
   const hasSelectedVideo = selectedMedia.some((media) => media.type === "video");
   const previewMedia =
       previewModalIndex === null ? null : selectedMedia[previewModalIndex] ?? null;
+  const gameOptions = useMemo(
+      () => (Array.isArray(games) ? games : []),
+      [games],
+  );
+  const platformOptions = useMemo(
+      () => (Array.isArray(platforms) ? platforms : []),
+      [platforms],
+  );
+  const selectedGame = useMemo(
+      () => gameOptions.find((game) => String(game.id) === selectedGameId) ?? null,
+      [gameOptions, selectedGameId],
+  );
+  const selectedListingGame = useMemo(
+      () => gameOptions.find((game) => String(game.id) === listingForm.gameId) ?? null,
+      [gameOptions, listingForm.gameId],
+  );
+  const selectedListingPlatform = useMemo(
+      () =>
+          platformOptions.find(
+              (platform) =>
+                  platform.name.toLocaleLowerCase("tr") ===
+                  listingForm.platform.toLocaleLowerCase("tr"),
+          ) ?? null,
+      [listingForm.platform, platformOptions],
+  );
+  const filteredGames = useMemo(() => {
+    const query = pickerQuery.trim().toLocaleLowerCase("tr");
+
+    if (!query) return gameOptions;
+
+    return gameOptions.filter((game) =>
+        [game.title, game.genre, game.platform, game.categoryName]
+            .filter(Boolean)
+            .some((value) => value!.toLocaleLowerCase("tr").includes(query)),
+    );
+  }, [gameOptions, pickerQuery]);
+  const filteredPlatforms = useMemo(() => {
+    const query = pickerQuery.trim().toLocaleLowerCase("tr");
+
+    if (!query) return platformOptions;
+
+    return platformOptions.filter((platform) =>
+        [platform.name, platform.description, platform.source]
+            .filter(Boolean)
+            .some((value) => value!.toLocaleLowerCase("tr").includes(query)),
+    );
+  }, [pickerQuery, platformOptions]);
+  const gamePickerTotalPages = useMemo(
+      () => Math.max(1, Math.ceil(filteredGames.length / GAMES_PER_PICKER_PAGE)),
+      [filteredGames.length],
+  );
+  const pagedGames = useMemo(() => {
+    const startIndex = (gamePickerPage - 1) * GAMES_PER_PICKER_PAGE;
+
+    return filteredGames.slice(startIndex, startIndex + GAMES_PER_PICKER_PAGE);
+  }, [filteredGames, gamePickerPage]);
+  const gamePickerPageButtons = useMemo(() => {
+    const pages = [
+      1,
+      gamePickerPage - 1,
+      gamePickerPage,
+      gamePickerPage + 1,
+      gamePickerTotalPages,
+    ].filter((page) => page >= 1 && page <= gamePickerTotalPages);
+
+    return Array.from(new Set(pages));
+  }, [gamePickerPage, gamePickerTotalPages]);
 
   const changePreviewMedia = useCallback(
       (direction: number) => {
@@ -134,6 +209,18 @@ export function SocialComposer({
   useEffect(() => {
     selectedMediaRef.current = selectedMedia;
   }, [selectedMedia]);
+
+  useEffect(() => {
+    if (!pickerOpen || pickerOpen === "platform") return;
+
+    setGamePickerPage(1);
+  }, [pickerOpen, pickerQuery]);
+
+  useEffect(() => {
+    if (gamePickerPage <= gamePickerTotalPages) return;
+
+    setGamePickerPage(gamePickerTotalPages);
+  }, [gamePickerPage, gamePickerTotalPages]);
 
   useEffect(() => {
     return () => {
@@ -208,6 +295,40 @@ export function SocialComposer({
       ...form,
       playTime: value,
     }));
+  }
+
+  function openPicker(nextPicker: "game" | "listingGame" | "platform") {
+    setPickerOpen(nextPicker);
+    setPickerQuery("");
+    setGamePickerPage(1);
+  }
+
+  function closePicker() {
+    setPickerOpen(null);
+    setPickerQuery("");
+    setGamePickerPage(1);
+  }
+
+  function selectComposerGame(game: Game) {
+    setSelectedGameId(String(game.id));
+    closePicker();
+  }
+
+  function selectListingGame(game: Game) {
+    setListingForm((form) => ({
+      ...form,
+      gameId: String(game.id),
+      platform: game.platform ?? form.platform,
+    }));
+    closePicker();
+  }
+
+  function selectListingPlatform(platform: GamePlatform) {
+    setListingForm((form) => ({
+      ...form,
+      platform: platform.name,
+    }));
+    closePicker();
   }
 
   function validateMediaFile(file: File, type: ComposerMediaType): string | null {
@@ -378,9 +499,6 @@ export function SocialComposer({
     }
 
     if (mode === "game") {
-      const selectedGame = games.find(
-          (game) => String(game.id) === selectedGameId,
-      );
       if (!selectedGame || !trimmedContent) return "";
       return [`Oyun: ${selectedGame.title}`, trimmedContent].join("\n");
     }
@@ -629,18 +747,21 @@ export function SocialComposer({
             )}
 
             {mode === "game" && (
-                <select
-                    className="mt-3 h-10 w-full rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none focus:border-violet-400/60"
-                    onChange={(event) => setSelectedGameId(event.target.value)}
-                    value={selectedGameId}
+                <button
+                    className="mt-3 flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/55 px-3 py-2 text-left text-sm text-white outline-none transition hover:border-violet-300/35 hover:bg-white/[0.04]"
+                    onClick={() => openPicker("game")}
+                    type="button"
                 >
-                  <option value="">Oyun seç</option>
-                  {games.map((game) => (
-                      <option key={game.id} value={game.id}>
-                        {game.title}
-                      </option>
-                  ))}
-                </select>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                      Oyun
+                    </span>
+                    <span className={selectedGame ? "block truncate font-semibold text-white" : "block text-zinc-500"}>
+                      {selectedGame ? selectedGame.title : "Oyun seç"}
+                    </span>
+                  </span>
+                  <Search className="h-4 w-4 shrink-0 text-violet-200" />
+                </button>
             )}
 
             {mode === "listing" && (
@@ -655,40 +776,36 @@ export function SocialComposer({
                     </p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <select
-                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition focus:border-violet-400/60"
-                        onChange={(event) => {
-                          const selectedGame = games.find(
-                              (game) => String(game.id) === event.target.value,
-                          );
-
-                          setListingForm((form) => ({
-                            ...form,
-                            gameId: event.target.value,
-                            platform: selectedGame?.platform ?? form.platform,
-                          }));
-                        }}
-                        value={listingForm.gameId}
+                    <button
+                        className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-left text-sm font-medium text-white outline-none transition hover:border-violet-300/35 hover:bg-white/[0.04]"
+                        onClick={() => openPicker("listingGame")}
+                        type="button"
                     >
-                      <option value="">Oyun seç</option>
-                      {games.map((game) => (
-                          <option key={game.id} value={game.id}>
-                            {game.title}
-                          </option>
-                      ))}
-                    </select>
-                    <input
-                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
-                        maxLength={50}
-                        onChange={(event) =>
-                            setListingForm((form) => ({
-                              ...form,
-                              platform: event.target.value,
-                            }))
-                        }
-                        placeholder="Platform"
-                        value={listingForm.platform}
-                    />
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                          Oyun
+                        </span>
+                        <span className={selectedListingGame ? "block truncate font-semibold text-white" : "block text-zinc-500"}>
+                          {selectedListingGame ? selectedListingGame.title : "Oyun seç"}
+                        </span>
+                      </span>
+                      <Search className="h-4 w-4 shrink-0 text-violet-200" />
+                    </button>
+                    <button
+                        className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-left text-sm font-medium text-white outline-none transition hover:border-violet-300/35 hover:bg-white/[0.04]"
+                        onClick={() => openPicker("platform")}
+                        type="button"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                          Platform
+                        </span>
+                        <span className={listingForm.platform ? "block truncate font-semibold text-white" : "block text-zinc-500"}>
+                          {selectedListingPlatform?.name ?? (listingForm.platform || "Platform seç")}
+                        </span>
+                      </span>
+                      <Search className="h-4 w-4 shrink-0 text-violet-200" />
+                    </button>
                     <input
                         className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
                         maxLength={150}
@@ -987,6 +1104,153 @@ export function SocialComposer({
             {mode === "listing" ? "İlan Ver" : "Paylaş"}
           </Button>
         </div>
+
+        {pickerOpen &&
+            createPortal(
+                <div
+                    aria-modal="true"
+                    className="fixed inset-0 z-[115] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+                    onClick={closePicker}
+                    role="dialog"
+                >
+                  <div
+                      className="flex max-h-[min(82vh,680px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a101c] shadow-2xl shadow-black/50"
+                      onClick={(event) => event.stopPropagation()}
+                  >
+                    <header className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                      <div>
+                        <h2 className="text-lg font-black text-white">
+                          {pickerOpen === "platform" ? "Platform Seç" : "Oyun Seç"}
+                        </h2>
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          Game service verileri içinde arama yap.
+                        </p>
+                      </div>
+                      <button
+                          aria-label="Kapat"
+                          className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg text-zinc-400 transition hover:bg-white/5 hover:text-white"
+                          onClick={closePicker}
+                          type="button"
+                      >
+                        <X size={18} />
+                      </button>
+                    </header>
+
+                    <div className="border-b border-white/10 p-4">
+                      <div className="flex h-11 items-center gap-3 rounded-xl border border-white/10 bg-slate-950/70 px-3 text-zinc-300 focus-within:border-violet-400/60">
+                        <Search className="h-4 w-4 text-violet-200" />
+                        <input
+                            autoFocus
+                            className="h-full flex-1 bg-transparent text-sm font-medium text-white outline-none placeholder:text-zinc-500"
+                            onChange={(event) => setPickerQuery(event.target.value)}
+                            placeholder={
+                              pickerOpen === "platform"
+                                  ? "Platform ara..."
+                                  : "Oyun adı, tür veya platform ara..."
+                            }
+                            value={pickerQuery}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4">
+                      {pickerOpen === "platform" ? (
+                          filteredPlatforms.length ? (
+                              <div className="grid gap-2">
+                                {filteredPlatforms.map((platform) => (
+                                    <button
+                                        className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left transition hover:border-violet-300/35 hover:bg-violet-500/10"
+                                        key={platform.id}
+                                        onClick={() => selectListingPlatform(platform)}
+                                        type="button"
+                                    >
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm font-bold text-white">
+                                          {platform.name}
+                                        </span>
+                                        <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                                          {[platform.source, platform.status]
+                                              .filter(Boolean)
+                                              .join(" • ") || "Platform"}
+                                        </span>
+                                      </span>
+                                      <span className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+                                        Seç
+                                      </span>
+                                    </button>
+                                ))}
+                              </div>
+                          ) : (
+                              <div className="grid place-items-center py-14 text-sm text-zinc-500">
+                                Platform bulunamadı.
+                              </div>
+                          )
+                      ) : filteredGames.length ? (
+                          <div className="grid gap-2">
+                            {pagedGames.map((game) => (
+                                <button
+                                    className="flex min-h-16 cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left transition hover:border-violet-300/35 hover:bg-violet-500/10"
+                                    key={game.id}
+                                    onClick={() =>
+                                        pickerOpen === "game"
+                                            ? selectComposerGame(game)
+                                            : selectListingGame(game)
+                                    }
+                                    type="button"
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-bold text-white">
+                                      {game.title}
+                                    </span>
+                                    <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                                      {[game.genre, game.platform, game.categoryName]
+                                          .filter(Boolean)
+                                          .join(" • ") || "Oyun"}
+                                    </span>
+                                  </span>
+                                  <span className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+                                    Seç
+                                  </span>
+                                </button>
+                            ))}
+                          </div>
+                      ) : (
+                          <div className="grid place-items-center py-14 text-sm text-zinc-500">
+                            Oyun bulunamadı.
+                          </div>
+                      )}
+                    </div>
+
+                    {pickerOpen !== "platform" && filteredGames.length > 0 && (
+                        <footer className="flex flex-col gap-3 border-t border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-xs font-semibold text-zinc-500">
+                            Sayfa {gamePickerPage}/{gamePickerTotalPages} · {filteredGames.length} oyun
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {gamePickerPageButtons.map((page) => (
+                                <button
+                                    className={
+                                      page === gamePickerPage
+                                          ? "grid h-9 min-w-9 cursor-default place-items-center rounded-lg bg-violet-500 px-3 text-sm font-black text-white"
+                                          : "grid h-9 min-w-9 cursor-pointer place-items-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-zinc-300 transition hover:border-violet-300/35 hover:bg-violet-500/10 hover:text-white"
+                                    }
+                                    disabled={page === gamePickerPage}
+                                    key={page}
+                                    onClick={() => setGamePickerPage(page)}
+                                    type="button"
+                                >
+                                  {page === gamePickerTotalPages && page !== 1
+                                      ? "Son"
+                                      : page}
+                                </button>
+                            ))}
+                          </div>
+                        </footer>
+                    )}
+                  </div>
+                </div>,
+                document.body,
+            )}
 
         <ConfirmModal
             cancelLabel="Vazgeç"

@@ -137,6 +137,9 @@ postById: (id: number | string) => `/api/social/posts/${id}`,
     `/api/social/looking-for-player/${postId}/close`,
     cancelLookingForPlayer: (postId: number | string) =>
     `/api/social/looking-for-player/${postId}/cancel`,
+
+    gameCatalogGames: "/api/social/game-catalog/games",
+    gameCatalogPlatforms: "/api/social/game-catalog/platforms",
 } as const;
 
 /*

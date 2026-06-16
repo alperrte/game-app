@@ -36,6 +36,7 @@ import {
     LogOut,
     MessageCircle,
     MonitorSmartphone,
+    ShieldOff,
     UserPlus,
     UserRound,
 } from "lucide-react";
@@ -49,6 +50,7 @@ import {
     useAuthStore,
 } from "../../store/authStore";
 import { authService } from "../../features/auth/services/authService";
+import { BlockedUsersModal } from "../../features/social/components/BlockedUsersModal";
 import { FriendRequestsModal } from "../../features/social/components/FriendRequestsModal";
 import { socialService } from "../../features/social/services/socialService";
 
@@ -238,6 +240,9 @@ export function Navbar() {
     const [friendRequestsOpen, setFriendRequestsOpen] =
         useState(false);
 
+    const [blockedUsersOpen, setBlockedUsersOpen] =
+        useState(false);
+
     const [pendingRequestCount, setPendingRequestCount] =
         useState(0);
 
@@ -389,6 +394,11 @@ export function Navbar() {
     function handleOpenFriendRequests() {
         setProfileMenuOpen(false);
         setFriendRequestsOpen(true);
+    }
+
+    function handleOpenBlockedUsers() {
+        setProfileMenuOpen(false);
+        setBlockedUsersOpen(true);
     }
 
     return (
@@ -986,6 +996,51 @@ export function Navbar() {
                                                     </span>
                                                 ) : null}
                                             </button>
+
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={
+                                                    handleOpenBlockedUsers
+                                                }
+                                                className="
+                                                    group flex w-full
+                                                    items-center gap-3
+                                                    rounded-xl
+                                                    px-3 py-2.5
+                                                    text-left
+                                                    text-sm
+                                                    font-semibold
+                                                    text-slate-300
+                                                    transition
+                                                    hover:bg-white/[0.05]
+                                                    hover:text-white
+                                                "
+                                            >
+                                                <span
+                                                    className="
+                                                        grid h-9 w-9
+                                                        place-items-center
+                                                        rounded-lg
+                                                        border
+                                                        border-white/10
+                                                        bg-white/[0.03]
+                                                        text-rose-300
+                                                    "
+                                                >
+                                                    <ShieldOff
+                                                        size={
+                                                            17
+                                                        }
+                                                        strokeWidth={
+                                                            2.25
+                                                        }
+                                                    />
+                                                </span>
+
+                                                Engellenen
+                                                Kullanıcılar
+                                            </button>
                                         </div>
                                     </div>
                                 ) : null}
@@ -1022,6 +1077,13 @@ export function Navbar() {
                 }
                 onRequestsChanged={() =>
                     void refreshPendingRequestCount()
+                }
+            />
+
+            <BlockedUsersModal
+                open={blockedUsersOpen}
+                onClose={() =>
+                    setBlockedUsersOpen(false)
                 }
             />
         </>
