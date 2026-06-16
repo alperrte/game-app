@@ -49,6 +49,8 @@ export const SOCIAL_ROUTES = {
   explore: "/explore",
   communities: "/communities",
   events: "/events",
+  messages: "/messages",
+  chatRoom: (roomId: number | string) => `/messages/${roomId}`,
 } as const;
 
 export const SOCIAL_API_ENDPOINTS = {
@@ -63,6 +65,8 @@ export const SOCIAL_API_ENDPOINTS = {
     `/api/social/posts/${postId}/comments`,
   commentById: (commentId: number | string) =>
     `/api/social/comments/${commentId}`,
+  commentLikes: (commentId: number | string) =>
+    `/api/social/comments/${commentId}/likes`,
   friendRequests: "/api/social/friend-requests",
   acceptFriendRequest: (requestId: number | string) =>
     `/api/social/friend-requests/${requestId}/accept`,
@@ -86,6 +90,8 @@ export const SOCIAL_API_ENDPOINTS = {
   blockedUsers: (userId: number | string) =>
     `/api/social/users/${userId}/blocks`,
   chatRooms: "/api/social/chat-rooms",
+  directChatRooms: "/api/social/chat-rooms/direct",
+  myChatRooms: "/api/social/chat-rooms/mine",
   chatRoomById: (chatRoomId: number | string) =>
     `/api/social/chat-rooms/${chatRoomId}`,
   userChatRooms: (userId: number | string) =>
@@ -93,8 +99,14 @@ export const SOCIAL_API_ENDPOINTS = {
   messages: "/api/social/messages",
   messageById: (messageId: number | string) =>
     `/api/social/messages/${messageId}`,
+  messageReactions: (messageId: number | string) =>
+    `/api/social/messages/${messageId}/reactions`,
   chatRoomMessages: (chatRoomId: number | string) =>
     `/api/social/chat-rooms/${chatRoomId}/messages`,
+  markChatRoomRead: (chatRoomId: number | string) =>
+    `/api/social/chat-rooms/${chatRoomId}/read`,
+  hideChatRoom: (chatRoomId: number | string) =>
+    `/api/social/chat-rooms/${chatRoomId}/hide`,
   lookingForPlayer: "/api/social/looking-for-player",
   openLookingForPlayer: "/api/social/looking-for-player/open",
   userLookingForPlayer: (userId: number | string) =>
@@ -199,4 +211,3 @@ export const ROLES = {
   user: "USER",
   admin: "ADMIN",
 } as const;
-

@@ -12,6 +12,7 @@ export interface SocialUser {
   name: string;
   username: string;
   avatarUrl: string;
+  userId?: number;
   level?: number;
   verified?: boolean;
   status?: "online" | "playing" | "offline";
@@ -39,6 +40,8 @@ export interface SocialPost {
   likedByMe?: boolean;
   followedByMe?: boolean;
   savedByMe?: boolean;
+  friendStatus?: "none" | "pending" | "friends";
+  pendingFriendRequestId?: number;
   source?: "backend" | "lookingForPlayer" | "mock";
   comments?: SocialComment[];
 }
@@ -99,17 +102,31 @@ export interface SocialComment {
   id: number;
   postId: number;
   userId: number;
+  parentCommentId?: number | null;
+  replyingToUserId?: number | null;
+  replyingToName?: string;
   author?: SocialUser;
   content: string;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
   likedByMe?: boolean;
+  likedByCurrentUser?: boolean;
   likeCount?: number;
+  replies?: SocialComment[];
 }
 
 export interface SocialCommentCreateRequest {
   content: string;
+  parentCommentId?: number;
+  replyingToUserId?: number;
+}
+
+export interface SocialCommentLikeResponse {
+  id: number;
+  commentId: number;
+  userId: number;
+  createdAt: string;
 }
 
 export interface FriendRequestCreateRequest {
@@ -154,6 +171,11 @@ export interface UserBlockResponse {
   createdAt: string;
 }
 
+export interface DirectChatRoomCreateRequest {
+  targetUserId: number;
+  targetUsername?: string;
+}
+
 export interface ChatRoomCreateRequest {
   roomName?: string;
   roomType: ChatRoomType;
@@ -166,11 +188,21 @@ export interface ChatRoomResponse {
   createdByUserId: number;
   createdAt: string;
   updatedAt: string;
+  otherParticipantUserId?: number | null;
+  lastMessageContent?: string | null;
+  lastMessageAt?: string | null;
+  unreadCount?: number;
 }
 
 export interface MessageCreateRequest {
   chatRoomId: number;
   content: string;
+  replyToMessageId?: number;
+}
+
+export interface MessageReactionResponse {
+  emoji: string;
+  userId: number;
 }
 
 export interface MessageResponse {
@@ -179,7 +211,12 @@ export interface MessageResponse {
   senderUserId: number;
   content: string;
   isRead: boolean;
+  readAt?: string | null;
   isDeleted: boolean;
+  replyToMessageId?: number | null;
+  replyToSenderUserId?: number | null;
+  replyToContent?: string | null;
+  reactions?: MessageReactionResponse[];
   createdAt: string;
   updatedAt: string;
 }
@@ -253,6 +290,8 @@ export interface ActiveEvent {
 export interface OnlineFriend {
   id: string;
   name: string;
+  username: string;
+  userId: number;
   statusText: string;
   avatarUrl: string;
   status: "online" | "playing";

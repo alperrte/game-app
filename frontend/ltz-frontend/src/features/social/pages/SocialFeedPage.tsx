@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { formatSocialTime } from "../../../utils/formatSocialTime";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
+import { cacheUserIdentity } from "../../../utils/userIdentityCache";
 import { useAuthStore } from "../../../store/authStore";
-import { API_BASE_URL, STORAGE_KEYS } from "../../../lib/constants";
+import { API_BASE_URL, ROUTES, SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
 import { gameService } from "../../game/services/gameService";
 import type { Game } from "../../game/types/gameTypes";
 import { userProfileService } from "../../user/services/userProfileService";
@@ -170,41 +172,6 @@ const activeEvents: ActiveEvent[] = [
   },
 ];
 
-const onlineFriends: OnlineFriend[] = [
-  {
-    id: "nova",
-    name: "NovaStrike",
-    statusText: "Çevrim içi",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=120&q=80",
-    status: "online",
-  },
-  {
-    id: "kaan",
-    name: "TheKaan",
-    statusText: "Oyunda",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-    status: "playing",
-  },
-  {
-    id: "blade",
-    name: "BladeRunner",
-    statusText: "Çevrim içi",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80",
-    status: "online",
-  },
-  {
-    id: "mert",
-    name: "MertBey",
-    statusText: "Çevrim içi",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80",
-    status: "online",
-  },
-];
-
 function formatPostDate(dateValue: string): string {
   const date = new Date(dateValue);
 
@@ -270,6 +237,7 @@ function resolveAuthor(
     return {
       name: displayName,
       username: profile.username,
+      userId: authorUserId,
       avatarUrl: profile.avatarUrl?.trim() || avatarBase,
       verified: false,
     };
@@ -281,6 +249,7 @@ function resolveAuthor(
     return {
       name: cachedUsername,
       username: cachedUsername,
+      userId: authorUserId,
       avatarUrl: avatarBase,
       verified: false,
     };
@@ -289,6 +258,7 @@ function resolveAuthor(
   return {
     name: `Oyuncu #${authorUserId}`,
     username: `oyuncu-${authorUserId}`,
+    userId: authorUserId,
     avatarUrl:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
     verified: false,
@@ -303,19 +273,115 @@ function mapCommentAuthor(
   userProfiles = new Map<number, UserProfile>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialComment {
-  return {
-    ...comment,
-    author:
-      comment.userId === post.authorUserId
-        ? post.author
+  const author =
+    typeof currentUserId === "number" && comment.userId === currentUserId
+      ? { ...currentUser, userId: comment.userId }
+      : comment.userId === post.authorUserId
+        ? { ...post.author, userId: comment.userId }
         : resolveAuthor(
             comment.userId,
             currentUser,
             currentUserId,
             userProfiles,
             cachedUsernames,
-          ),
+          );
+
+  let replyingToName = comment.replyingToName;
+
+  if (comment.replyingToUserId) {
+    if (
+      typeof currentUserId === "number" &&
+      comment.replyingToUserId === currentUserId
+    ) {
+      replyingToName = currentUser.name;
+    } else if (comment.replyingToUserId === post.authorUserId) {
+      replyingToName = post.author.name;
+    } else {
+      replyingToName = resolveAuthor(
+        comment.replyingToUserId,
+        currentUser,
+        currentUserId,
+        userProfiles,
+        cachedUsernames,
+      ).name;
+    }
+  }
+
+  return {
+    ...comment,
+    author,
+    likedByMe: comment.likedByMe ?? comment.likedByCurrentUser ?? false,
     likeCount: comment.likeCount ?? 0,
+    replyingToName,
+  };
+}
+
+function structurePostComments(
+  comments: SocialComment[],
+  post: SocialPost,
+  currentUser: SocialUser,
+  currentUserId?: number,
+  userProfiles = new Map<number, UserProfile>(),
+  cachedUsernames = new Map<number, string>(),
+): SocialComment[] {
+  const mappedComments = comments
+    .filter((comment) => !comment.isDeleted)
+    .map((comment) =>
+      mapCommentAuthor(
+        comment,
+        post,
+        currentUser,
+        currentUserId,
+        userProfiles,
+        cachedUsernames,
+      ),
+    );
+
+  const repliesByParentId = new Map<number, SocialComment[]>();
+
+  for (const comment of mappedComments) {
+    if (!comment.parentCommentId) continue;
+
+    const replies = repliesByParentId.get(comment.parentCommentId) ?? [];
+    replies.push(comment);
+    repliesByParentId.set(comment.parentCommentId, replies);
+  }
+
+  return mappedComments
+    .filter((comment) => !comment.parentCommentId)
+    .map((comment) => ({
+      ...comment,
+      replies: repliesByParentId.get(comment.id) ?? [],
+    }));
+}
+
+function updateCommentInPost(
+  post: SocialPost,
+  commentId: number,
+  parentCommentId: number | null | undefined,
+  updater: (comment: SocialComment) => SocialComment,
+): SocialPost {
+  if (!parentCommentId) {
+    return {
+      ...post,
+      comments: (post.comments ?? []).map((comment) =>
+        comment.id === commentId ? updater(comment) : comment,
+      ),
+    };
+  }
+
+  return {
+    ...post,
+    comments: (post.comments ?? []).map((comment) =>
+      comment.id === parentCommentId
+        ? {
+            ...comment,
+            replies: (comment.replies ?? []).map((reply) =>
+              reply.id === commentId ? updater(reply) : reply,
+            ),
+          }
+        : comment,
+    ),
   };
 }
 
@@ -345,6 +411,8 @@ function mapBackendPostToSocialPost(
   savedPostIds = new Set<string>(),
   userProfiles = new Map<number, UserProfile>(),
   cachedUsernames = new Map<number, string>(),
+  friendUserIds = new Set<number>(),
+  pendingFriendRequests = new Map<number, number>(),
 ): SocialPost {
   const isCurrentUserPost = currentUserId === post.userId;
   const mediaType =
@@ -391,6 +459,14 @@ function mapBackendPostToSocialPost(
       typeof currentUserId === "number" &&
       !isCurrentUserPost &&
       followingUserIds.has(post.userId),
+    friendStatus: isCurrentUserPost
+      ? undefined
+      : friendUserIds.has(post.userId)
+        ? "friends"
+        : pendingFriendRequests.has(post.userId)
+          ? "pending"
+          : "none",
+    pendingFriendRequestId: pendingFriendRequests.get(post.userId),
     savedByMe: savedPostIds.has(String(post.id)),
     source: "backend",
   };
@@ -535,6 +611,7 @@ function readUserIdentityCache(): Map<number, string> {
 
 export default function SocialFeedPage() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const savedPostStorageKey = useMemo(
     () => getSavedPostStorageKey(user?.userId),
     [user?.userId],
@@ -547,6 +624,7 @@ export default function SocialFeedPage() {
   const [busyPostId, setBusyPostId] = useState<number | string | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [games, setGames] = useState<Game[]>([]);
+  const [onlineFriendProfiles, setOnlineFriendProfiles] = useState<OnlineFriend[]>([]);
   const [savedPostState, setSavedPostState] = useState(() => ({
     ids: readSavedPostIds(savedPostStorageKey),
     storageKey: savedPostStorageKey,
@@ -577,8 +655,9 @@ export default function SocialFeedPage() {
       ...currentUserFallback,
       name: user?.username ?? currentUserFallback.name,
       username: user?.username ?? currentUserFallback.username,
+      userId: user?.userId,
     }),
-    [user?.username],
+    [user?.userId, user?.username],
   );
 
   useEffect(() => {
@@ -608,6 +687,62 @@ export default function SocialFeedPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFriends() {
+      if (!user?.userId) {
+        setOnlineFriendProfiles([]);
+        return;
+      }
+
+      try {
+        const friendships = await socialService.getFriends(user.userId);
+        const friendUserIds = friendships.map((friendship) =>
+          friendship.userId === user.userId
+            ? friendship.friendUserId
+            : friendship.userId,
+        );
+        const userProfiles = await loadUserProfiles(friendUserIds);
+
+        if (!isMounted) return;
+
+        const nextFriends = friendUserIds.reduce<OnlineFriend[]>(
+          (friends, friendUserId) => {
+              const profile = userProfiles.get(friendUserId);
+
+              if (!profile) return friends;
+
+              friends.push({
+                id: String(friendUserId),
+                name: profile.displayName?.trim() || profile.username,
+                username: profile.username,
+                userId: friendUserId,
+                statusText: "Arkadaş",
+                avatarUrl: profile.avatarUrl?.trim() || avatarBase,
+                status: "online",
+              });
+
+              return friends;
+            },
+          [],
+        );
+
+        setOnlineFriendProfiles(nextFriends);
+      } catch {
+        if (isMounted) {
+          setOnlineFriendProfiles([]);
+        }
+      }
+    }
+
+    void loadFriends();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.userId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -650,7 +785,7 @@ export default function SocialFeedPage() {
           return;
         }
 
-        const [backendPosts, following, lookingForPlayerPosts] =
+        const [backendPosts, following, lookingForPlayerPosts, friendships, outgoingFriendRequests] =
           await Promise.all([
           socialService.getPublicPosts(),
           user?.userId
@@ -659,9 +794,28 @@ export default function SocialFeedPage() {
           activeTab === "saved"
             ? socialService.getOpenLookingForPlayerPosts()
             : Promise.resolve<LookingForPlayerPostResponse[]>([]),
+          user?.userId
+            ? socialService.getFriends(user.userId)
+            : Promise.resolve([]),
+          user?.userId
+            ? socialService.getOutgoingFriendRequests(user.userId)
+            : Promise.resolve([]),
         ]);
         const followingUserIds = new Set(
           following.map((follow) => follow.followingUserId),
+        );
+        const friendUserIds = new Set(
+          friendships.map((friendship) =>
+            friendship.userId === user?.userId
+              ? friendship.friendUserId
+              : friendship.userId,
+          ),
+        );
+        const pendingFriendRequests = new Map(
+          outgoingFriendRequests.map((request) => [
+            request.receiverUserId,
+            request.id,
+          ]),
         );
         const userProfiles = await loadUserProfiles([
           ...backendPosts.map((post) => post.userId),
@@ -679,6 +833,8 @@ export default function SocialFeedPage() {
               currentSavedPostIds,
               userProfiles,
               cachedUsernames,
+              friendUserIds,
+              pendingFriendRequests,
             ),
           );
 
@@ -870,7 +1026,11 @@ export default function SocialFeedPage() {
       const comments = await socialService.getComments(postId);
       const currentPost = posts.find((post) => post.id === postId);
       const userProfiles = await loadUserProfiles(
-        comments.map((comment) => comment.userId),
+        comments.flatMap((comment) =>
+          [comment.userId, comment.replyingToUserId].filter(
+            (userId): userId is number => typeof userId === "number",
+          ),
+        ),
       );
 
       setPosts((currentPosts) =>
@@ -878,15 +1038,13 @@ export default function SocialFeedPage() {
           post.id === postId
             ? {
                 ...post,
-                comments: comments.map((comment) =>
-                  mapCommentAuthor(
-                    comment,
-                    currentPost ?? post,
-                    currentUser,
-                    user?.userId,
-                    userProfiles,
-                    cachedUsernames,
-                  ),
+                comments: structurePostComments(
+                  comments,
+                  currentPost ?? post,
+                  currentUser,
+                  user?.userId,
+                  userProfiles,
+                  cachedUsernames,
                 ),
               }
             : post,
@@ -916,7 +1074,7 @@ export default function SocialFeedPage() {
                 comments: [
                   ...(post.comments ?? []),
                   mapCommentAuthor(
-                    comment,
+                    { ...comment, replies: [] },
                     post,
                     currentUser,
                     user?.userId,
@@ -939,9 +1097,108 @@ export default function SocialFeedPage() {
     }
   }
 
+  async function handleAddReply(
+    postId: number | string,
+    parentCommentId: number,
+    content: string,
+    replyingToUserId?: number,
+  ) {
+    if (typeof postId !== "number") return;
+
+    setBusyPostId(postId);
+    setFeedError(null);
+
+    try {
+      const comment = await socialService.addComment(postId, {
+        content,
+        parentCommentId,
+        replyingToUserId,
+      });
+      const userProfiles = await loadUserProfiles(
+        [comment.userId, comment.replyingToUserId].filter(
+          (userId): userId is number => typeof userId === "number",
+        ),
+      );
+      const currentPost = posts.find((post) => post.id === postId);
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: (post.comments ?? []).map((parentComment) =>
+                  parentComment.id === parentCommentId
+                    ? {
+                        ...parentComment,
+                        replies: [
+                          ...(parentComment.replies ?? []),
+                          mapCommentAuthor(
+                            comment,
+                            currentPost ?? post,
+                            currentUser,
+                            user?.userId,
+                            userProfiles,
+                            cachedUsernames,
+                          ),
+                        ],
+                      }
+                    : parentComment,
+                ),
+                reactions: {
+                  ...post.reactions,
+                  comments: post.reactions.comments + 1,
+                },
+              }
+            : post,
+        ),
+      );
+    } catch (error) {
+      setFeedError(getErrorMessage(error, "Yanıt gönderilemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  }
+
+  async function handleToggleCommentLike(
+    postId: number | string,
+    commentId: number,
+    parentCommentId: number | null | undefined,
+    likedByMe: boolean,
+  ) {
+    if (typeof postId !== "number") return;
+
+    setFeedError(null);
+
+    try {
+      if (likedByMe) {
+        await socialService.unlikeComment(commentId);
+      } else {
+        await socialService.likeComment(commentId);
+      }
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? updateCommentInPost(post, commentId, parentCommentId, (comment) => ({
+                ...comment,
+                likedByMe: !likedByMe,
+                likeCount: Math.max(
+                  0,
+                  (comment.likeCount ?? 0) + (likedByMe ? -1 : 1),
+                ),
+              }))
+            : post,
+        ),
+      );
+    } catch (error) {
+      setFeedError(getErrorMessage(error, "Yorum beğenisi güncellenemedi."));
+    }
+  }
+
   async function handleDeleteComment(
     postId: number | string,
     commentId: number,
+    parentCommentId?: number | null,
   ) {
     if (typeof postId !== "number") return;
 
@@ -952,20 +1209,48 @@ export default function SocialFeedPage() {
       await socialService.deleteComment(commentId);
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: (post.comments ?? []).filter(
-                  (comment) => comment.id !== commentId,
-                ),
-                reactions: {
-                  ...post.reactions,
-                  comments: Math.max(0, post.reactions.comments - 1),
-                },
-              }
-            : post,
-        ),
+        currentPosts.map((post) => {
+          if (post.id !== postId) return post;
+
+          if (parentCommentId) {
+            return {
+              ...post,
+              comments: (post.comments ?? []).map((comment) =>
+                comment.id === parentCommentId
+                  ? {
+                      ...comment,
+                      replies: (comment.replies ?? []).filter(
+                        (reply) => reply.id !== commentId,
+                      ),
+                    }
+                  : comment,
+              ),
+              reactions: {
+                ...post.reactions,
+                comments: Math.max(0, post.reactions.comments - 1),
+              },
+            };
+          }
+
+          const deletedComment = (post.comments ?? []).find(
+            (comment) => comment.id === commentId,
+          );
+          const removedReplyCount = deletedComment?.replies?.length ?? 0;
+
+          return {
+            ...post,
+            comments: (post.comments ?? []).filter(
+              (comment) => comment.id !== commentId,
+            ),
+            reactions: {
+              ...post.reactions,
+              comments: Math.max(
+                0,
+                post.reactions.comments - 1 - removedReplyCount,
+              ),
+            },
+          };
+        }),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Yorum silinemedi."));
@@ -1046,11 +1331,51 @@ export default function SocialFeedPage() {
     setFeedError(null);
 
     try {
-      await socialService.sendFriendRequest({ receiverUserId: authorUserId });
+      const request = await socialService.sendFriendRequest({
+        receiverUserId: authorUserId,
+      });
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.authorUserId === authorUserId
+            ? {
+                ...post,
+                friendStatus: "pending",
+                pendingFriendRequestId: request.id,
+              }
+            : post,
+        ),
+      );
       setFeedError("Arkadaşlık isteği gönderildi.");
     } catch (error) {
       setFeedError(
         getErrorMessage(error, "Arkadaşlık isteği gönderilemedi."),
+      );
+    }
+  }
+
+  async function handleCancelFriendRequest(
+    requestId: number,
+    authorUserId: number,
+  ) {
+    setFeedError(null);
+
+    try {
+      await socialService.cancelFriendRequest(requestId);
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.authorUserId === authorUserId
+            ? {
+                ...post,
+                friendStatus: "none",
+                pendingFriendRequestId: undefined,
+              }
+            : post,
+        ),
+      );
+      setFeedError("Arkadaşlık isteği iptal edildi.");
+    } catch (error) {
+      setFeedError(
+        getErrorMessage(error, "Arkadaşlık isteği iptal edilemedi."),
       );
     }
   }
@@ -1061,10 +1386,13 @@ export default function SocialFeedPage() {
     setFeedError(null);
 
     try {
-      await socialService.createChatRoom({
-        roomName: `${post.author.name} ile sohbet`,
-        roomType: "DIRECT",
+      cacheUserIdentity(post.authorUserId, post.author.username);
+
+      const room = await socialService.findOrCreateDirectChatRoom({
+        targetUserId: post.authorUserId,
+        targetUsername: post.author.username,
       });
+      navigate(SOCIAL_ROUTES.chatRoom(room.id));
       setFeedError("Sohbet başlatıldı.");
     } catch (error) {
       setFeedError(getErrorMessage(error, "Sohbet başlatılamadı."));
@@ -1166,14 +1494,20 @@ export default function SocialFeedPage() {
                     isBusy={busyPostId === post.id}
                     key={post.id}
                     onAddComment={handleAddComment}
+                    onAddReply={handleAddReply}
                     onBlockAuthor={handleBlockAuthor}
                     onDeleteComment={handleDeleteComment}
                     onDeletePost={handleDeletePost}
                     onLoadComments={handleLoadComments}
                     onLoadPostLikes={handleLoadPostLikes}
+                    onOpenProfile={(username) =>
+                      navigate(ROUTES.profile.replace(":username", username))
+                    }
                     onSendFriendRequest={handleSendFriendRequest}
+                    onCancelFriendRequest={handleCancelFriendRequest}
                     onShare={handleSharePost}
                     onStartChat={handleStartChat}
+                    onToggleCommentLike={handleToggleCommentLike}
                     onToggleFollowAuthor={handleToggleFollowAuthor}
                     onToggleSave={handleToggleSave}
                     onToggleLike={handleToggleLike}
@@ -1192,7 +1526,10 @@ export default function SocialFeedPage() {
             <SocialRightPanel
               groups={suggestedGroups}
               events={activeEvents}
-              friends={onlineFriends}
+              friends={onlineFriendProfiles}
+              onFriendProfileClick={(username) =>
+                navigate(ROUTES.profile.replace(":username", username))
+              }
             />
           </div>
         </div>

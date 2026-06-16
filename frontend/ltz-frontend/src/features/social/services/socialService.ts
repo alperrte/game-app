@@ -5,6 +5,7 @@ import type {
   BlockUserRequest,
   ChatRoomCreateRequest,
   ChatRoomResponse,
+  DirectChatRoomCreateRequest,
   FollowCreateRequest,
   FollowResponse,
   FriendRequestCreateRequest,
@@ -16,6 +17,7 @@ import type {
   MessageResponse,
   SocialComment,
   SocialCommentCreateRequest,
+  SocialCommentLikeResponse,
   SocialMediaUploadResponse,
   SocialPostCreateRequest,
   SocialPostLikeResponse,
@@ -107,6 +109,15 @@ export const socialService = {
   deleteComment: (commentId: number | string) =>
     apiClient.delete(SOCIAL_API_ENDPOINTS.commentById(commentId)),
 
+  likeComment: (commentId: number | string) =>
+    apiClient.post<SocialCommentLikeResponse, Record<string, never>>(
+      SOCIAL_API_ENDPOINTS.commentLikes(commentId),
+      {},
+    ),
+
+  unlikeComment: (commentId: number | string) =>
+    apiClient.delete(SOCIAL_API_ENDPOINTS.commentLikes(commentId)),
+
   sendFriendRequest: (request: FriendRequestCreateRequest) =>
     apiClient.post<FriendRequestResponse, FriendRequestCreateRequest>(
       SOCIAL_API_ENDPOINTS.friendRequests,
@@ -182,6 +193,15 @@ export const socialService = {
       request,
     ),
 
+  findOrCreateDirectChatRoom: (request: DirectChatRoomCreateRequest) =>
+    apiClient.post<ChatRoomResponse, DirectChatRoomCreateRequest>(
+      SOCIAL_API_ENDPOINTS.directChatRooms,
+      request,
+    ),
+
+  getMyChatRooms: () =>
+    apiClient.get<ChatRoomResponse[]>(SOCIAL_API_ENDPOINTS.myChatRooms),
+
   getChatRoom: (chatRoomId: number | string) =>
     apiClient.get<ChatRoomResponse>(
       SOCIAL_API_ENDPOINTS.chatRoomById(chatRoomId),
@@ -198,9 +218,27 @@ export const socialService = {
       request,
     ),
 
+  toggleMessageReaction: (messageId: number | string, emoji: string) =>
+    apiClient.post<MessageResponse, { emoji: string }>(
+      SOCIAL_API_ENDPOINTS.messageReactions(messageId),
+      { emoji },
+    ),
+
   getChatRoomMessages: (chatRoomId: number | string) =>
     apiClient.get<MessageResponse[]>(
       SOCIAL_API_ENDPOINTS.chatRoomMessages(chatRoomId),
+    ),
+
+  markChatRoomAsRead: (chatRoomId: number | string) =>
+    apiClient.post<void, Record<string, never>>(
+      SOCIAL_API_ENDPOINTS.markChatRoomRead(chatRoomId),
+      {},
+    ),
+
+  hideChatRoom: (chatRoomId: number | string) =>
+    apiClient.post<void, Record<string, never>>(
+      SOCIAL_API_ENDPOINTS.hideChatRoom(chatRoomId),
+      {},
     ),
 
   deleteMessage: (messageId: number | string) =>

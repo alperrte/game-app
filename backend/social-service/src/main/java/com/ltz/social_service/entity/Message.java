@@ -30,8 +30,14 @@ public class Message {
     @Column(name = "is_read", nullable = false)
     private Boolean isRead;
 
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;
+
+    @Column(name = "reply_to_message_id")
+    private Long replyToMessageId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gamepad2,
+  GripVertical,
   ImageIcon,
   ListFilter,
   Mic,
@@ -17,6 +18,11 @@ import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../../../components/ui/Button";
+import { ConfirmModal } from "../../../components/modal/ConfirmModal";
+import {
+  DEFAULT_EMOJIS,
+  EmojiPickerPopover,
+} from "../../../components/ui/EmojiPickerPopover";
 import type { Game } from "../../game/types/gameTypes";
 import type {
   ComposerMediaType,
@@ -27,6 +33,22 @@ import type {
 
 type ComposerMode = "post" | "poll" | "game" | "listing";
 
+interface PollOption {
+  id: string;
+  value: string;
+}
+
+function createPollOption(value = ""): PollOption {
+  return {
+    id: `poll-${crypto.randomUUID()}`,
+    value,
+  };
+}
+
+function createDefaultPollOptions(): PollOption[] {
+  return [createPollOption(), createPollOption()];
+}
+
 const MAX_IMAGE_SIZE_MB = 10;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_VIDEO_SIZE_MB = 50;
@@ -34,20 +56,6 @@ const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 const MAX_IMAGE_COUNT = 3;
 const VIDEO_FILE_ACCEPT = "video/mp4,video/webm,video/ogg";
 const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/ogg"]);
-const COMPOSER_EMOJIS = [
-  "😀",
-  "😂",
-  "😍",
-  "🔥",
-  "🎮",
-  "🏆",
-  "👏",
-  "😎",
-  "😭",
-  "😡",
-  "❤️",
-  "✨",
-];
 
 interface SelectedMedia {
   file: File;
@@ -80,9 +88,12 @@ export function SocialComposer({
   const [previewModalIndex, setPreviewModalIndex] = useState<number | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [pollOptionEmojiOpenId, setPollOptionEmojiOpenId] = useState<string | null>(null);
+  const [draggedPollOptionId, setDraggedPollOptionId] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [fileAccept, setFileAccept] = useState("image/*");
   const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollOptions, setPollOptions] = useState<PollOption[]>(createDefaultPollOptions);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [listingForm, setListingForm] = useState({
     gameId: "",
@@ -308,7 +319,9 @@ export function SocialComposer({
     setContent("");
     setMode("post");
     setPollQuestion("");
-    setPollOptions(["", ""]);
+    setPollOptions(createDefaultPollOptions());
+    setPollOptionEmojiOpenId(null);
+    setDraggedPollOptionId(null);
     setSelectedGameId("");
     setListingForm({
       gameId: "",
@@ -332,7 +345,9 @@ export function SocialComposer({
     const trimmedContent = content.trim();
 
     if (mode === "poll") {
-      const options = pollOptions.map((option) => option.trim()).filter(Boolean);
+      const options = pollOptions
+        .map((option) => option.value.trim())
+        .filter(Boolean);
       if (!pollQuestion.trim() || options.length < 2) return "";
 
       return [
@@ -353,6 +368,50 @@ export function SocialComposer({
     }
 
     return trimmedContent;
+  }
+
+  function addEmojiToPollOption(optionId: string, emoji: string) {
+    setPollOptions((currentOptions) =>
+      currentOptions.map((currentOption) =>
+        currentOption.id === optionId
+          ? { ...currentOption, value: `${currentOption.value}${emoji}` }
+          : currentOption,
+      ),
+    );
+  }
+
+  function reorderPollOptions(sourceId: string, targetId: string) {
+    setPollOptions((currentOptions) => {
+      const sourceIndex = currentOptions.findIndex((option) => option.id === sourceId);
+      const targetIndex = currentOptions.findIndex((option) => option.id === targetId);
+
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+        return currentOptions;
+      }
+
+      const nextOptions = [...currentOptions];
+      const [movedOption] = nextOptions.splice(sourceIndex, 1);
+      nextOptions.splice(targetIndex, 0, movedOption);
+
+      return nextOptions;
+    });
+  }
+
+  function requestSubmit() {
+    if (isSubmitting) return;
+
+    if (mode === "listing") {
+      void handleSubmit();
+      return;
+    }
+
+    const postContent = buildPostContent();
+    if (!postContent) {
+      setMediaError("Paylaşım için gerekli alanları doldur.");
+      return;
+    }
+
+    setConfirmOpen(true);
   }
 
   async function handleSubmit() {
@@ -428,7 +487,13 @@ export function SocialComposer({
               >
                 <Smile size={16} />
               </button>
-              {emojiOpen && <ComposerEmojiPicker onSelect={addEmojiToContent} />}
+              {emojiOpen && (
+                <EmojiPickerPopover
+                  emojis={DEFAULT_EMOJIS}
+                  onClose={() => setEmojiOpen(false)}
+                  onSelect={addEmojiToContent}
+                />
+              )}
             </div>
           )}
 
@@ -450,33 +515,80 @@ export function SocialComposer({
                 value={pollQuestion}
               />
               {pollOptions.map((option, index) => (
-                <div className="flex gap-2" key={index}>
+                <div
+                  className="relative flex gap-2"
+                  key={option.id}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+
+                    if (draggedPollOptionId && draggedPollOptionId !== option.id) {
+                      reorderPollOptions(draggedPollOptionId, option.id);
+                    }
+
+                    setDraggedPollOptionId(null);
+                  }}
+                >
+                  <button
+                    aria-label={`Seçenek ${index + 1} sırasını değiştir`}
+                    className="grid h-10 w-10 shrink-0 cursor-grab place-items-center rounded-lg border border-white/10 text-zinc-400 transition hover:bg-white/[0.06] hover:text-white active:cursor-grabbing"
+                    draggable
+                    onDragEnd={() => setDraggedPollOptionId(null)}
+                    onDragStart={() => setDraggedPollOptionId(option.id)}
+                    type="button"
+                  >
+                    <GripVertical size={16} />
+                  </button>
                   <input
                     className="h-10 flex-1 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
                     maxLength={120}
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setPollOptions((currentOptions) =>
-                        currentOptions.map((currentOption, optionIndex) =>
-                          optionIndex === index
-                            ? event.target.value
+                        currentOptions.map((currentOption) =>
+                          currentOption.id === option.id
+                            ? { ...currentOption, value: event.target.value }
                             : currentOption,
                         ),
+                      );
+                    }}
+                    placeholder={`Seçenek ${index + 1}`}
+                    value={option.value}
+                  />
+                  <button
+                    aria-label="Seçeneğe emoji ekle"
+                    className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                    onClick={() =>
+                      setPollOptionEmojiOpenId((currentId) =>
+                        currentId === option.id ? null : option.id,
                       )
                     }
-                    placeholder={`Seçenek ${index + 1}`}
-                    value={option}
-                  />
+                    type="button"
+                  >
+                    <Smile size={16} />
+                  </button>
+                  {pollOptionEmojiOpenId === option.id && (
+                    <EmojiPickerPopover
+                      className="absolute right-12 top-11 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                      emojis={DEFAULT_EMOJIS}
+                      onClose={() => setPollOptionEmojiOpenId(null)}
+                      onSelect={(emoji) => addEmojiToPollOption(option.id, emoji)}
+                    />
+                  )}
                   <button
                     aria-label="Seçeneği sil"
                     className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={pollOptions.length <= 2}
-                    onClick={() =>
+                    onClick={() => {
                       setPollOptions((currentOptions) =>
                         currentOptions.filter(
-                          (_, optionIndex) => optionIndex !== index,
+                          (currentOption) => currentOption.id !== option.id,
                         ),
-                      )
-                    }
+                      );
+
+                      if (pollOptionEmojiOpenId === option.id) {
+                        setPollOptionEmojiOpenId(null);
+                      }
+                    }}
                     type="button"
                   >
                     <X size={16} />
@@ -486,7 +598,10 @@ export function SocialComposer({
               <button
                 className="w-fit cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-white/[0.06]"
                 onClick={() =>
-                  setPollOptions((currentOptions) => [...currentOptions, ""])
+                  setPollOptions((currentOptions) => [
+                    ...currentOptions,
+                    createPollOption(),
+                  ])
                 }
                 type="button"
               >
@@ -849,11 +964,24 @@ export function SocialComposer({
           className="h-11 rounded-lg px-5"
           isLoading={isSubmitting}
           leftIcon={<Plus size={19} />}
-          onClick={() => void handleSubmit()}
+          onClick={() => void requestSubmit()}
         >
           {mode === "listing" ? "İlan Ver" : "Paylaş"}
         </Button>
       </div>
+
+      <ConfirmModal
+        cancelLabel="Vazgeç"
+        confirmLabel="Evet, paylaş"
+        message="Bu gönderiyi akışta paylaşmak istediğine emin misin?"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          void handleSubmit();
+        }}
+        open={confirmOpen}
+        title="Gönderiyi paylaş"
+      />
     </section>
   );
 }
@@ -879,27 +1007,5 @@ function ComposerButton({ active, icon, label, onClick }: ComposerButtonProps) {
       {icon}
       {label}
     </button>
-  );
-}
-
-interface ComposerEmojiPickerProps {
-  onSelect: (emoji: string) => void;
-}
-
-function ComposerEmojiPicker({ onSelect }: ComposerEmojiPickerProps) {
-  return (
-    <div className="absolute right-0 top-12 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40">
-      {COMPOSER_EMOJIS.map((emoji) => (
-        <button
-          aria-label={`Emoji ${emoji}`}
-          className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-lg transition hover:bg-white/[0.08]"
-          key={emoji}
-          onClick={() => onSelect(emoji)}
-          type="button"
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
   );
 }

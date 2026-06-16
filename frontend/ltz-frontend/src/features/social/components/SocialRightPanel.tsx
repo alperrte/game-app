@@ -11,12 +11,14 @@ interface SocialRightPanelProps {
   groups: SuggestedGroup[];
   events: ActiveEvent[];
   friends: OnlineFriend[];
+  onFriendProfileClick: (username: string) => void;
 }
 
 export function SocialRightPanel({
   groups,
   events,
   friends,
+  onFriendProfileClick,
 }: SocialRightPanelProps) {
   const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(
     () => new Set(),
@@ -152,36 +154,38 @@ export function SocialRightPanel({
       </Panel>
 
       <Panel title="Online Arkadaşlar" onShowAll={() => setNotice("Tüm arkadaşlar modülü hazırlanıyor.")}>
-        <div className="grid grid-cols-5 gap-3">
-          {friends.map((friend) => (
-            <button
-              key={friend.id}
-              className="min-w-0 cursor-pointer text-center transition hover:-translate-y-0.5"
-              onClick={() => setNotice(`${friend.name} profili açılacak.`)}
-              type="button"
-            >
-              <div className="relative mx-auto h-14 w-14">
-                <img
-                  src={friend.avatarUrl}
-                  alt={friend.name}
-                  className="h-14 w-14 rounded-full border border-white/15 object-cover"
-                />
-                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#0a101c] bg-emerald-400" />
-              </div>
-              <p className="mt-2 truncate text-xs font-bold text-white">{friend.name}</p>
-              <p className="mt-1 truncate text-[11px] text-zinc-400">
-                {friend.statusText}
-              </p>
-            </button>
-          ))}
-          <button
-            className="mx-auto grid h-14 w-14 cursor-pointer place-items-center self-start rounded-full border border-white/10 bg-white/[0.025] text-base font-bold text-white transition hover:-translate-y-0.5 hover:border-violet-400/60"
-            onClick={() => setNotice("Daha fazla arkadaş listesi hazırlanıyor.")}
-            type="button"
-          >
-            +12
-          </button>
-        </div>
+        {friends.length > 0 ? (
+          <div className="grid grid-cols-5 gap-3">
+            {friends.map((friend) => (
+              <button
+                key={friend.id}
+                className="min-w-0 cursor-pointer text-center transition hover:-translate-y-0.5"
+                onClick={() => onFriendProfileClick(friend.username)}
+                type="button"
+              >
+                <div className="relative mx-auto h-14 w-14">
+                  <img
+                    src={friend.avatarUrl}
+                    alt={friend.name}
+                    className="h-14 w-14 rounded-full border border-white/15 object-cover"
+                  />
+                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#0a101c] bg-emerald-400" />
+                </div>
+                <p className="mt-2 truncate text-xs font-bold text-white">{friend.name}</p>
+                <p className="mt-1 truncate text-[11px] text-zinc-400">
+                  {friend.statusText}
+                </p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-white/8 bg-white/[0.025] px-4 py-5 text-center">
+            <p className="text-sm font-semibold text-zinc-300">Henüz arkadaşın yok.</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Akıştaki oyuncuların profiline gidip arkadaş ekleyebilirsin.
+            </p>
+          </div>
+        )}
       </Panel>
     </aside>
   );

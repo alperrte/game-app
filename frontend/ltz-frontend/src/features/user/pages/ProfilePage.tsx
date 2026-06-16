@@ -4,6 +4,11 @@ import { useAuthStore } from "../../../store/authStore";
 import { useToast } from "../../../components/ui/toastContext";
 import { userService } from "../services/userService";
 import type { UserProfileResponse } from "../types/user";
+import { socialService } from "../../social/services/socialService";
+import type { FriendRequestResponse } from "../../social/types/social.types";
+import { cacheUserIdentity } from "../../../utils/userIdentityCache";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
+import { SOCIAL_ROUTES } from "../../../lib/constants";
 import { EditProfileModal } from "../components/EditProfileModal";
 import { ConnectedAccountsTab } from "../components/ConnectedAccountsTab";
 import { PrivacySettingsTab } from "../components/PrivacySettingsTab";
@@ -30,9 +35,14 @@ import {
   Compass,
   MessageSquare,
   Gamepad2,
+  UserCheck,
+  UserMinus,
+  UserPlus,
+  Users,
 } from "lucide-react";
 
 type ProfileTab = "overview" | "accounts" | "privacy" | "activity";
+type FriendState = "none" | "pending" | "friends";
 
 const isNotFoundError = (err: unknown) =>
   typeof err === "object" &&
@@ -57,6 +67,16 @@ export const ProfilePage: React.FC = () => {
   const [isRestricted, setIsRestricted] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [friendState, setFriendState] = useState<FriendState>("none");
+  const [pendingFriendRequest, setPendingFriendRequest] =
+    useState<FriendRequestResponse | null>(null);
+  const [socialCounts, setSocialCounts] = useState({
+    followers: 0,
+    following: 0,
+    friends: 0,
+  });
   const [pageLoadedAt] = useState(() => Date.now());
 
   const targetUsername = username || currentUser?.username;
@@ -151,6 +171,154 @@ export const ProfilePage: React.FC = () => {
       document.title = "LobbyTwoZero";
     };
   }, [profile]);
+
+  const profileUserId = profile ? Number(profile.userId) : null;
+  const currentUserId = currentUser?.userId;
+
+  useEffect(() => {
+    if (!profileUserId || !currentUserId) return;
+
+    let active = true;
+    const targetUserId = profileUserId;
+    const viewerUserId = currentUserId;
+
+    async function loadSocialState() {
+      setSocialLoading(true);
+
+      try {
+        const [followers, following, friends, myFollowing, myFriends, outgoing] =
+          await Promise.all([
+            socialService.getFollowers(targetUserId),
+            socialService.getFollowing(targetUserId),
+            socialService.getFriends(targetUserId),
+            socialService.getFollowing(viewerUserId),
+            socialService.getFriends(viewerUserId),
+            socialService.getOutgoingFriendRequests(viewerUserId),
+          ]);
+
+        if (!active) return;
+
+        setSocialCounts({
+          followers: followers.length,
+          following: following.length,
+          friends: friends.length,
+        });
+        setIsFollowing(
+          myFollowing.some((follow) => follow.followingUserId === targetUserId),
+        );
+
+        const areFriends = myFriends.some(
+          (friendship) =>
+            friendship.friendUserId === targetUserId ||
+            friendship.userId === targetUserId,
+        );
+        const pendingRequest =
+          outgoing.find((request) => request.receiverUserId === targetUserId) ??
+          null;
+
+        setFriendState(areFriends ? "friends" : pendingRequest ? "pending" : "none");
+        setPendingFriendRequest(pendingRequest);
+      } catch (err) {
+        if (active) {
+          showToast(getErrorMessage(err, "Sosyal durum yüklenemedi."), "error");
+        }
+      } finally {
+        if (active) {
+          setSocialLoading(false);
+        }
+      }
+    }
+
+    void loadSocialState();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUserId, profileUserId, showToast]);
+
+  async function handleToggleFollow() {
+    if (!profileUserId || !currentUserId || isOwnProfile || socialLoading) return;
+
+    setSocialLoading(true);
+
+    try {
+      if (isFollowing) {
+        await socialService.unfollowUser(profileUserId);
+      } else {
+        await socialService.followUser({ followingUserId: profileUserId });
+      }
+
+      setIsFollowing((currentValue) => !currentValue);
+      setSocialCounts((counts) => ({
+        ...counts,
+        followers: Math.max(0, counts.followers + (isFollowing ? -1 : 1)),
+      }));
+      showToast(isFollowing ? "Takip bırakıldı." : "Kullanıcı takip edildi.", "success");
+    } catch (err) {
+      showToast(getErrorMessage(err, "Takip işlemi tamamlanamadı."), "error");
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  async function handleFriendAction() {
+    if (!profileUserId || !currentUserId || isOwnProfile || socialLoading) return;
+
+    setSocialLoading(true);
+
+    try {
+      if (friendState === "friends") {
+        await socialService.removeFriend(currentUserId, profileUserId);
+        setFriendState("none");
+        setSocialCounts((counts) => ({
+          ...counts,
+          friends: Math.max(0, counts.friends - 1),
+        }));
+        showToast("Arkadaşlık kaldırıldı.", "success");
+        return;
+      }
+
+      if (friendState === "pending" && pendingFriendRequest) {
+        await socialService.cancelFriendRequest(pendingFriendRequest.id);
+        setPendingFriendRequest(null);
+        setFriendState("none");
+        showToast("Arkadaşlık isteği iptal edildi.", "success");
+        return;
+      }
+
+      const request = await socialService.sendFriendRequest({
+        receiverUserId: profileUserId,
+      });
+      setPendingFriendRequest(request);
+      setFriendState("pending");
+      showToast("Arkadaşlık isteği gönderildi.", "success");
+    } catch (err) {
+      showToast(getErrorMessage(err, "Arkadaşlık işlemi tamamlanamadı."), "error");
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  async function handleStartChat() {
+    if (!profileUserId || !currentUserId || !profile || isOwnProfile || socialLoading) return;
+
+    setSocialLoading(true);
+
+    try {
+      cacheUserIdentity(profileUserId, profile.username);
+
+      const room = await socialService.findOrCreateDirectChatRoom({
+        targetUserId: profileUserId,
+        targetUsername: profile.username,
+      });
+
+      navigate(SOCIAL_ROUTES.chatRoom(room.id));
+    } catch (err) {
+      showToast(getErrorMessage(err, "Sohbet başlatılamadı."), "error");
+    } finally {
+      setSocialLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -393,9 +561,29 @@ export const ProfilePage: React.FC = () => {
                 </span>
               )}
             </div>
+
+            <div className="flex flex-wrap gap-3 pt-1">
+              {[
+                { label: "Takipçi", value: socialCounts.followers },
+                { label: "Takip", value: socialCounts.following },
+                { label: "Arkadaş", value: socialCounts.friends },
+              ].map((item) => (
+                <div
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2"
+                  key={item.label}
+                >
+                  <span className="block text-base font-black text-white">
+                    {item.value}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {isOwnProfile && (
+          {isOwnProfile ? (
             <button
               type="button"
               onClick={() => setEditModalOpen(true)}
@@ -403,6 +591,53 @@ export const ProfilePage: React.FC = () => {
             >
               <Edit3 className="h-4 w-4" /> Profili Düzenle
             </button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 self-end md:self-start mt-4 md:mt-2">
+              <button
+                type="button"
+                onClick={() => void handleToggleFollow()}
+                disabled={socialLoading}
+                className={
+                  isFollowing
+                    ? "flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-zinc-300 transition-colors hover:border-violet-400/50 hover:text-white disabled:opacity-60"
+                    : "flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-600 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
+                }
+              >
+                {isFollowing ? (
+                  <UserMinus className="h-4 w-4" />
+                ) : (
+                  <UserPlus className="h-4 w-4" />
+                )}
+                {isFollowing ? "Takibi Bırak" : "Takip Et"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleFriendAction()}
+                disabled={socialLoading}
+                className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-600 hover:text-white disabled:opacity-60"
+              >
+                {friendState === "friends" ? (
+                  <UserCheck className="h-4 w-4" />
+                ) : friendState === "pending" ? (
+                  <Users className="h-4 w-4" />
+                ) : (
+                  <UserPlus className="h-4 w-4" />
+                )}
+                {friendState === "friends"
+                  ? "Arkadaş"
+                  : friendState === "pending"
+                    ? "İstek Bekliyor"
+                    : "Arkadaş Ekle"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleStartChat()}
+                disabled={socialLoading}
+                className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-bold text-emerald-300 transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-60"
+              >
+                <MessageSquare className="h-4 w-4" /> Mesaj
+              </button>
+            </div>
           )}
         </div>
       </div>

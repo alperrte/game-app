@@ -2,6 +2,7 @@ package com.ltz.social_service.controller;
 
 import com.ltz.social_service.dto.request.PostCommentCreateRequest;
 import com.ltz.social_service.dto.request.PostCreateRequest;
+import com.ltz.social_service.dto.response.PostCommentLikeResponse;
 import com.ltz.social_service.dto.response.PostCommentResponse;
 import com.ltz.social_service.dto.response.PostLikeResponse;
 import com.ltz.social_service.dto.response.PostResponse;
@@ -99,8 +100,29 @@ public class PostController {
     }
 
     @GetMapping("/posts/{postId}/comments")
-    public List<PostCommentResponse> getCommentsByPost(@PathVariable Long postId) {
-        return postService.getCommentsByPost(postId);
+    public List<PostCommentResponse> getCommentsByPost(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return postService.getCommentsByPost(postId, principal == null ? null : principal.userId());
+    }
+
+    @PostMapping("/comments/{commentId}/likes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PostCommentLikeResponse likeComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return postService.likeComment(commentId, principal.userId());
+    }
+
+    @DeleteMapping("/comments/{commentId}/likes")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlikeComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        postService.unlikeComment(commentId, principal.userId());
     }
 
     @DeleteMapping("/comments/{commentId}")

@@ -17,4 +17,8 @@ public class PostCommentCreateRequest {
     @NotBlank(message = "Comment content is required")
     @Size(max = 1000, message = "Comment content can be at most 1000 characters")
     private String content;
+
+    private Long parentCommentId;
+
+    private Long replyingToUserId;
 }

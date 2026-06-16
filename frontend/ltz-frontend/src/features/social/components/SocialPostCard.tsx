@@ -19,6 +19,7 @@ import {
   ThumbsUp,
   UserPlus,
   UserRoundPlus,
+  UserCheck,
   Volume2,
   VolumeX,
   X,
@@ -27,6 +28,10 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { formatSocialTime } from "../../../utils/formatSocialTime";
+import {
+  DEFAULT_EMOJIS,
+  EmojiPickerPopover,
+} from "../../../components/ui/EmojiPickerPopover";
 import type { SocialPost, SocialUser } from "../types/social.types";
 
 interface SocialPostCardProps {
@@ -35,8 +40,18 @@ interface SocialPostCardProps {
   currentUserName?: string;
   isBusy?: boolean;
   onAddComment: (postId: number | string, content: string) => Promise<void>;
+  onAddReply: (
+    postId: number | string,
+    parentCommentId: number,
+    content: string,
+    replyingToUserId?: number,
+  ) => Promise<void>;
   onBlockAuthor: (authorUserId: number) => Promise<void>;
-  onDeleteComment: (postId: number | string, commentId: number) => Promise<void>;
+  onDeleteComment: (
+    postId: number | string,
+    commentId: number,
+    parentCommentId?: number | null,
+  ) => Promise<void>;
   onDeletePost: (postId: number | string) => Promise<void>;
   onToggleFollowAuthor: (
     authorUserId: number,
@@ -44,9 +59,20 @@ interface SocialPostCardProps {
   ) => Promise<void>;
   onLoadComments: (postId: number | string) => Promise<void>;
   onLoadPostLikes: (post: SocialPost) => Promise<SocialUser[]>;
+  onOpenProfile: (username: string) => void;
   onSendFriendRequest: (authorUserId: number) => Promise<void>;
+  onCancelFriendRequest: (
+    requestId: number,
+    authorUserId: number,
+  ) => Promise<void>;
   onShare: (post: SocialPost) => Promise<void>;
   onStartChat: (post: SocialPost) => Promise<void>;
+  onToggleCommentLike: (
+    postId: number | string,
+    commentId: number,
+    parentCommentId: number | null | undefined,
+    likedByMe: boolean,
+  ) => Promise<void>;
   onToggleSave: (postId: number | string) => void;
   onToggleLike: (postId: number | string, likedByMe: boolean) => Promise<void>;
 }
@@ -57,34 +83,9 @@ interface ParsedPollContent {
   question: string;
 }
 
-interface CommentReply {
-  id: string;
-  authorName: string;
-  content: string;
-  createdAt: string;
-  likedByMe: boolean;
-  likeCount: number;
-  replyingTo?: string;
-}
-
 interface FullscreenVideoElement extends HTMLVideoElement {
   webkitEnterFullscreen?: () => void;
 }
-
-const COMMENT_EMOJIS = [
-  "😀",
-  "😂",
-  "😍",
-  "🔥",
-  "🎮",
-  "🏆",
-  "👏",
-  "😎",
-  "😭",
-  "😡",
-  "❤️",
-  "✨",
-];
 
 function parsePollContent(content: string): ParsedPollContent | null {
   const lines = content.split("\n");
@@ -127,15 +128,19 @@ export function SocialPostCard({
   currentUserName,
   isBusy = false,
   onAddComment,
+  onAddReply,
   onBlockAuthor,
   onDeleteComment,
   onDeletePost,
   onToggleFollowAuthor,
   onLoadComments,
   onLoadPostLikes,
+  onOpenProfile,
   onSendFriendRequest,
+  onCancelFriendRequest,
   onShare,
   onStartChat,
+  onToggleCommentLike,
   onToggleSave,
   onToggleLike,
 }: SocialPostCardProps) {
@@ -155,21 +160,19 @@ export function SocialPostCard({
   const [likesOpen, setLikesOpen] = useState(false);
   const [likedUsers, setLikedUsers] = useState<SocialUser[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
-  const [likedCommentIds, setLikedCommentIds] = useState<Set<number>>(
-    () => new Set(),
-  );
-  const [commentReplies, setCommentReplies] = useState<
-    Record<number, CommentReply[]>
-  >({});
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
   const [replyFormCommentId, setReplyFormCommentId] = useState<number | null>(
     null,
   );
-  const [commentEmojiOpen, setCommentEmojiOpen] = useState(false);
-  const [replyEmojiOpenForCommentId, setReplyEmojiOpenForCommentId] = useState<
+  const [replyFormTargetReplyId, setReplyFormTargetReplyId] = useState<
     number | null
   >(null);
+  const [commentEmojiOpen, setCommentEmojiOpen] = useState(false);
+  const [replyEmojiOpenForCommentId, setReplyEmojiOpenForCommentId] = useState<
+    string | null
+  >(null);
   const [replyingToName, setReplyingToName] = useState<string | null>(null);
+  const [replyingToUserId, setReplyingToUserId] = useState<number | null>(null);
   const [visibleReplyCommentIds, setVisibleReplyCommentIds] = useState<
     Set<number>
   >(() => new Set());
@@ -352,35 +355,14 @@ export function SocialPostCard({
     }
   }
 
-  function toggleCommentLike(commentId: number) {
-    setLikedCommentIds((currentIds) => {
-      const nextIds = new Set(currentIds);
+  async function handleToggleCommentLike(
+    commentId: number,
+    parentCommentId: number | null | undefined,
+    likedByMe: boolean,
+  ) {
+    if (!canUsePostActions || isBusy) return;
 
-      if (nextIds.has(commentId)) {
-        nextIds.delete(commentId);
-      } else {
-        nextIds.add(commentId);
-      }
-
-      return nextIds;
-    });
-  }
-
-  function toggleReplyLike(commentId: number, replyId: string) {
-    setCommentReplies((currentReplies) => ({
-      ...currentReplies,
-      [commentId]: (currentReplies[commentId] ?? []).map((reply) => {
-        if (reply.id !== replyId) return reply;
-
-        return {
-          ...reply,
-          likedByMe: !reply.likedByMe,
-          likeCount: reply.likedByMe
-            ? Math.max(0, reply.likeCount - 1)
-            : reply.likeCount + 1,
-        };
-      }),
-    }));
+    await onToggleCommentLike(post.id, commentId, parentCommentId, likedByMe);
   }
 
   function toggleReplies(commentId: number) {
@@ -397,60 +379,137 @@ export function SocialPostCard({
     });
   }
 
-  function openReplyForm(commentId: number, targetName: string) {
-    const shouldClose =
-      replyFormCommentId === commentId && replyingToName === targetName;
-
-    setReplyFormCommentId(shouldClose ? null : commentId);
-    setReplyingToName(shouldClose ? null : targetName);
-
-    if (!shouldClose) {
-      setVisibleReplyCommentIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.add(commentId);
-        return nextIds;
-      });
-    }
+  function getReplyDraftKey(
+    parentCommentId: number,
+    targetReplyId?: number | null,
+  ) {
+    return targetReplyId
+      ? `${parentCommentId}:${targetReplyId}`
+      : `${parentCommentId}:root`;
   }
 
-  function submitReply(commentId: number) {
-    const replyContent = replyDrafts[commentId]?.trim();
-
-    if (!replyContent) return;
-
-    const reply: CommentReply = {
-      id: `${commentId}-${Date.now()}`,
-      authorName: currentUserName ?? "Sen",
-      content: replyContent,
-      createdAt: new Date().toISOString(),
-      likedByMe: false,
-      likeCount: 0,
-      replyingTo: replyingToName ?? undefined,
-    };
-
-    setCommentReplies((currentReplies) => ({
-      ...currentReplies,
-      [commentId]: [...(currentReplies[commentId] ?? []), reply],
-    }));
-    setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [commentId]: "" }));
+  function openReplyForm(
+    commentId: number,
+    targetName: string,
+    targetUserId: number,
+    targetReplyId: number | null = null,
+  ) {
+    setReplyFormCommentId(commentId);
+    setReplyFormTargetReplyId(targetReplyId);
+    setReplyingToName(targetName);
+    setReplyingToUserId(targetUserId);
     setVisibleReplyCommentIds((currentIds) => {
       const nextIds = new Set(currentIds);
       nextIds.add(commentId);
       return nextIds;
     });
+  }
+
+  async function submitReply(parentCommentId: number) {
+    const draftKey = getReplyDraftKey(parentCommentId, replyFormTargetReplyId);
+    const replyContent = replyDrafts[draftKey]?.trim();
+
+    if (!replyContent || !canUsePostActions || isBusy) return;
+
+    await onAddReply(
+      post.id,
+      parentCommentId,
+      replyContent,
+      replyingToUserId ?? undefined,
+    );
+    setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [draftKey]: "" }));
+    setVisibleReplyCommentIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(parentCommentId);
+      return nextIds;
+    });
     setReplyFormCommentId(null);
+    setReplyFormTargetReplyId(null);
     setReplyingToName(null);
+    setReplyingToUserId(null);
+    setReplyEmojiOpenForCommentId(null);
+  }
+
+  function addEmojiToReply(parentCommentId: number, emoji: string) {
+    const draftKey = getReplyDraftKey(parentCommentId, replyFormTargetReplyId);
+
+    setReplyDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [draftKey]: `${currentDrafts[draftKey] ?? ""}${emoji}`,
+    }));
+  }
+
+  function renderReplyForm(parentCommentId: number, placeholderName: string) {
+    const draftKey = getReplyDraftKey(parentCommentId, replyFormTargetReplyId);
+    const alignEmojiPickerLeft = replyingToUserId === currentUserId;
+
+    return (
+      <div className="mt-3 flex items-center gap-2">
+        <img
+          alt={currentUserName ?? "Sen"}
+          className="h-8 w-8 rounded-full border border-white/15 object-cover"
+          src={currentUserAvatarUrl}
+        />
+        <div className="relative flex flex-1 items-center">
+          <input
+            className="h-9 w-full rounded-full border border-white/10 bg-slate-950/55 px-3 pr-10 text-xs text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+            maxLength={500}
+            onChange={(event) => {
+              setReplyDrafts((currentDrafts) => ({
+                ...currentDrafts,
+                [draftKey]: event.target.value,
+              }));
+              setReplyEmojiOpenForCommentId(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void submitReply(parentCommentId);
+              }
+            }}
+            placeholder={`${
+              replyingToName ?? placeholderName
+            } kullanıcısına yanıt yaz...`}
+            value={replyDrafts[draftKey] ?? ""}
+          />
+          <button
+            aria-label="Emoji ekle"
+            className="absolute right-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+            onClick={() =>
+              setReplyEmojiOpenForCommentId((currentId) =>
+                currentId === draftKey ? null : draftKey,
+              )
+            }
+            type="button"
+          >
+            <Smile size={15} />
+          </button>
+          {replyEmojiOpenForCommentId === draftKey && (
+            <EmojiPickerPopover
+              className={
+                alignEmojiPickerLeft
+                  ? "absolute bottom-11 left-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                  : "absolute bottom-11 right-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+              }
+              emojis={DEFAULT_EMOJIS}
+              onClose={() => setReplyEmojiOpenForCommentId(null)}
+              onSelect={(emoji) => addEmojiToReply(parentCommentId, emoji)}
+            />
+          )}
+        </div>
+        <button
+          className="h-9 cursor-pointer rounded-full bg-violet-700 px-3 text-xs font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={!replyDrafts[draftKey]?.trim() || isBusy}
+          onClick={() => void submitReply(parentCommentId)}
+          type="button"
+        >
+          Yanıtla
+        </button>
+      </div>
+    );
   }
 
   function addEmojiToComment(emoji: string) {
     setCommentText((currentText) => `${currentText}${emoji}`);
-  }
-
-  function addEmojiToReply(commentId: number, emoji: string) {
-    setReplyDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [commentId]: `${currentDrafts[commentId] ?? ""}${emoji}`,
-    }));
   }
 
   async function runAuthorAction(action: () => Promise<void>) {
@@ -489,18 +548,35 @@ export function SocialPostCard({
       ? post.author.avatarUrl
       : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
 
+  function openUserProfile(username?: string) {
+    if (!username) return;
+    onOpenProfile(username);
+  }
+
   return (
     <article className="rounded-lg border border-white/10 bg-[#0a101c]/88 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img
-            src={post.author.avatarUrl}
-            alt={post.author.name}
-            className="h-12 w-12 rounded-full border border-fuchsia-300/40 object-cover"
-          />
+          <button
+            className="shrink-0 cursor-pointer rounded-full transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400/70"
+            onClick={() => openUserProfile(post.author.username)}
+            type="button"
+          >
+            <img
+              src={post.author.avatarUrl}
+              alt={post.author.name}
+              className="h-12 w-12 rounded-full border border-fuchsia-300/40 object-cover"
+            />
+          </button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h2 className="text-base font-bold text-white">{post.author.name}</h2>
+              <button
+                className="cursor-pointer text-left text-base font-bold text-white transition hover:text-violet-200"
+                onClick={() => openUserProfile(post.author.username)}
+                type="button"
+              >
+                {post.author.name}
+              </button>
               {post.author.verified && (
                 <span className="grid h-4 w-4 place-items-center rounded-full bg-violet-500 text-[10px] font-black text-white">
                   ✓
@@ -571,12 +647,39 @@ export function SocialPostCard({
                 }
               />
               <ActionMenuButton
-                icon={<UserRoundPlus size={16} />}
-                label="Arkadaş ekle"
-                onClick={() =>
-                  void runAuthorAction(() =>
-                    onSendFriendRequest(post.authorUserId as number),
+                icon={
+                  post.friendStatus === "friends" ? (
+                    <UserCheck size={16} />
+                  ) : (
+                    <UserRoundPlus size={16} />
                   )
+                }
+                label={
+                  post.friendStatus === "friends"
+                    ? "Arkadaş"
+                    : post.friendStatus === "pending"
+                      ? "İsteği geri çek"
+                      : "Arkadaş ekle"
+                }
+                disabled={post.friendStatus === "friends"}
+                onClick={() =>
+                  void runAuthorAction(() => {
+                    if (
+                      post.friendStatus === "pending" &&
+                      post.pendingFriendRequestId
+                    ) {
+                      return onCancelFriendRequest(
+                        post.pendingFriendRequestId,
+                        post.authorUserId as number,
+                      );
+                    }
+
+                    if (post.friendStatus !== "none") {
+                      return Promise.resolve();
+                    }
+
+                    return onSendFriendRequest(post.authorUserId as number);
+                  })
                 }
               />
               <ActionMenuButton
@@ -951,19 +1054,29 @@ export function SocialPostCard({
                   className="flex gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-3"
                   key={comment.id}
                 >
-                  <img
-                    alt={comment.author?.name ?? getCommentAuthorName(comment.userId)}
-                    className="h-9 w-9 rounded-full border border-white/15 object-cover"
-                    src={comment.author?.avatarUrl ?? getCommentAvatar(comment.userId)}
-                  />
+                  <button
+                    className="shrink-0 cursor-pointer rounded-full transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400/70"
+                    onClick={() => openUserProfile(comment.author?.username)}
+                    type="button"
+                  >
+                    <img
+                      alt={comment.author?.name ?? getCommentAuthorName(comment.userId)}
+                      className="h-9 w-9 rounded-full border border-white/15 object-cover"
+                      src={comment.author?.avatarUrl ?? getCommentAvatar(comment.userId)}
+                    />
+                  </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-xs font-semibold text-violet-200">
+                          <button
+                            className="truncate text-left text-xs font-semibold text-violet-200 transition hover:text-violet-100"
+                            onClick={() => openUserProfile(comment.author?.username)}
+                            type="button"
+                          >
                             {comment.author?.name ??
                               getCommentAuthorName(comment.userId)}
-                          </p>
+                          </button>
                           <span className="text-[11px] font-medium text-zinc-500">
                             {formatSocialTime(comment.createdAt)}
                           </span>
@@ -975,19 +1088,22 @@ export function SocialPostCard({
                       <button
                         aria-label="Yorumu beğen"
                         className={
-                          likedCommentIds.has(comment.id)
+                          comment.likedByMe
                             ? "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-rose-500 transition hover:bg-white/[0.06]"
                             : "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-rose-300"
                         }
-                        onClick={() => toggleCommentLike(comment.id)}
+                        disabled={!canUsePostActions || isBusy}
+                        onClick={() =>
+                          void handleToggleCommentLike(
+                            comment.id,
+                            null,
+                            Boolean(comment.likedByMe),
+                          )
+                        }
                         type="button"
                       >
                         <Heart
-                          fill={
-                            likedCommentIds.has(comment.id)
-                              ? "currentColor"
-                              : "none"
-                          }
+                          fill={comment.likedByMe ? "currentColor" : "none"}
                           size={15}
                         />
                       </button>
@@ -995,27 +1111,32 @@ export function SocialPostCard({
                     <div className="mt-2 flex items-center gap-4 text-[11px] font-semibold text-zinc-500">
                       <button
                         className={
-                          likedCommentIds.has(comment.id)
+                          comment.likedByMe
                             ? "cursor-pointer text-rose-400 transition hover:text-rose-300"
                             : "cursor-pointer transition hover:text-white"
                         }
-                        onClick={() => toggleCommentLike(comment.id)}
+                        disabled={!canUsePostActions || isBusy}
+                        onClick={() =>
+                          void handleToggleCommentLike(
+                            comment.id,
+                            null,
+                            Boolean(comment.likedByMe),
+                          )
+                        }
                         type="button"
                       >
-                        {likedCommentIds.has(comment.id) ? "Beğenildi" : "Beğen"}
+                        {comment.likedByMe ? "Beğenildi" : "Beğen"}
                       </button>
-                      <span>
-                        {(comment.likeCount ?? 0) +
-                          (likedCommentIds.has(comment.id) ? 1 : 0)}{" "}
-                        beğeni
-                      </span>
+                      <span>{comment.likeCount ?? 0} beğeni</span>
                       <button
-                        className="cursor-pointer transition hover:text-white"
+                        className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={!canUsePostActions || isBusy}
                         onClick={() =>
                           openReplyForm(
                             comment.id,
                             comment.author?.name ??
                               getCommentAuthorName(comment.userId),
+                            comment.userId,
                           )
                         }
                         type="button"
@@ -1026,14 +1147,23 @@ export function SocialPostCard({
                         <button
                           className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={isBusy}
-                          onClick={() => void onDeleteComment(post.id, comment.id)}
+                          onClick={() =>
+                            void onDeleteComment(post.id, comment.id)
+                          }
                           type="button"
                         >
                           Sil
                         </button>
                       )}
                     </div>
-                    {(commentReplies[comment.id]?.length ?? 0) > 0 && (
+                    {replyFormCommentId === comment.id &&
+                      replyFormTargetReplyId === null &&
+                      renderReplyForm(
+                        comment.id,
+                        comment.author?.name ??
+                          getCommentAuthorName(comment.userId),
+                      )}
+                    {(comment.replies?.length ?? 0) > 0 && (
                       <button
                         className="mt-2 cursor-pointer text-[11px] font-semibold text-zinc-500 transition hover:text-white"
                         onClick={() => toggleReplies(comment.id)}
@@ -1041,31 +1171,50 @@ export function SocialPostCard({
                       >
                         {visibleReplyCommentIds.has(comment.id)
                           ? "Yanıtları gizle"
-                          : `${commentReplies[comment.id].length} yanıtı gör`}
+                          : `${comment.replies?.length ?? 0} yanıtı gör`}
                       </button>
                     )}
                     {visibleReplyCommentIds.has(comment.id) &&
-                      (commentReplies[comment.id] ?? []).map((reply) => (
+                      (comment.replies ?? []).map((reply) => (
                         <div
                           className="mt-3 flex gap-2 border-l border-white/10 pl-3"
                           key={reply.id}
                         >
-                          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-violet-700 text-[10px] font-black text-white">
-                            {reply.authorName.slice(0, 1).toUpperCase()}
-                          </div>
+                          <button
+                            className="shrink-0 cursor-pointer rounded-full transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-400/70"
+                            onClick={() => openUserProfile(reply.author?.username)}
+                            type="button"
+                          >
+                            <img
+                              alt={
+                                reply.author?.name ??
+                                getCommentAuthorName(reply.userId)
+                              }
+                              className="h-7 w-7 rounded-full border border-white/15 object-cover"
+                              src={
+                                reply.author?.avatarUrl ??
+                                getCommentAvatar(reply.userId)
+                              }
+                            />
+                          </button>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-[11px] font-semibold text-violet-200">
-                                {reply.authorName}
-                              </p>
+                              <button
+                                className="truncate text-left text-[11px] font-semibold text-violet-200 transition hover:text-violet-100"
+                                onClick={() => openUserProfile(reply.author?.username)}
+                                type="button"
+                              >
+                                {reply.author?.name ??
+                                  getCommentAuthorName(reply.userId)}
+                              </button>
                               <span className="text-[10px] font-medium text-zinc-500">
                                 {formatSocialTime(reply.createdAt)}
                               </span>
                             </div>
                             <p className="mt-0.5 text-xs leading-5 text-zinc-300">
-                              {reply.replyingTo && (
+                              {reply.replyingToName && (
                                 <span className="mr-1 font-semibold text-violet-300">
-                                  @{reply.replyingTo}
+                                  @{reply.replyingToName}
                                 </span>
                               )}
                               {reply.content}
@@ -1077,24 +1226,59 @@ export function SocialPostCard({
                                     ? "cursor-pointer text-rose-400 transition hover:text-rose-300"
                                     : "cursor-pointer transition hover:text-white"
                                 }
+                                disabled={!canUsePostActions || isBusy}
                                 onClick={() =>
-                                  toggleReplyLike(comment.id, reply.id)
+                                  void handleToggleCommentLike(
+                                    reply.id,
+                                    comment.id,
+                                    Boolean(reply.likedByMe),
+                                  )
                                 }
                                 type="button"
                               >
                                 {reply.likedByMe ? "Beğenildi" : "Beğen"}
                               </button>
-                              <span>{reply.likeCount} beğeni</span>
+                              <span>{reply.likeCount ?? 0} beğeni</span>
                               <button
-                                className="cursor-pointer transition hover:text-white"
+                                className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={!canUsePostActions || isBusy}
                                 onClick={() =>
-                                  openReplyForm(comment.id, reply.authorName)
+                                  openReplyForm(
+                                    comment.id,
+                                    reply.author?.name ??
+                                      getCommentAuthorName(reply.userId),
+                                    reply.userId,
+                                    reply.id,
+                                  )
                                 }
                                 type="button"
                               >
                                 Yanıtla
                               </button>
+                              {currentUserId === reply.userId && (
+                                <button
+                                  className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  disabled={isBusy}
+                                  onClick={() =>
+                                    void onDeleteComment(
+                                      post.id,
+                                      reply.id,
+                                      comment.id,
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  Sil
+                                </button>
+                              )}
                             </div>
+                            {replyFormCommentId === comment.id &&
+                              replyFormTargetReplyId === reply.id &&
+                              renderReplyForm(
+                                comment.id,
+                                reply.author?.name ??
+                                  getCommentAuthorName(reply.userId),
+                              )}
                           </div>
                           <button
                             aria-label="Yanıtı beğen"
@@ -1103,7 +1287,14 @@ export function SocialPostCard({
                                 ? "grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-full text-rose-500 transition hover:bg-white/[0.06]"
                                 : "grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-rose-300"
                             }
-                            onClick={() => toggleReplyLike(comment.id, reply.id)}
+                            disabled={!canUsePostActions || isBusy}
+                            onClick={() =>
+                              void handleToggleCommentLike(
+                                reply.id,
+                                comment.id,
+                                Boolean(reply.likedByMe),
+                              )
+                            }
                             type="button"
                           >
                             <Heart
@@ -1113,64 +1304,6 @@ export function SocialPostCard({
                           </button>
                         </div>
                       ))}
-                    {replyFormCommentId === comment.id && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <img
-                          alt={currentUserName ?? "Sen"}
-                          className="h-8 w-8 rounded-full border border-white/15 object-cover"
-                          src={currentUserAvatarUrl}
-                        />
-                        <div className="relative flex flex-1 items-center">
-                          <input
-                            className="h-9 w-full rounded-full border border-white/10 bg-slate-950/55 px-3 pr-10 text-xs text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
-                            maxLength={500}
-                            onChange={(event) => {
-                              setReplyDrafts((currentDrafts) => ({
-                                ...currentDrafts,
-                                [comment.id]: event.target.value,
-                              }));
-                              setReplyEmojiOpenForCommentId(null);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                submitReply(comment.id);
-                              }
-                            }}
-                            placeholder={`${
-                              replyingToName ??
-                              comment.author?.name ??
-                              getCommentAuthorName(comment.userId)
-                            } kullanıcısına yanıt yaz...`}
-                            value={replyDrafts[comment.id] ?? ""}
-                          />
-                          <button
-                            aria-label="Emoji ekle"
-                            className="absolute right-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
-                            onClick={() =>
-                              setReplyEmojiOpenForCommentId((currentId) =>
-                                currentId === comment.id ? null : comment.id,
-                              )
-                            }
-                            type="button"
-                          >
-                            <Smile size={15} />
-                          </button>
-                          {replyEmojiOpenForCommentId === comment.id && (
-                            <EmojiPicker
-                              onSelect={(emoji) => addEmojiToReply(comment.id, emoji)}
-                            />
-                          )}
-                        </div>
-                        <button
-                          className="h-9 cursor-pointer rounded-full bg-violet-700 px-3 text-xs font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={!replyDrafts[comment.id]?.trim()}
-                          onClick={() => submitReply(comment.id)}
-                          type="button"
-                        >
-                          Yanıtla
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))
@@ -1206,7 +1339,14 @@ export function SocialPostCard({
               >
                 <Smile size={16} />
               </button>
-              {commentEmojiOpen && <EmojiPicker onSelect={addEmojiToComment} />}
+              {commentEmojiOpen && (
+                <EmojiPickerPopover
+                  className="absolute bottom-11 right-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                  emojis={DEFAULT_EMOJIS}
+                  onClose={() => setCommentEmojiOpen(false)}
+                  onSelect={addEmojiToComment}
+                />
+              )}
             </div>
             <button
               className="h-10 cursor-pointer rounded-full bg-violet-700 px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1241,9 +1381,11 @@ export function SocialPostCard({
                 </p>
               ) : likedUsers.length ? (
                 likedUsers.map((likedUser) => (
-                  <div
-                    className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-white/[0.04]"
+                  <button
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.04]"
                     key={`${likedUser.username}-${likedUser.name}`}
+                    onClick={() => openUserProfile(likedUser.username)}
+                    type="button"
                   >
                     <img
                       alt={likedUser.name}
@@ -1258,7 +1400,7 @@ export function SocialPostCard({
                         @{likedUser.username}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))
               ) : (
                 <p className="py-6 text-center text-sm text-zinc-400">
@@ -1277,11 +1419,13 @@ interface ActionMenuButtonProps {
   danger?: boolean;
   icon: ReactNode;
   label: string;
+  disabled?: boolean;
   onClick: () => void;
 }
 
 function ActionMenuButton({
   danger = false,
+  disabled = false,
   icon,
   label,
   onClick,
@@ -1290,36 +1434,15 @@ function ActionMenuButton({
     <button
       className={
         danger
-          ? "flex h-10 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-sm font-semibold text-red-200 transition hover:bg-red-500/10 hover:text-red-100"
-          : "flex h-10 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-sm font-semibold text-zinc-200 transition hover:bg-white/[0.06] hover:text-white"
+          ? "flex h-10 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-sm font-semibold text-red-200 transition hover:bg-red-500/10 hover:text-red-100 disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+          : "flex h-10 w-full cursor-pointer items-center gap-2 rounded-md px-3 text-left text-sm font-semibold text-zinc-200 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
       }
+      disabled={disabled}
       onClick={onClick}
       type="button"
     >
       {icon}
       <span>{label}</span>
     </button>
-  );
-}
-
-interface EmojiPickerProps {
-  onSelect: (emoji: string) => void;
-}
-
-function EmojiPicker({ onSelect }: EmojiPickerProps) {
-  return (
-    <div className="absolute bottom-11 right-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40">
-      {COMMENT_EMOJIS.map((emoji) => (
-        <button
-          aria-label={`Emoji ${emoji}`}
-          className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-lg transition hover:bg-white/[0.08]"
-          key={emoji}
-          onClick={() => onSelect(emoji)}
-          type="button"
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
   );
 }

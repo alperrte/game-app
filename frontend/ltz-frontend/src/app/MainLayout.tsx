@@ -14,6 +14,7 @@ export function MainLayout() {
   const getActiveItem = () => {
     const path = location.pathname;
     if (path === "/") return "Feed";
+    if (path.startsWith("/messages")) return "Messages";
     if (path.startsWith("/games/categories")) return "Categories";
     if (path.startsWith("/games/platforms")) return "Platforms";
     if (path.startsWith("/games/developers")) return "Developers";

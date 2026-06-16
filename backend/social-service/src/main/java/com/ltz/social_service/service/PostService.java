@@ -2,6 +2,7 @@ package com.ltz.social_service.service;
 
 import com.ltz.social_service.dto.request.PostCommentCreateRequest;
 import com.ltz.social_service.dto.request.PostCreateRequest;
+import com.ltz.social_service.dto.response.PostCommentLikeResponse;
 import com.ltz.social_service.dto.response.PostCommentResponse;
 import com.ltz.social_service.dto.response.PostLikeResponse;
 import com.ltz.social_service.dto.response.PostMediaResponse;
@@ -9,8 +10,10 @@ import com.ltz.social_service.dto.response.PostResponse;
 import com.ltz.social_service.entity.MediaAsset;
 import com.ltz.social_service.entity.Post;
 import com.ltz.social_service.entity.PostComment;
+import com.ltz.social_service.entity.PostCommentLike;
 import com.ltz.social_service.entity.PostLike;
 import com.ltz.social_service.enums.PostVisibility;
+import com.ltz.social_service.repository.PostCommentLikeRepository;
 import com.ltz.social_service.repository.PostCommentRepository;
 import com.ltz.social_service.repository.PostLikeRepository;
 import com.ltz.social_service.repository.PostRepository;
@@ -28,6 +31,7 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostCommentRepository postCommentRepository;
+    private final PostCommentLikeRepository postCommentLikeRepository;
     private final PostLikeRepository postLikeRepository;
     private final MediaStorageService mediaStorageService;
 
@@ -122,22 +126,73 @@ public class PostService {
             throw new IllegalStateException("Deleted post cannot be commented");
         }
 
+        Long parentCommentId = request.getParentCommentId();
+        if (parentCommentId != null) {
+            PostComment parentComment = postCommentRepository.findById(parentCommentId)
+                    .orElseThrow(() -> new IllegalArgumentException("Parent comment not found"));
+
+            if (!parentComment.getPostId().equals(request.getPostId())) {
+                throw new IllegalStateException("Parent comment does not belong to this post");
+            }
+
+            if (Boolean.TRUE.equals(parentComment.getIsDeleted())) {
+                throw new IllegalStateException("Deleted comment cannot be replied to");
+            }
+
+            if (parentComment.getParentCommentId() != null) {
+                throw new IllegalStateException("Replies can only be added to top-level comments");
+            }
+        }
+
         PostComment postComment = PostComment.builder()
                 .postId(request.getPostId())
                 .userId(request.getUserId())
+                .parentCommentId(parentCommentId)
+                .replyingToUserId(request.getReplyingToUserId())
                 .content(request.getContent())
                 .isDeleted(false)
                 .build();
 
-        return toPostCommentResponse(postCommentRepository.save(postComment));
+        return toPostCommentResponse(postCommentRepository.save(postComment), request.getUserId());
     }
 
     @Transactional(readOnly = true)
-    public List<PostCommentResponse> getCommentsByPost(Long postId) {
+    public List<PostCommentResponse> getCommentsByPost(Long postId, Long currentUserId) {
+        getPostEntity(postId);
+
         return postCommentRepository.findByPostIdAndIsDeletedFalseOrderByCreatedAtAsc(postId)
                 .stream()
-                .map(this::toPostCommentResponse)
+                .map(comment -> toPostCommentResponse(comment, currentUserId))
                 .toList();
+    }
+
+    public PostCommentLikeResponse likeComment(Long commentId, Long userId) {
+        PostComment postComment = getCommentEntity(commentId);
+
+        if (Boolean.TRUE.equals(postComment.getIsDeleted())) {
+            throw new IllegalStateException("Deleted comment cannot be liked");
+        }
+
+        var existingLike = postCommentLikeRepository.findByCommentIdAndUserId(commentId, userId);
+
+        if (existingLike.isPresent()) {
+            return toPostCommentLikeResponse(existingLike.get());
+        }
+
+        PostCommentLike postCommentLike = PostCommentLike.builder()
+                .commentId(commentId)
+                .userId(userId)
+                .build();
+
+        return toPostCommentLikeResponse(postCommentLikeRepository.save(postCommentLike));
+    }
+
+    public void unlikeComment(Long commentId, Long userId) {
+        if (!postCommentLikeRepository.existsByCommentIdAndUserId(commentId, userId)) {
+            throw new IllegalStateException("Comment like does not exist");
+        }
+
+        postCommentLikeRepository.deleteByCommentIdAndUserId(commentId, userId);
     }
 
     public void deleteComment(Long commentId, Long currentUserId) {
@@ -157,11 +212,14 @@ public class PostService {
                 .orElseThrow(() -> new IllegalArgumentException("Post not found"));
     }
 
+    private PostComment getCommentEntity(Long commentId) {
+        return postCommentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("Post comment not found"));
+    }
+
     private PostResponse toPostResponse(Post post, Long currentUserId) {
         long likeCount = postLikeRepository.countByPostId(post.getId());
-        long commentCount = postCommentRepository
-                .findByPostIdAndIsDeletedFalseOrderByCreatedAtAsc(post.getId())
-                .size();
+        long commentCount = postCommentRepository.countByPostIdAndIsDeletedFalse(post.getId());
         boolean likedByCurrentUser = currentUserId != null
                 && postLikeRepository.existsByPostIdAndUserId(post.getId(), currentUserId);
 
@@ -224,15 +282,32 @@ public class PostService {
                 .build();
     }
 
-    private PostCommentResponse toPostCommentResponse(PostComment postComment) {
+    private PostCommentResponse toPostCommentResponse(PostComment postComment, Long currentUserId) {
+        long likeCount = postCommentLikeRepository.countByCommentId(postComment.getId());
+        boolean likedByCurrentUser = currentUserId != null
+                && postCommentLikeRepository.existsByCommentIdAndUserId(postComment.getId(), currentUserId);
+
         return PostCommentResponse.builder()
                 .id(postComment.getId())
                 .postId(postComment.getPostId())
                 .userId(postComment.getUserId())
+                .parentCommentId(postComment.getParentCommentId())
+                .replyingToUserId(postComment.getReplyingToUserId())
                 .content(postComment.getContent())
                 .isDeleted(postComment.getIsDeleted())
                 .createdAt(postComment.getCreatedAt())
                 .updatedAt(postComment.getUpdatedAt())
+                .likeCount(likeCount)
+                .likedByCurrentUser(likedByCurrentUser)
+                .build();
+    }
+
+    private PostCommentLikeResponse toPostCommentLikeResponse(PostCommentLike postCommentLike) {
+        return PostCommentLikeResponse.builder()
+                .id(postCommentLike.getId())
+                .commentId(postCommentLike.getCommentId())
+                .userId(postCommentLike.getUserId())
+                .createdAt(postCommentLike.getCreatedAt())
                 .build();
     }
 

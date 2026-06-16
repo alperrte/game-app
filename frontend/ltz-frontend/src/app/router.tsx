@@ -21,6 +21,7 @@ import GameDevelopersPage from "../features/game/pages/GameDevelopersPage";
 import GamePublishersPage from "../features/game/pages/GamePublishersPage";
 import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequirementsPage";
 import SocialFeedPage from "../features/social/pages/SocialFeedPage";
+import MessagesPage from "../features/social/pages/MessagesPage";
 
 /*
  * Giriş yapılmamışsa login sayfasına yönlendiren koruma.
@@ -69,6 +70,8 @@ export function AppRouter() {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path={ROUTES.home} element={<SocialFeedPage />} />
+          <Route path={SOCIAL_ROUTES.messages} element={<MessagesPage />} />
+          <Route path="/messages/:roomId" element={<MessagesPage />} />
 
           <Route path={GAME_ROUTES.games} element={<GamesPage />} />
           <Route path={GAME_ROUTES.createGame} element={<GameCreatePage />} />

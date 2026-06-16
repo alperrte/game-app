@@ -24,6 +24,12 @@ public class PostComment {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "parent_comment_id")
+    private Long parentCommentId;
+
+    @Column(name = "replying_to_user_id")
+    private Long replyingToUserId;
+
     @Column(nullable = false, length = 1000)
     private String content;
 
