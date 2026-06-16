@@ -65,7 +65,10 @@ public class ChatController {
 
     @DeleteMapping("/messages/{messageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteMessage(@PathVariable Long messageId) {
-        chatService.deleteMessage(messageId);
+    public void deleteMessage(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long messageId
+    ) {
+        chatService.deleteMessage(messageId, principal.userId());
     }
 }

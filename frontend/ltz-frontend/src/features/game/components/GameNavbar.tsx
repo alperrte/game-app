@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../lib/constants";
 import { getRefreshToken } from "../../../lib/token";
 import { authService } from "../../auth/services/authService";
 import { clearAuth } from "../../../store/authStore";
 
 type GameNavbarActiveItem =
+  | "Feed"
   | "Categories"
   | "Developers"
   | "Games"
@@ -18,6 +19,7 @@ type GameNavbarProps = {
 };
 
 const navItems = [
+  { key: "Feed", label: "Akış", href: "/", icon: "⌂" },
   { key: "Games", label: "Oyunlar", href: "/games", icon: "♘" },
   { key: "Categories", label: "Kategoriler", href: "/games/categories", icon: "⬡" },
   { key: "Platforms", label: "Platformlar", href: "/games/platforms", icon: "▭" },
@@ -54,30 +56,31 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050b18]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-[1840px] items-center gap-8 px-8">
-        <a className="mr-8 block" href="/games" aria-label="LobbyTwoZero games">
-          <div className="bg-gradient-to-r from-cyan-300 via-indigo-400 to-violet-500 bg-clip-text text-5xl font-black italic leading-none tracking-tight text-transparent">
+      <div className="mx-auto flex h-20 max-w-[1840px] items-center gap-3 px-4 2xl:gap-5 2xl:px-7">
+        <NavLink className="mr-1 block shrink-0 2xl:mr-4" to="/" aria-label="LobbyTwoZero akış">
+          <div className="bg-gradient-to-r from-cyan-300 via-indigo-400 to-violet-500 bg-clip-text text-4xl font-black italic leading-none tracking-tight text-transparent 2xl:text-5xl">
             LTZ
           </div>
-          <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.45em] text-white/70">
+          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.38em] text-white/70 2xl:text-[10px] 2xl:tracking-[0.45em]">
             Lobby Two Zero
           </div>
-        </a>
+        </NavLink>
 
-        <nav className="flex h-full min-w-0 flex-1 items-center gap-6">
+        <nav className="flex h-full min-w-0 flex-1 items-center justify-between gap-3 overflow-x-auto [scrollbar-width:none] 2xl:gap-4 [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => {
             const active = item.key === activeItem;
 
             return (
-              <a
-                className={`relative flex h-full items-center gap-3 px-1 text-sm font-semibold transition ${
+              <NavLink
+                className={`relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap px-1 text-[11px] font-semibold transition hover:-translate-y-0.5 2xl:gap-2 2xl:text-[13px] ${
                   active ? "text-white" : "text-slate-400 hover:text-white"
                 }`}
-                href={item.href}
+                to={item.href}
+                end={item.key === "Feed"}
                 key={item.key}
               >
                 <span
-                  className={`text-2xl ${
+                  className={`text-xl 2xl:text-2xl ${
                     active ? "text-violet-400" : "text-slate-500"
                   }`}
                 >
@@ -87,12 +90,12 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
                 {active ? (
                   <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-gradient-to-r from-violet-500 to-indigo-500" />
                 ) : null}
-              </a>
+              </NavLink>
             );
           })}
         </nav>
 
-        <label className="relative hidden w-[380px] xl:block">
+        <label className="relative hidden w-[240px] shrink-0 2xl:block">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
             ⌕
           </span>
@@ -104,7 +107,7 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
 
         <button
           aria-label="Bildirimler"
-          className="relative grid h-11 w-11 place-items-center rounded-xl text-2xl text-slate-300 hover:bg-white/5"
+          className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl text-2xl text-slate-300 hover:bg-white/5"
           type="button"
         >
           ♧
@@ -114,7 +117,7 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
         </button>
 
         <button
-          className="hidden h-11 items-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-4 text-sm font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
+          className="hidden h-11 shrink-0 items-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-3 text-sm font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60 xl:inline-flex 2xl:px-4"
           disabled={isLoggingOut}
           onClick={() => void handleLogout()}
           type="button"
@@ -123,7 +126,7 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           {isLoggingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
         </button>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden shrink-0 items-center gap-3 2xl:flex">
           <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-orange-700 text-sm font-bold text-slate-950">
             AD
           </div>

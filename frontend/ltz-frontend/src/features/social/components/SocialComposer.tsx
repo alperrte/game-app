@@ -1,0 +1,905 @@
+import {
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  Gamepad2,
+  ImageIcon,
+  ListFilter,
+  Mic,
+  Plus,
+  Smile,
+  Tag,
+  Video,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
+
+import { Button } from "../../../components/ui/Button";
+import type { Game } from "../../game/types/gameTypes";
+import type {
+  ComposerMediaType,
+  ComposerSubmitPayload,
+  LookingForPlayerCreateRequest,
+  SocialUser,
+} from "../types/social.types";
+
+type ComposerMode = "post" | "poll" | "game" | "listing";
+
+const MAX_IMAGE_SIZE_MB = 10;
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+const MAX_VIDEO_SIZE_MB = 50;
+const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+const MAX_IMAGE_COUNT = 3;
+const VIDEO_FILE_ACCEPT = "video/mp4,video/webm,video/ogg";
+const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/ogg"]);
+const COMPOSER_EMOJIS = [
+  "😀",
+  "😂",
+  "😍",
+  "🔥",
+  "🎮",
+  "🏆",
+  "👏",
+  "😎",
+  "😭",
+  "😡",
+  "❤️",
+  "✨",
+];
+
+interface SelectedMedia {
+  file: File;
+  previewUrl: string;
+  type: ComposerMediaType;
+}
+
+interface SocialComposerProps {
+  games: Game[];
+  user: SocialUser;
+  isSubmitting?: boolean;
+  onCreateLookingForPlayer: (
+    request: LookingForPlayerCreateRequest,
+  ) => Promise<void>;
+  onSubmit: (payload: ComposerSubmitPayload) => Promise<void>;
+  uploadProgress?: number | null;
+}
+
+export function SocialComposer({
+  games,
+  user,
+  isSubmitting = false,
+  onCreateLookingForPlayer,
+  onSubmit,
+  uploadProgress = null,
+}: SocialComposerProps) {
+  const [content, setContent] = useState("");
+  const [mode, setMode] = useState<ComposerMode>("post");
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
+  const [previewModalIndex, setPreviewModalIndex] = useState<number | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [fileAccept, setFileAccept] = useState("image/*");
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [selectedGameId, setSelectedGameId] = useState("");
+  const [listingForm, setListingForm] = useState({
+    gameId: "",
+    title: "",
+    description: "",
+    platform: "",
+    preferredRole: "",
+    playerLevel: "",
+    microphoneRequired: false,
+    playTime: "",
+  });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const playTimeInputRef = useRef<HTMLInputElement | null>(null);
+  const fileModeRef = useRef<ComposerMediaType>("image");
+  const selectedMediaRef = useRef<SelectedMedia[]>([]);
+  const hasSelectedImage = selectedMedia.some((media) => media.type === "image");
+  const hasSelectedVideo = selectedMedia.some((media) => media.type === "video");
+  const previewMedia =
+    previewModalIndex === null ? null : selectedMedia[previewModalIndex] ?? null;
+
+  useEffect(() => {
+    selectedMediaRef.current = selectedMedia;
+  }, [selectedMedia]);
+
+  useEffect(() => {
+    return () => {
+      selectedMediaRef.current.forEach((media) =>
+        URL.revokeObjectURL(media.previewUrl),
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previewModalIndex === null) return;
+
+    if (selectedMedia.length === 0) {
+      setPreviewModalIndex(null);
+      return;
+    }
+
+    if (previewModalIndex >= selectedMedia.length) {
+      setPreviewModalIndex(selectedMedia.length - 1);
+    }
+  }, [previewModalIndex, selectedMedia.length]);
+
+  useEffect(() => {
+    if (previewModalIndex === null) return undefined;
+
+    function handlePreviewKeydown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPreviewModalIndex(null);
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        changePreviewMedia(1);
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        changePreviewMedia(-1);
+      }
+    }
+
+    window.addEventListener("keydown", handlePreviewKeydown);
+
+    return () => {
+      window.removeEventListener("keydown", handlePreviewKeydown);
+    };
+  }, [previewModalIndex, selectedMedia.length]);
+
+  function chooseFile(type: ComposerMediaType) {
+    const nextAccept = type === "video" ? VIDEO_FILE_ACCEPT : "image/*";
+
+    fileModeRef.current = type;
+    setFileAccept(nextAccept);
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = nextAccept;
+      fileInputRef.current.multiple = type === "image";
+    }
+    fileInputRef.current?.click();
+  }
+
+  function openPlayTimePicker() {
+    playTimeInputRef.current?.showPicker?.();
+    playTimeInputRef.current?.focus();
+  }
+
+  function setPlayTime(value: string) {
+    const year = value.split("-")[0] ?? "";
+
+    if (year.length > 4) return;
+
+    setListingForm((form) => ({
+      ...form,
+      playTime: value,
+    }));
+  }
+
+  function validateMediaFile(file: File, type: ComposerMediaType): string | null {
+    if (type === "image" && !file.type.startsWith("image/")) {
+      return "Sadece görsel dosyası seçebilirsin.";
+    }
+
+    if (type === "video" && !ALLOWED_VIDEO_TYPES.has(file.type)) {
+      return "Sadece MP4, WEBM veya OGG video seçebilirsin.";
+    }
+
+    if (type === "image" && file.size > MAX_IMAGE_SIZE_BYTES) {
+      return `Görsel dosyası çok büyük. En fazla ${MAX_IMAGE_SIZE_MB} MB yükleyebilirsin.`;
+    }
+
+    if (type === "video" && file.size > MAX_VIDEO_SIZE_BYTES) {
+      return `Video dosyası çok büyük. En fazla ${MAX_VIDEO_SIZE_MB} MB yükleyebilirsin.`;
+    }
+
+    return null;
+  }
+
+  function setMediaFiles(files: File[], type: ComposerMediaType) {
+    const validationError = files
+      .map((file) => validateMediaFile(file, type))
+      .find((error): error is string => Boolean(error));
+
+    if (validationError) {
+      setMediaError(validationError);
+      return;
+    }
+
+    if (type === "video") {
+      setSelectedMedia((currentMedia) => {
+        currentMedia.forEach((media) => URL.revokeObjectURL(media.previewUrl));
+        return [
+          {
+            file: files[0],
+            previewUrl: URL.createObjectURL(files[0]),
+            type,
+          },
+        ];
+      });
+      setMediaError(null);
+      return;
+    }
+
+    setSelectedMedia((currentMedia) => {
+      const imageMedia = currentMedia.filter((media) => media.type === "image");
+      const availableSlots = MAX_IMAGE_COUNT - imageMedia.length;
+
+      if (availableSlots <= 0) {
+        setMediaError(`En fazla ${MAX_IMAGE_COUNT} görsel ekleyebilirsin.`);
+        return currentMedia;
+      }
+
+      const acceptedFiles = files.slice(0, availableSlots);
+      const videoMedia = currentMedia.filter((media) => media.type === "video");
+      videoMedia.forEach((media) => URL.revokeObjectURL(media.previewUrl));
+
+      return [
+        ...imageMedia,
+        ...acceptedFiles.map((file) => ({
+          file,
+          previewUrl: URL.createObjectURL(file),
+          type,
+        })),
+      ];
+    });
+    setMediaError(
+      selectedMedia.filter((media) => media.type === "image").length +
+        files.length >
+        MAX_IMAGE_COUNT
+        ? `En fazla ${MAX_IMAGE_COUNT} görsel ekleyebilirsin.`
+        : null,
+    );
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length) setMediaFiles(files, fileModeRef.current);
+    event.target.value = "";
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const imageItem = Array.from(event.clipboardData.items).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    const file = imageItem?.getAsFile();
+
+    if (file) {
+      event.preventDefault();
+      setMediaFiles([file], "image");
+    }
+  }
+
+  function clearSelectedMedia() {
+    setSelectedMedia((currentMedia) => {
+      currentMedia.forEach((media) => URL.revokeObjectURL(media.previewUrl));
+      return [];
+    });
+  }
+
+  function removeSelectedMedia(previewUrl: string) {
+    setSelectedMedia((currentMedia) =>
+      currentMedia.filter((media) => {
+        if (media.previewUrl !== previewUrl) return true;
+
+        URL.revokeObjectURL(media.previewUrl);
+        return false;
+      }),
+    );
+  }
+
+  function changePreviewMedia(direction: number) {
+    setPreviewModalIndex((currentIndex) => {
+      if (currentIndex === null || selectedMedia.length === 0) return currentIndex;
+
+      return (
+        (currentIndex + direction + selectedMedia.length) % selectedMedia.length
+      );
+    });
+  }
+
+  function resetComposer() {
+    setContent("");
+    setMode("post");
+    setPollQuestion("");
+    setPollOptions(["", ""]);
+    setSelectedGameId("");
+    setListingForm({
+      gameId: "",
+      title: "",
+      description: "",
+      platform: "",
+      preferredRole: "",
+      playerLevel: "",
+      microphoneRequired: false,
+      playTime: "",
+    });
+    clearSelectedMedia();
+    setEmojiOpen(false);
+  }
+
+  function addEmojiToContent(emoji: string) {
+    setContent((currentContent) => `${currentContent}${emoji}`);
+  }
+
+  function buildPostContent() {
+    const trimmedContent = content.trim();
+
+    if (mode === "poll") {
+      const options = pollOptions.map((option) => option.trim()).filter(Boolean);
+      if (!pollQuestion.trim() || options.length < 2) return "";
+
+      return [
+        `Anket: ${pollQuestion.trim()}`,
+        trimmedContent,
+        ...options.map((option, index) => `${index + 1}. ${option}`),
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    if (mode === "game") {
+      const selectedGame = games.find(
+        (game) => String(game.id) === selectedGameId,
+      );
+      if (!selectedGame || !trimmedContent) return "";
+      return [`Oyun: ${selectedGame.title}`, trimmedContent].join("\n");
+    }
+
+    return trimmedContent;
+  }
+
+  async function handleSubmit() {
+    if (isSubmitting) return;
+
+    if (mode === "listing") {
+      const gameId = Number(listingForm.gameId);
+      if (!gameId || !listingForm.title.trim() || !listingForm.platform.trim()) {
+        setMediaError("İlan için oyun, başlık ve platform zorunlu.");
+        return;
+      }
+
+      await onCreateLookingForPlayer({
+        gameId,
+        title: listingForm.title.trim(),
+        description: listingForm.description.trim() || undefined,
+        platform: listingForm.platform.trim(),
+        preferredRole: listingForm.preferredRole.trim() || undefined,
+        playerLevel: listingForm.playerLevel.trim() || undefined,
+        microphoneRequired: listingForm.microphoneRequired,
+        playTime: listingForm.playTime || undefined,
+      });
+      resetComposer();
+      return;
+    }
+
+    const postContent = buildPostContent();
+    if (!postContent) {
+      setMediaError("Paylaşım için gerekli alanları doldur.");
+      return;
+    }
+
+    await onSubmit({
+      content: postContent,
+      mediaFile: selectedMedia[0]?.file,
+      mediaFiles: selectedMedia.map((media) => ({
+        file: media.file,
+        type: media.type,
+      })),
+      mediaType: selectedMedia[0]?.type,
+    });
+    resetComposer();
+  }
+
+  return (
+    <section className="rounded-lg border border-white/10 bg-[#0a101c]/88 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+      <div className="flex items-start gap-4">
+        <img
+          src={user.avatarUrl}
+          alt={user.name}
+          className="h-12 w-12 rounded-full border border-white/20 object-cover"
+        />
+
+        <div className="flex-1 border-l border-white/10 pl-4">
+          {mode !== "listing" && (
+            <div className="relative">
+              <textarea
+                className="min-h-16 w-full resize-none rounded-md border border-transparent bg-transparent px-3 py-2 pr-11 text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.03] focus:border-violet-400/40 focus:bg-white/[0.04]"
+                maxLength={2000}
+                onChange={(event) => {
+                  setContent(event.target.value);
+                  setEmojiOpen(false);
+                }}
+                onPaste={handlePaste}
+                placeholder={`Ne düşünüyorsun, ${user.name.split(" ")[0]}?`}
+                value={content}
+              />
+              <button
+                aria-label="Emoji ekle"
+                className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                onClick={() => setEmojiOpen((isOpen) => !isOpen)}
+                type="button"
+              >
+                <Smile size={16} />
+              </button>
+              {emojiOpen && <ComposerEmojiPicker onSelect={addEmojiToContent} />}
+            </div>
+          )}
+
+          <input
+            accept={fileAccept}
+            className="hidden"
+            onChange={handleFileChange}
+            ref={fileInputRef}
+            type="file"
+          />
+
+          {mode === "poll" && (
+            <div className="mt-3 grid gap-2">
+              <input
+                className="h-10 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+                maxLength={160}
+                onChange={(event) => setPollQuestion(event.target.value)}
+                placeholder="Anket sorusu"
+                value={pollQuestion}
+              />
+              {pollOptions.map((option, index) => (
+                <div className="flex gap-2" key={index}>
+                  <input
+                    className="h-10 flex-1 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+                    maxLength={120}
+                    onChange={(event) =>
+                      setPollOptions((currentOptions) =>
+                        currentOptions.map((currentOption, optionIndex) =>
+                          optionIndex === index
+                            ? event.target.value
+                            : currentOption,
+                        ),
+                      )
+                    }
+                    placeholder={`Seçenek ${index + 1}`}
+                    value={option}
+                  />
+                  <button
+                    aria-label="Seçeneği sil"
+                    className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={pollOptions.length <= 2}
+                    onClick={() =>
+                      setPollOptions((currentOptions) =>
+                        currentOptions.filter(
+                          (_, optionIndex) => optionIndex !== index,
+                        ),
+                      )
+                    }
+                    type="button"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              <button
+                className="w-fit cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-white/[0.06]"
+                onClick={() =>
+                  setPollOptions((currentOptions) => [...currentOptions, ""])
+                }
+                type="button"
+              >
+                Seçenek ekle
+              </button>
+            </div>
+          )}
+
+          {mode === "game" && (
+            <select
+              className="mt-3 h-10 w-full rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none focus:border-violet-400/60"
+              onChange={(event) => setSelectedGameId(event.target.value)}
+              value={selectedGameId}
+            >
+              <option value="">Oyun seç</option>
+              {games.map((game) => (
+                <option key={game.id} value={game.id}>
+                  {game.title}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {mode === "listing" && (
+            <div className="mt-1 rounded-lg border border-white/10 bg-slate-950/45 p-4">
+              <div className="mb-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                  <Tag size={17} className="text-violet-200" />
+                  Takım ilanı detayları
+                </div>
+                <p className="mt-1 text-xs leading-5 text-zinc-400">
+                  Oyuncuların hızlı karar verebilmesi için oyun, platform, rol ve zaman bilgisini net gir.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+              <select
+                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition focus:border-violet-400/60"
+                onChange={(event) => {
+                  const selectedGame = games.find(
+                    (game) => String(game.id) === event.target.value,
+                  );
+
+                  setListingForm((form) => ({
+                    ...form,
+                    gameId: event.target.value,
+                    platform: selectedGame?.platform ?? form.platform,
+                  }));
+                }}
+                value={listingForm.gameId}
+              >
+                <option value="">Oyun seç</option>
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.title}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
+                maxLength={50}
+                onChange={(event) =>
+                  setListingForm((form) => ({
+                    ...form,
+                    platform: event.target.value,
+                  }))
+                }
+                placeholder="Platform"
+                value={listingForm.platform}
+              />
+              <input
+                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
+                maxLength={150}
+                onChange={(event) =>
+                  setListingForm((form) => ({
+                    ...form,
+                    title: event.target.value,
+                  }))
+                }
+                placeholder="İlan başlığı"
+                value={listingForm.title}
+              />
+              <input
+                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
+                maxLength={100}
+                onChange={(event) =>
+                  setListingForm((form) => ({
+                    ...form,
+                    preferredRole: event.target.value,
+                  }))
+                }
+                placeholder="Tercih edilen rol"
+                value={listingForm.preferredRole}
+              />
+              <input
+                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
+                maxLength={50}
+                onChange={(event) =>
+                  setListingForm((form) => ({
+                    ...form,
+                    playerLevel: event.target.value,
+                  }))
+                }
+                placeholder="Oyuncu seviyesi"
+                value={listingForm.playerLevel}
+              />
+              <label className="grid min-h-14 gap-1.5 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-violet-300/35 focus-within:border-violet-400/60">
+                <div
+                  className="flex cursor-pointer items-center gap-3"
+                  onClick={openPlayTimePicker}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openPlayTimePicker();
+                    }
+                  }}
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-500/15 text-violet-100">
+                    <CalendarClock size={16} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-white">
+                      Oynama zamanı
+                    </span>
+                    <input
+                      className="ltz-datetime-input mt-0.5 h-5 w-full min-w-0 bg-transparent text-sm font-semibold text-white outline-none"
+                      max="9999-12-31T23:59"
+                      onChange={(event) => setPlayTime(event.target.value)}
+                      onClick={(event) => event.stopPropagation()}
+                      ref={playTimeInputRef}
+                      type="datetime-local"
+                      value={listingForm.playTime}
+                    />
+                  </span>
+                </div>
+              </label>
+              <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-violet-300/35 hover:bg-white/[0.04]">
+                <span className="flex items-center gap-2">
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-violet-500/15 text-violet-100">
+                    <Mic size={16} />
+                  </span>
+                  <span>
+                    <span className="block font-semibold text-white">
+                      Mikrofon gerekli
+                    </span>
+                    <span className="block text-xs text-zinc-400">
+                      Sesli iletişim şartsa açık bırak.
+                    </span>
+                  </span>
+                </span>
+                <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
+                  <input
+                    checked={listingForm.microphoneRequired}
+                    className="peer sr-only"
+                    onChange={(event) =>
+                      setListingForm((form) => ({
+                        ...form,
+                        microphoneRequired: event.target.checked,
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  <span className="absolute inset-0 rounded-full border border-white/10 bg-white/10 transition peer-checked:border-violet-300/50 peer-checked:bg-violet-500/80" />
+                  <span className="absolute left-1 h-5 w-5 rounded-full bg-white shadow-lg shadow-black/30 transition peer-checked:translate-x-5" />
+                </span>
+              </label>
+              <textarea
+                className="min-h-24 resize-none rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
+                maxLength={1000}
+                onChange={(event) =>
+                  setListingForm((form) => ({
+                    ...form,
+                    description: event.target.value,
+                  }))
+                }
+                placeholder="Açıklama"
+                value={listingForm.description}
+              />
+              </div>
+            </div>
+          )}
+
+          {selectedMedia.length > 0 && (
+            <div
+              className={
+                selectedMedia.length === 1
+                  ? "relative mt-3 overflow-hidden rounded-lg border border-white/10"
+                  : "mt-3 grid gap-2 sm:grid-cols-3"
+              }
+            >
+              {selectedMedia.map((media, index) => (
+                <div
+                  className="relative cursor-zoom-in overflow-hidden rounded-lg border border-white/10"
+                  key={media.previewUrl}
+                  onClick={() => setPreviewModalIndex(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setPreviewModalIndex(index);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {media.type === "video" ? (
+                    <video
+                      className="max-h-48 w-full bg-black object-cover"
+                      controls
+                      src={media.previewUrl}
+                    />
+                  ) : (
+                    <img
+                      alt={`Seçilen gönderi görseli ${index + 1}`}
+                      className={
+                        selectedMedia.length === 1
+                          ? "max-h-48 w-full bg-black object-cover"
+                          : "h-24 w-full bg-black object-cover"
+                      }
+                      src={media.previewUrl}
+                    />
+                  )}
+                  <button
+                    aria-label="Medyayı kaldır"
+                    className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeSelectedMedia(media.previewUrl);
+                    }}
+                    type="button"
+                  >
+                    <X size={17} />
+                  </button>
+                  {selectedMedia.length > 1 && (
+                    <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-white">
+                      {index + 1}/{selectedMedia.length}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mediaError && <p className="mt-2 text-xs text-red-300">{mediaError}</p>}
+          {uploadProgress !== null && (
+            <div className="mt-3">
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-violet-400 transition-[width]"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-zinc-400">
+                Medya yükleniyor: %{uploadProgress}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {previewMedia &&
+        createPortal(
+          <div
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewModalIndex(null)}
+            role="dialog"
+          >
+          <div
+            className="relative grid h-[90vh] w-[min(96vw,1100px)] place-items-center overflow-hidden rounded-lg border border-white/10 bg-black"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              aria-label="Önizlemeyi kapat"
+              className="absolute right-3 top-3 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
+              onClick={() => setPreviewModalIndex(null)}
+              type="button"
+            >
+              <X size={18} />
+            </button>
+
+            {selectedMedia.length > 1 && (
+              <>
+                <button
+                  aria-label="Önceki görsel"
+                  className="absolute left-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
+                  onClick={() => changePreviewMedia(-1)}
+                  type="button"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+                <button
+                  aria-label="Sonraki görsel"
+                  className="absolute right-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
+                  onClick={() => changePreviewMedia(1)}
+                  type="button"
+                >
+                  <ChevronRight size={22} />
+                </button>
+                <span className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">
+                  {(previewModalIndex ?? 0) + 1}/{selectedMedia.length}
+                </span>
+              </>
+            )}
+
+            {previewMedia.type === "video" ? (
+              <video
+                className="max-h-full max-w-full object-contain"
+                controls
+                src={previewMedia.previewUrl}
+              />
+            ) : (
+              <img
+                alt="Seçilen görsel önizlemesi"
+                className="max-h-full max-w-full object-contain"
+                src={previewMedia.previewUrl}
+              />
+            )}
+          </div>
+          </div>,
+          document.body,
+        )}
+
+      <div className="mt-5 flex flex-col gap-4 border-t border-white/[0.06] pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+          <ComposerButton
+            active={hasSelectedImage}
+            icon={<ImageIcon size={17} />}
+            label="Görsel"
+            onClick={() => chooseFile("image")}
+          />
+          <ComposerButton
+            active={hasSelectedVideo}
+            icon={<Video size={17} />}
+            label="Video"
+            onClick={() => chooseFile("video")}
+          />
+          <ComposerButton
+            active={mode === "poll"}
+            icon={<ListFilter size={17} />}
+            label="Anket"
+            onClick={() => setMode(mode === "poll" ? "post" : "poll")}
+          />
+          <ComposerButton
+            active={mode === "game"}
+            icon={<Gamepad2 size={17} />}
+            label="Oyun"
+            onClick={() => setMode(mode === "game" ? "post" : "game")}
+          />
+          <ComposerButton
+            active={mode === "listing"}
+            icon={<Tag size={17} />}
+            label="İlan"
+            onClick={() => setMode(mode === "listing" ? "post" : "listing")}
+          />
+        </div>
+
+        <Button
+          type="button"
+          className="h-11 rounded-lg px-5"
+          isLoading={isSubmitting}
+          leftIcon={<Plus size={19} />}
+          onClick={() => void handleSubmit()}
+        >
+          {mode === "listing" ? "İlan Ver" : "Paylaş"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+interface ComposerButtonProps {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}
+
+function ComposerButton({ active, icon, label, onClick }: ComposerButtonProps) {
+  return (
+    <button
+      className={
+        active
+          ? "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-violet-600/20 px-3 text-sm text-violet-100 transition hover:-translate-y-0.5 hover:bg-violet-600/30"
+          : "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm text-zinc-300 transition hover:-translate-y-0.5 hover:bg-white/[0.05] hover:text-white"
+      }
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+interface ComposerEmojiPickerProps {
+  onSelect: (emoji: string) => void;
+}
+
+function ComposerEmojiPicker({ onSelect }: ComposerEmojiPickerProps) {
+  return (
+    <div className="absolute right-0 top-12 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40">
+      {COMPOSER_EMOJIS.map((emoji) => (
+        <button
+          aria-label={`Emoji ${emoji}`}
+          className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-lg transition hover:bg-white/[0.08]"
+          key={emoji}
+          onClick={() => onSelect(emoji)}
+          type="button"
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}

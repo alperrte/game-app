@@ -60,15 +60,17 @@ public class LookingForPlayerService {
                 .toList();
     }
 
-    public LookingForPlayerPostResponse closePost(Long postId) {
+    public LookingForPlayerPostResponse closePost(Long postId, Long currentUserId) {
         LookingForPlayerPost post = getPostEntity(postId);
+        validateOwner(post, currentUserId);
         post.setStatus(LookingForPlayerStatus.CLOSED);
 
         return toResponse(lookingForPlayerPostRepository.save(post));
     }
 
-    public LookingForPlayerPostResponse cancelPost(Long postId) {
+    public LookingForPlayerPostResponse cancelPost(Long postId, Long currentUserId) {
         LookingForPlayerPost post = getPostEntity(postId);
+        validateOwner(post, currentUserId);
         post.setStatus(LookingForPlayerStatus.CANCELLED);
 
         return toResponse(lookingForPlayerPostRepository.save(post));
@@ -77,6 +79,12 @@ public class LookingForPlayerService {
     private LookingForPlayerPost getPostEntity(Long postId) {
         return lookingForPlayerPostRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Looking for player post not found"));
+    }
+
+    private void validateOwner(LookingForPlayerPost post, Long currentUserId) {
+        if (!post.getUserId().equals(currentUserId)) {
+            throw new IllegalStateException("Only the post owner can update this looking for player post");
+        }
     }
 
     private LookingForPlayerPostResponse toResponse(LookingForPlayerPost post) {

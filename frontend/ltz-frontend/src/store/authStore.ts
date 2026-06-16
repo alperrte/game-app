@@ -8,6 +8,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { AuthResponse, AuthUser } from "../features/auth/types/auth.types";
+import { STORAGE_KEYS } from "../lib/constants";
 import {
     clearAuthStorage,
     getStoredUser,
@@ -28,6 +29,22 @@ let state: AuthState = {
 };
 
 const listeners = new Set<Listener>();
+
+function cacheUserIdentity(user: AuthUser): void {
+    try {
+        const rawValue = localStorage.getItem(STORAGE_KEYS.userIdentityCache);
+        const parsedValue: unknown = rawValue ? JSON.parse(rawValue) : {};
+        const nextValue: Record<string, string> =
+            parsedValue && typeof parsedValue === "object" && !Array.isArray(parsedValue)
+                ? { ...parsedValue }
+                : {};
+
+        nextValue[String(user.userId)] = user.username;
+        localStorage.setItem(STORAGE_KEYS.userIdentityCache, JSON.stringify(nextValue));
+    } catch {
+        // localStorage kullanılamıyorsa auth akışını bozma.
+    }
+}
 
 function emit(): void {
     listeners.forEach((listener) => listener());
@@ -62,6 +79,7 @@ export function setAuthFromResponse(
 
     setTokens(response.accessToken, response.refreshToken, remember);
     setStoredUser(user);
+    cacheUserIdentity(user);
 
     state = { user, isAuthenticated: true };
     emit();

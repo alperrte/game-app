@@ -49,6 +49,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/social/media/images/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/social/media/images/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/social/media/videos/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/social/media/videos/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -80,6 +84,7 @@ public class SecurityConfig {
                 "PUT",
                 "DELETE",
                 "PATCH",
+                "HEAD",
                 "OPTIONS"
         ));
 
