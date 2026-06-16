@@ -1,4 +1,3 @@
-```tsx
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 
 import { MainLayout } from "./MainLayout";
@@ -164,4 +163,4 @@ export function AppRouter() {
     </Routes>
   );
 }
-```
+

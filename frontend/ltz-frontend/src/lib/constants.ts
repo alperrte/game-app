@@ -1,4 +1,3 @@
-```ts
 export const APP_NAME = "LobbyTwoZero";
 export const APP_SHORT_NAME = "LTZ";
 
@@ -257,4 +256,4 @@ export const ROLES = {
     user: "USER",
     admin: "ADMIN",
 } as const;
-```
+
