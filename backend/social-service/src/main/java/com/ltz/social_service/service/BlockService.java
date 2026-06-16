@@ -27,8 +27,13 @@ public class BlockService {
 
         validateDifferentUsers(blockerUserId, blockedUserId);
 
-        if (userBlockRepository.existsByBlockerUserIdAndBlockedUserId(blockerUserId, blockedUserId)) {
-            throw new IllegalStateException("User is already blocked");
+        var existingBlock = userBlockRepository.findByBlockerUserIdAndBlockedUserId(
+                blockerUserId,
+                blockedUserId
+        );
+
+        if (existingBlock.isPresent()) {
+            return toUserBlockResponse(existingBlock.get());
         }
 
         friendshipRepository.deleteByUserIdAndFriendUserId(blockerUserId, blockedUserId);
@@ -54,14 +59,18 @@ public class BlockService {
         validateDifferentUsers(blockerUserId, blockedUserId);
 
         if (!userBlockRepository.existsByBlockerUserIdAndBlockedUserId(blockerUserId, blockedUserId)) {
-            throw new IllegalStateException("Block relation does not exist");
+            return;
         }
 
         userBlockRepository.deleteByBlockerUserIdAndBlockedUserId(blockerUserId, blockedUserId);
     }
 
     @Transactional(readOnly = true)
-    public List<UserBlockResponse> getBlockedUsers(Long blockerUserId) {
+    public List<UserBlockResponse> getBlockedUsers(Long blockerUserId, Long currentUserId) {
+        if (!blockerUserId.equals(currentUserId)) {
+            throw new IllegalStateException("User can only access their own blocked users");
+        }
+
         return userBlockRepository.findByBlockerUserId(blockerUserId)
                 .stream()
                 .map(this::toUserBlockResponse)

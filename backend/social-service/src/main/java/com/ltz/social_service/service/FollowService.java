@@ -25,8 +25,13 @@ public class FollowService {
 
         validateDifferentUsers(followerUserId, followingUserId);
 
-        if (followRepository.existsByFollowerUserIdAndFollowingUserId(followerUserId, followingUserId)) {
-            throw new IllegalStateException("User is already following this user");
+        var existingFollow = followRepository.findByFollowerUserIdAndFollowingUserId(
+                followerUserId,
+                followingUserId
+        );
+
+        if (existingFollow.isPresent()) {
+            return toFollowResponse(existingFollow.get());
         }
 
         if (isBlockedBetweenUsers(followerUserId, followingUserId)) {
@@ -45,7 +50,7 @@ public class FollowService {
         validateDifferentUsers(followerUserId, followingUserId);
 
         if (!followRepository.existsByFollowerUserIdAndFollowingUserId(followerUserId, followingUserId)) {
-            throw new IllegalStateException("Follow relation does not exist");
+            return;
         }
 
         followRepository.deleteByFollowerUserIdAndFollowingUserId(followerUserId, followingUserId);

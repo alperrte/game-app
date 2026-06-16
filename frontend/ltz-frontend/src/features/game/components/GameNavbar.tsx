@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../lib/constants";
 import { getRefreshToken } from "../../../lib/token";
 import { authService } from "../../auth/services/authService";
@@ -7,6 +7,7 @@ import { clearAuth, useAuthStore } from "../../../store/authStore";
 import ltzLogo from "../../../assets/ltz-yazi.png";
 
 type GameNavbarActiveItem =
+  | "Feed"
   | "Categories"
   | "Developers"
   | "Games"
@@ -20,6 +21,7 @@ type GameNavbarProps = {
 };
 
 const navItems = [
+  { key: "Feed", label: "Akış", href: "/", icon: "⌂" },
   { key: "Games", label: "Oyunlar", href: "/games", icon: "♘" },
   { key: "Categories", label: "Kategoriler", href: "/games/categories", icon: "⬡" },
   { key: "Platforms", label: "Platformlar", href: "/games/platforms", icon: "▭" },
@@ -62,20 +64,21 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           <img src={ltzLogo} alt="LobbyTwoZero" className="h-10 max-w-full object-contain filter drop-shadow-[0_0_8px_rgba(168,85,247,0.35)]" />
         </a>
 
-        <nav className="flex h-full min-w-0 flex-1 items-center gap-6">
+        <nav className="flex h-full min-w-0 flex-1 items-center justify-between gap-3 overflow-x-auto [scrollbar-width:none] 2xl:gap-4 [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => {
             const active = item.key === activeItem;
 
             return (
-              <a
-                className={`relative flex h-full items-center gap-3 px-1 text-sm font-semibold transition ${
+              <NavLink
+                className={`relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap px-1 text-[11px] font-semibold transition hover:-translate-y-0.5 2xl:gap-2 2xl:text-[13px] ${
                   active ? "text-white" : "text-slate-400 hover:text-white"
                 }`}
-                href={item.href}
+                to={item.href}
+                end={item.key === "Feed"}
                 key={item.key}
               >
                 <span
-                  className={`text-2xl ${
+                  className={`text-xl 2xl:text-2xl ${
                     active ? "text-violet-400" : "text-slate-500"
                   }`}
                 >
@@ -85,12 +88,12 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
                 {active ? (
                   <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-gradient-to-r from-violet-500 to-indigo-500" />
                 ) : null}
-              </a>
+              </NavLink>
             );
           })}
         </nav>
 
-        <label className="relative hidden w-[380px] xl:block">
+        <label className="relative hidden w-[240px] shrink-0 2xl:block">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
             ⌕
           </span>
@@ -102,7 +105,7 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
 
         <button
           aria-label="Bildirimler"
-          className="relative grid h-11 w-11 place-items-center rounded-xl text-2xl text-slate-300 hover:bg-white/5"
+          className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl text-2xl text-slate-300 hover:bg-white/5"
           type="button"
         >
           ♧
@@ -112,7 +115,7 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
         </button>
 
         <button
-          className="hidden h-11 items-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-4 text-sm font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
+          className="hidden h-11 shrink-0 items-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-3 text-sm font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60 xl:inline-flex 2xl:px-4"
           disabled={isLoggingOut}
           onClick={() => void handleLogout()}
           type="button"

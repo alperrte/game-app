@@ -74,9 +74,13 @@ public class ChatService {
                 .toList();
     }
 
-    public void deleteMessage(Long messageId) {
+    public void deleteMessage(Long messageId, Long currentUserId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+
+        if (!message.getSenderUserId().equals(currentUserId)) {
+            throw new IllegalStateException("Only the sender can delete this message");
+        }
 
         message.setIsDeleted(true);
         messageRepository.save(message);
