@@ -80,6 +80,9 @@ public class Game {
     @Column(name = "popularity_score", nullable = false)
     private Integer popularityScore = 0;
 
+    @Column(name = "system_requirement_only", nullable = false)
+    private Boolean systemRequirementOnly = false;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -108,6 +111,10 @@ public class Game {
         if (this.popularityScore == null) {
             this.popularityScore = 0;
         }
+
+        if (this.systemRequirementOnly == null) {
+            this.systemRequirementOnly = false;
+        }
     }
 
     @PreUpdate
@@ -128,6 +135,10 @@ public class Game {
 
         if (this.popularityScore == null) {
             this.popularityScore = 0;
+        }
+
+        if (this.systemRequirementOnly == null) {
+            this.systemRequirementOnly = false;
         }
     }
 
@@ -269,6 +280,14 @@ public class Game {
 
     public void setPopularityScore(Integer popularityScore) {
         this.popularityScore = popularityScore;
+    }
+
+    public Boolean getSystemRequirementOnly() {
+        return systemRequirementOnly;
+    }
+
+    public void setSystemRequirementOnly(Boolean systemRequirementOnly) {
+        this.systemRequirementOnly = systemRequirementOnly;
     }
 
     public LocalDateTime getCreatedAt() {

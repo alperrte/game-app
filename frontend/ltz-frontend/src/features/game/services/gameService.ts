@@ -30,7 +30,8 @@ export const createGameCategory = (request: GameCategoryRequest) =>
     apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request);
 
 export const gameService = {
-  getGames: () => apiClient.get<Game[]>(GAME_API_ENDPOINTS.games),
+  getGames: (options: { includeSystemRequirementOnly?: boolean } = {}) =>
+      apiClient.get<Game[]>(GAME_API_ENDPOINTS.games, options),
   filterGames: getGamesByFilter,
   getPopularGames: () =>
       apiClient.get<Game[]>(GAME_API_ENDPOINTS.popularGames),

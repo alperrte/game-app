@@ -79,6 +79,15 @@
     }
 }
 
+@keyframes pageFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
 @property --auth-border-angle {
     syntax: "<angle>";
     inherits: false;
@@ -182,6 +191,10 @@ button:disabled {
 
 .ltz-datetime-input {
     color-scheme: dark;
+}
+
+.ltz-page-transition {
+    animation: pageFadeIn 220ms ease-out both;
 }
 
 .ltz-datetime-input::-webkit-calendar-picker-indicator {
@@ -1066,6 +1079,10 @@ button:disabled {
     .auth-logo,
     .auth-logo-shell::before,
     .auth-subtitle-pulse {
+        animation: none;
+    }
+
+    .ltz-page-transition {
         animation: none;
     }
 

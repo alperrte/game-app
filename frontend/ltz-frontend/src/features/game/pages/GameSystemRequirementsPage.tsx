@@ -196,6 +196,7 @@ const toGameRequestFromExternalDetail = (
   releaseDate: toIsoDateOrNull(externalGame.releaseDate),
   source: externalGame.source,
   supportedLanguages: truncateNullable(externalGame.supportedLanguages, 500),
+  systemRequirementOnly: true,
   title: externalGame.title.trim().slice(0, 150),
   turkishLanguageSupport: externalGame.turkishLanguageSupport,
 });
@@ -677,7 +678,9 @@ const GameSystemRequirementsPage = () => {
       setError(null);
 
       try {
-        const results = await gameService.getGames();
+        const results = await gameService.getGames({
+          includeSystemRequirementOnly: true,
+        });
 
         if (!active) {
           return;

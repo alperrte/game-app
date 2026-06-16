@@ -26,6 +26,7 @@ public class GameResponse {
     private Boolean onSale;
     private Boolean turkishLanguageSupport;
     private Integer popularityScore;
+    private Boolean systemRequirementOnly;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -52,6 +53,7 @@ public class GameResponse {
             Boolean onSale,
             Boolean turkishLanguageSupport,
             Integer popularityScore,
+            Boolean systemRequirementOnly,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
@@ -74,6 +76,7 @@ public class GameResponse {
         this.onSale = onSale;
         this.turkishLanguageSupport = turkishLanguageSupport;
         this.popularityScore = popularityScore;
+        this.systemRequirementOnly = systemRequirementOnly;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -152,6 +155,10 @@ public class GameResponse {
 
     public Integer getPopularityScore() {
         return popularityScore;
+    }
+
+    public Boolean getSystemRequirementOnly() {
+        return systemRequirementOnly;
     }
 
     public LocalDateTime getCreatedAt() {

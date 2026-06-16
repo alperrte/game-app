@@ -28,8 +28,12 @@ public class GameService {
         this.gameCategoryRepository = gameCategoryRepository;
     }
 
-    public List<GameResponse> getAllGames() {
-        return gameRepository.findAll()
+    public List<GameResponse> getAllGames(boolean includeSystemRequirementOnly) {
+        List<Game> games = includeSystemRequirementOnly
+                ? gameRepository.findAll()
+                : gameRepository.findBySystemRequirementOnlyFalse();
+
+        return games
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -83,6 +87,8 @@ public class GameService {
     ) {
         Specification<Game> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            predicates.add(criteriaBuilder.isFalse(root.get("systemRequirementOnly")));
 
             if (source != null) {
                 predicates.add(criteriaBuilder.equal(root.get("source"), source));
@@ -141,7 +147,7 @@ public class GameService {
     }
 
     public List<GameResponse> getPopularGames() {
-        return gameRepository.findTop10ByOrderByPopularityScoreDesc()
+        return gameRepository.findTop10BySystemRequirementOnlyFalseOrderByPopularityScoreDesc()
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -165,6 +171,7 @@ public class GameService {
         game.setOnSale(falseIfNull(request.getOnSale()));
         game.setTurkishLanguageSupport(falseIfNull(request.getTurkishLanguageSupport()));
         game.setPopularityScore(integerZeroIfNull(request.getPopularityScore()));
+        game.setSystemRequirementOnly(falseIfNull(request.getSystemRequirementOnly()));
     }
 
     private GameCategory getCategoryOrNull(Long categoryId) {
@@ -207,6 +214,7 @@ public class GameService {
                 game.getOnSale(),
                 game.getTurkishLanguageSupport(),
                 game.getPopularityScore(),
+                game.getSystemRequirementOnly(),
                 game.getCreatedAt(),
                 game.getUpdatedAt()
         );
