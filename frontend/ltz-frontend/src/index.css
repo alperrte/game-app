@@ -1,4 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700;800;900&display=swap");
 @import "tailwindcss";
+
+.profile-page {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.profile-display-font {
+    font-family: "Exo 2", ui-sans-serif, system-ui, sans-serif;
+}
 
 /*
  * LTZ tasarım tokenları (Tailwind v4 @theme).

@@ -28,6 +28,15 @@ const loadYouTubeApi = (): Promise<void> =>
     document.head.appendChild(tag);
   });
 
+const createMountNode = () => {
+  const mount = document.createElement("div");
+  mount.setAttribute("aria-hidden", "true");
+  mount.style.cssText =
+    "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden";
+  document.body.appendChild(mount);
+  return mount;
+};
+
 type UseYouTubeSoundtrackOptions = {
   videoId: string | null;
   suspended: boolean;
@@ -35,13 +44,15 @@ type UseYouTubeSoundtrackOptions = {
 
 export const useYouTubeSoundtrack = ({ videoId, suspended }: UseYouTubeSoundtrackOptions) => {
   const playerRef = useRef<YT.Player | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const videoIdRef = useRef(videoId);
+  const mountNodeRef = useRef<HTMLDivElement | null>(null);
+  const pendingPlayRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [playbackError, setPlaybackError] = useState(false);
 
   const destroyPlayer = useCallback(() => {
+    pendingPlayRef.current = false;
     if (playerRef.current) {
       try {
         playerRef.current.destroy();
@@ -50,51 +61,18 @@ export const useYouTubeSoundtrack = ({ videoId, suspended }: UseYouTubeSoundtrac
       }
       playerRef.current = null;
     }
+    if (mountNodeRef.current) {
+      mountNodeRef.current.remove();
+      mountNodeRef.current = null;
+    }
     setPlayerReady(false);
     setIsPlaying(false);
     setIsLoading(false);
+    setPlaybackError(false);
   }, []);
 
-  const createPlayer = useCallback(
-    async (vidId: string) => {
-      if (!containerRef.current) return;
-
-      destroyPlayer();
-      await loadYouTubeApi();
-
-      if (!containerRef.current) return;
-
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        height: "1",
-        width: "1",
-        videoId: vidId,
-        playerVars: {
-          autoplay: 1,
-          loop: 1,
-          playlist: vidId,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
-          modestbranding: 1,
-          rel: 0,
-        },
-        events: {
-          onReady: () => {
-            setPlayerReady(true);
-            setIsPlaying(true);
-            setIsLoading(false);
-          },
-          onError: () => {
-            setPlayerReady(false);
-            setIsLoading(false);
-          },
-        },
-      });
-    },
-    [destroyPlayer]
-  );
-
   const pausePlayback = useCallback(() => {
+    pendingPlayRef.current = false;
     if (!playerRef.current || !playerReady) {
       setIsPlaying(false);
       return;
@@ -107,54 +85,117 @@ export const useYouTubeSoundtrack = ({ videoId, suspended }: UseYouTubeSoundtrac
     }
   }, [playerReady]);
 
-  const togglePlayback = useCallback(async () => {
+  const togglePlayback = useCallback(() => {
     if (!videoId || suspended) return;
 
-    if (!playerRef.current) {
-      setIsLoading(true);
-      await createPlayer(videoId);
+    if (playerReady && playerRef.current) {
+      try {
+        const state = playerRef.current.getPlayerState();
+        if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
+          playerRef.current.pauseVideo();
+          setIsPlaying(false);
+        } else {
+          playerRef.current.playVideo();
+        }
+      } catch {
+        setPlaybackError(true);
+      }
       return;
     }
 
-    if (!playerReady) return;
-
-    try {
-      if (isPlaying) {
-        playerRef.current.pauseVideo();
-        setIsPlaying(false);
-      } else {
-        playerRef.current.playVideo();
-        setIsPlaying(true);
-      }
-    } catch {
-      /* player not ready */
-    }
-  }, [videoId, suspended, createPlayer, playerReady, isPlaying]);
+    pendingPlayRef.current = true;
+    setIsLoading(true);
+    setPlaybackError(false);
+  }, [videoId, suspended, playerReady]);
 
   useEffect(() => {
-    if (videoIdRef.current !== videoId) {
-      videoIdRef.current = videoId;
+    if (!videoId || suspended) {
       void Promise.resolve().then(() => destroyPlayer());
+      return;
     }
-  }, [videoId, destroyPlayer]);
+
+    let cancelled = false;
+
+    void (async () => {
+      setIsLoading(true);
+      setPlaybackError(false);
+      await loadYouTubeApi();
+      if (cancelled) return;
+
+      destroyPlayer();
+      if (cancelled) return;
+
+      const mountNode = createMountNode();
+      mountNodeRef.current = mountNode;
+
+      playerRef.current = new window.YT.Player(mountNode, {
+        height: "1",
+        width: "1",
+        videoId,
+        playerVars: {
+          autoplay: 0,
+          loop: 1,
+          playlist: videoId,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          rel: 0,
+        },
+        events: {
+          onReady: () => {
+            if (cancelled) return;
+            setPlayerReady(true);
+            setIsLoading(false);
+            if (pendingPlayRef.current && playerRef.current) {
+              try {
+                playerRef.current.playVideo();
+              } catch {
+                setPlaybackError(true);
+                pendingPlayRef.current = false;
+              }
+            }
+          },
+          onStateChange: (event) => {
+            if (cancelled) return;
+            if (event.data === YT.PlayerState.PLAYING) {
+              setIsPlaying(true);
+              setIsLoading(false);
+              pendingPlayRef.current = false;
+            } else if (
+              event.data === YT.PlayerState.PAUSED ||
+              event.data === YT.PlayerState.ENDED
+            ) {
+              setIsPlaying(false);
+            }
+          },
+          onError: () => {
+            if (cancelled) return;
+            setPlayerReady(false);
+            setIsLoading(false);
+            setPlaybackError(true);
+            pendingPlayRef.current = false;
+          },
+        },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      destroyPlayer();
+    };
+  }, [videoId, suspended, destroyPlayer]);
 
   useEffect(() => {
     if (!suspended) return;
     void Promise.resolve().then(() => pausePlayback());
   }, [suspended, pausePlayback]);
 
-  useEffect(
-    () => () => {
-      void Promise.resolve().then(() => destroyPlayer());
-    },
-    [destroyPlayer]
-  );
-
   return {
-    containerRef,
     isPlaying,
     playerReady,
     isLoading,
+    playbackError,
     togglePlayback,
   };
 };

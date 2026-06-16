@@ -9,6 +9,7 @@ import com.ltz.user_service.security.JwtAuthenticationFilter;
 import com.ltz.user_service.security.JwtService;
 import com.ltz.user_service.security.JwtUserPrincipal;
 import com.ltz.user_service.service.UserProfileService;
+import com.ltz.user_service.util.ClientRequestContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,7 +88,7 @@ class UserControllerTest {
     @Test
     void testUpdateProfile_Success() throws Exception {
         when(userProfileService.getProfile("123")).thenReturn(userProfileResponse);
-        when(userProfileService.createOrUpdateProfile(eq("123"), anyString(), anyString(), any(UserProfileRequest.class), anyString()))
+        when(userProfileService.createOrUpdateProfile(eq("123"), anyString(), anyString(), any(UserProfileRequest.class), any(ClientRequestContext.class)))
                 .thenReturn(userProfileResponse);
 
         UserProfileRequest request = new UserProfileRequest();

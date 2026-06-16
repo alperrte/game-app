@@ -31,6 +31,12 @@ public class UserAuditLog {
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
+    @Column(name = "user_agent", length = 512)
+    private String userAgent;
+
+    @Column(name = "device_info", length = 255)
+    private String deviceInfo;
+
     @Builder.Default
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

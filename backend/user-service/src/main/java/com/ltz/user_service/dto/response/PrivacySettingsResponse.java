@@ -15,4 +15,6 @@ public class PrivacySettingsResponse {
     private String gameLibraryVisibility;
     private String hardwareVisibility;
     private String friendListVisibility;
+    private String followerListVisibility;
+    private String lastSeenVisibility;
 }

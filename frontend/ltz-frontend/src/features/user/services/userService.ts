@@ -7,8 +7,11 @@ import type {
   PrivacySettingsRequest,
   ConnectedAccountResponse,
   ConnectedAccountRequest,
-  UserAuditLog,
+  AssignedBadgeResponse,
+  BadgeCatalogItem,
+  AssignBadgeRequest,
 } from "../types/user";
+import type { UserAuditLog } from "../types/audit";
 
 export const userService = {
   getProfile: (userId: string) =>
@@ -44,6 +47,10 @@ export const userService = {
   getAuditLogs: () =>
     apiClient.get<UserAuditLog[]>(USER_API_ENDPOINTS.auditLogs),
 
+  getProfilesBatch: (userIds: string[]) =>
+    apiClient.post<UserProfileResponse[]>(USER_API_ENDPOINTS.batch, { userIds }),
+
+
   uploadFile: async (file: File, type: "avatar" | "cover" | "background") => {
     const formData = new FormData();
     formData.append("file", file);
@@ -59,4 +66,19 @@ export const userService = {
     );
     return data;
   },
+
+  getAdminBadgeCatalog: () =>
+    apiClient.get<BadgeCatalogItem[]>(USER_API_ENDPOINTS.adminBadgeCatalog),
+
+  getAdminUserBadges: (userId: string) =>
+    apiClient.get<AssignedBadgeResponse[]>(USER_API_ENDPOINTS.adminUserBadges(userId)),
+
+  assignAdminBadge: (userId: string, request: AssignBadgeRequest) =>
+    apiClient.put<AssignedBadgeResponse, AssignBadgeRequest>(
+      USER_API_ENDPOINTS.adminUserBadges(userId),
+      request,
+    ),
+
+  removeAdminBadge: (userId: string, badgeKey: string) =>
+    apiClient.delete(USER_API_ENDPOINTS.adminUserBadge(userId, badgeKey)),
 };

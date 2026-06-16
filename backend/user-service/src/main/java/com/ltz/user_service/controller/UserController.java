@@ -3,12 +3,15 @@ package com.ltz.user_service.controller;
 import com.ltz.user_service.dto.request.ConnectedAccountRequest;
 import com.ltz.user_service.dto.request.PrivacySettingsRequest;
 import com.ltz.user_service.dto.request.UserProfileRequest;
+import com.ltz.user_service.dto.request.UserProfilesBatchRequest;
+import com.ltz.user_service.dto.response.AuditLogResponse;
 import com.ltz.user_service.dto.response.ConnectedAccountResponse;
 import com.ltz.user_service.dto.response.PrivacySettingsResponse;
 import com.ltz.user_service.dto.response.UserProfileResponse;
 import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.security.JwtUserPrincipal;
 import com.ltz.user_service.service.UserProfileService;
+import com.ltz.user_service.util.ClientRequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -67,7 +70,10 @@ public class UserController {
      */
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getMyProfile(@AuthenticationPrincipal JwtUserPrincipal principal) {
-        return ResponseEntity.ok(userProfileService.getProfile(userId(principal)));
+        String userId = userId(principal);
+        userProfileService.syncRoleFromJwt(userId, principal.role());
+        userProfileService.touchLastSeenIfNeeded(userId);
+        return ResponseEntity.ok(userProfileService.getProfile(userId));
     }
 
     /**
@@ -82,7 +88,9 @@ public class UserController {
     ) {
         String principalUsername = principal.username() != null ? principal.username() : username;
         String principalEmail = principal.email() != null ? principal.email() : email;
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId(principal), principalUsername, principalEmail, request, getClientIp()));
+        String uid = userId(principal);
+        userProfileService.syncRoleFromJwt(uid, principal.role());
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(uid, principalUsername, principalEmail, request, getClientContext()));
     }
 
     /**
@@ -94,8 +102,9 @@ public class UserController {
             @Valid @RequestBody UserProfileRequest request
     ) {
         String userId = userId(principal);
+        userProfileService.syncRoleFromJwt(userId, principal.role());
         UserProfileResponse existing = userProfileService.getProfile(userId);
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientIp()));
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientContext()));
     }
 
     /**
@@ -114,7 +123,7 @@ public class UserController {
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @Valid @RequestBody PrivacySettingsRequest request
     ) {
-        return ResponseEntity.ok(userProfileService.updatePrivacySettings(userId(principal), request, getClientIp()));
+        return ResponseEntity.ok(userProfileService.updatePrivacySettings(userId(principal), request, getClientContext()));
     }
 
     /**
@@ -133,7 +142,7 @@ public class UserController {
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @Valid @RequestBody ConnectedAccountRequest request
     ) {
-        return ResponseEntity.ok(userProfileService.connectAccount(userId(principal), request, getClientIp()));
+        return ResponseEntity.ok(userProfileService.connectAccount(userId(principal), request, getClientContext()));
     }
 
     /**
@@ -144,7 +153,7 @@ public class UserController {
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long id
     ) {
-        userProfileService.disconnectAccount(userId(principal), id, getClientIp());
+        userProfileService.disconnectAccount(userId(principal), id, getClientContext());
         return ResponseEntity.noContent().build();
     }
 
@@ -201,24 +210,32 @@ public class UserController {
                 throw new BadRequestException("Invalid upload type: " + type);
             }
 
-            UserProfileResponse updated = userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientIp());
+            UserProfileResponse updated = userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientContext());
             return ResponseEntity.ok(updated);
         } catch (IOException e) {
             throw new RuntimeException("Failed to save uploaded file locally.", e);
         }
     }
 
+
     @GetMapping("/audit-logs")
-    public ResponseEntity<List<com.ltz.user_service.entity.UserAuditLog>> getMyAuditLogs(@AuthenticationPrincipal JwtUserPrincipal principal) {
-        return ResponseEntity.ok(userProfileService.getAuditLogs(userId(principal)));
+    public ResponseEntity<List<AuditLogResponse>> getMyAuditLogs(@AuthenticationPrincipal JwtUserPrincipal principal) {
+        return ResponseEntity.ok(userProfileService.getAuditLogs(userId(principal), principal.role()));
     }
 
-    private String getClientIp() {
-        String xForwardedFor = httpServletRequest.getHeader("X-Forwarded-For");
-        if (xForwardedFor == null || xForwardedFor.isEmpty()) {
-            return httpServletRequest.getRemoteAddr();
-        }
-        return xForwardedFor.split(",")[0].trim();
+    /**
+     * 👥 Toplu Profil Sorgulama (Batch API)
+     */
+    @PostMapping("/profiles/batch")
+    public ResponseEntity<List<UserProfileResponse>> getProfilesBatch(
+            @Valid @RequestBody UserProfilesBatchRequest request
+    ) {
+        return ResponseEntity.ok(userProfileService.getProfilesBatch(request.getUserIds()));
+    }
+
+
+    private ClientRequestContext getClientContext() {
+        return ClientRequestContext.from(httpServletRequest);
     }
 
     private String userId(JwtUserPrincipal principal) {

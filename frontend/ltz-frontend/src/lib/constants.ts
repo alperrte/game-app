@@ -111,22 +111,24 @@ export const SOCIAL_API_ENDPOINTS = {
  * User-service endpoint path'leri (Gateway üzerinden).
  */
 export const USER_API_ENDPOINTS = {
-    profile: (userId: string) => `/api/users/profile/${userId}`,
-    // Backward-compatible alias used by existing services.
-    profileById: (userId: number | string) => `/api/users/profile/${userId}`,
-    profileByUsername: (username: string) =>
-        `/api/users/profile/username/${username}`,
-    me: "/api/users/me",
-    setupProfile: "/api/users/profile/setup",
-    updateProfile: "/api/users/profile",
-    privacy: "/api/users/privacy",
-    connectedAccounts: "/api/users/connected-accounts",
-    disconnectAccount: (id: number | string) =>
-        `/api/users/connected-accounts/${id}`,
-    upload: "/api/users/profile/upload",
-    auditLogs: "/api/users/audit-logs",
+  profile: (userId: string) => `/api/users/profile/${userId}`,
+  // Backward-compatible alias used by existing services.
+  profileById: (userId: number | string) => `/api/users/profile/${userId}`,
+  profileByUsername: (username: string) => `/api/users/profile/username/${username}`,
+  me: "/api/users/me",
+  setupProfile: "/api/users/profile/setup",
+  updateProfile: "/api/users/profile",
+  privacy: "/api/users/privacy",
+  connectedAccounts: "/api/users/connected-accounts",
+  disconnectAccount: (id: number | string) => `/api/users/connected-accounts/${id}`,
+  upload: "/api/users/profile/upload",
+  auditLogs: "/api/users/audit-logs",
+  batch: "/api/users/profiles/batch",
+  adminBadgeCatalog: "/api/users/admin/badges/catalog",
+  adminUserBadges: (userId: string) => `/api/users/admin/${userId}/badges`,
+  adminUserBadge: (userId: string, badgeKey: string) =>
+    `/api/users/admin/${userId}/badges/${badgeKey}`,
 } as const;
-
 /*
  * Game-service frontend route adresleri.
  */

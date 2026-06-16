@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
+import { CurrentUserProfileProvider } from "../features/user/context/CurrentUserProfileContext";
 
 /*
  * Uygulama genelinde kullanılan sağlayıcıların toplandığı dosya.
@@ -15,7 +16,9 @@ type AppProvidersProps = {
 export const AppProviders = ({ children }: AppProvidersProps) => {
   return (
     <ToastProvider>
-      <BrowserRouter>{children}</BrowserRouter>
+      <BrowserRouter>
+        <CurrentUserProfileProvider>{children}</CurrentUserProfileProvider>
+      </BrowserRouter>
     </ToastProvider>
   );
 };

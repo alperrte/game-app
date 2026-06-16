@@ -27,10 +27,17 @@ interface AuthState {
 
 type Listener = () => void;
 
-let state: AuthState = {
-    user: getStoredUser(),
-    isAuthenticated: Boolean(getStoredUser()),
-};
+function readAuthState(): AuthState {
+    const token = getAccessToken();
+    const user = token ? getStoredUser() : null;
+
+    return {
+        user,
+        isAuthenticated: Boolean(token),
+    };
+}
+
+let state: AuthState = readAuthState();
 
 const listeners = new Set<Listener>();
 

@@ -1,6 +1,5 @@
 import {
   Ban,
-  Bookmark,
   ChevronLeft,
   ChevronRight,
   Earth,
@@ -27,6 +26,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { formatSocialTime } from "../../../utils/formatSocialTime";
+import { UserAvatar } from "../../user/components/UserAvatar";
 import type { SocialPost, SocialUser } from "../types/social.types";
 
 interface SocialPostCardProps {
@@ -47,7 +47,6 @@ interface SocialPostCardProps {
   onSendFriendRequest: (authorUserId: number) => Promise<void>;
   onShare: (post: SocialPost) => Promise<void>;
   onStartChat: (post: SocialPost) => Promise<void>;
-  onToggleSave: (postId: number | string) => void;
   onToggleLike: (postId: number | string, likedByMe: boolean) => Promise<void>;
 }
 
@@ -55,16 +54,6 @@ interface ParsedPollContent {
   body: string;
   options: string[];
   question: string;
-}
-
-interface CommentReply {
-  id: string;
-  authorName: string;
-  content: string;
-  createdAt: string;
-  likedByMe: boolean;
-  likeCount: number;
-  replyingTo?: string;
 }
 
 interface FullscreenVideoElement extends HTMLVideoElement {
@@ -136,7 +125,6 @@ export function SocialPostCard({
   onSendFriendRequest,
   onShare,
   onStartChat,
-  onToggleSave,
   onToggleLike,
 }: SocialPostCardProps) {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
@@ -149,30 +137,24 @@ export function SocialPostCard({
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [videoVolume, setVideoVolume] = useState(1);
   const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
+  const [prevActiveMediaUrl, setPrevActiveMediaUrl] = useState<string | undefined>(
+    activeMedia?.url,
+  );
+
+  if (activeMedia?.url !== prevActiveMediaUrl) {
+    setPrevActiveMediaUrl(activeMedia?.url);
+    setIsVideoPlaying(false);
+    setVideoCurrentTime(0);
+    setVideoDuration(0);
+  }
+
   const [commentText, setCommentText] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
   const [likedUsers, setLikedUsers] = useState<SocialUser[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
-  const [likedCommentIds, setLikedCommentIds] = useState<Set<number>>(
-    () => new Set(),
-  );
-  const [commentReplies, setCommentReplies] = useState<
-    Record<number, CommentReply[]>
-  >({});
-  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
-  const [replyFormCommentId, setReplyFormCommentId] = useState<number | null>(
-    null,
-  );
   const [commentEmojiOpen, setCommentEmojiOpen] = useState(false);
-  const [replyEmojiOpenForCommentId, setReplyEmojiOpenForCommentId] = useState<
-    number | null
-  >(null);
-  const [replyingToName, setReplyingToName] = useState<string | null>(null);
-  const [visibleReplyCommentIds, setVisibleReplyCommentIds] = useState<
-    Set<number>
-  >(() => new Set());
   const [selectedPollOption, setSelectedPollOption] = useState<number | null>(
     null,
   );
@@ -181,7 +163,6 @@ export function SocialPostCard({
   );
 
   const canUseAuthorActions =
-    post.source !== "mock" &&
     typeof post.authorUserId === "number" &&
     currentUserId !== post.authorUserId;
   const canUsePostActions = post.source === "backend" && typeof post.id === "number";
@@ -191,11 +172,6 @@ export function SocialPostCard({
     : 0;
   const videoVolumePercent = (isVideoMuted ? 0 : videoVolume) * 100;
 
-  useEffect(() => {
-    setIsVideoPlaying(false);
-    setVideoCurrentTime(0);
-    setVideoDuration(0);
-  }, [activeMedia?.url]);
 
   useEffect(() => {
     function syncFullscreenState() {
@@ -352,105 +328,8 @@ export function SocialPostCard({
     }
   }
 
-  function toggleCommentLike(commentId: number) {
-    setLikedCommentIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-
-      if (nextIds.has(commentId)) {
-        nextIds.delete(commentId);
-      } else {
-        nextIds.add(commentId);
-      }
-
-      return nextIds;
-    });
-  }
-
-  function toggleReplyLike(commentId: number, replyId: string) {
-    setCommentReplies((currentReplies) => ({
-      ...currentReplies,
-      [commentId]: (currentReplies[commentId] ?? []).map((reply) => {
-        if (reply.id !== replyId) return reply;
-
-        return {
-          ...reply,
-          likedByMe: !reply.likedByMe,
-          likeCount: reply.likedByMe
-            ? Math.max(0, reply.likeCount - 1)
-            : reply.likeCount + 1,
-        };
-      }),
-    }));
-  }
-
-  function toggleReplies(commentId: number) {
-    setVisibleReplyCommentIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-
-      if (nextIds.has(commentId)) {
-        nextIds.delete(commentId);
-      } else {
-        nextIds.add(commentId);
-      }
-
-      return nextIds;
-    });
-  }
-
-  function openReplyForm(commentId: number, targetName: string) {
-    const shouldClose =
-      replyFormCommentId === commentId && replyingToName === targetName;
-
-    setReplyFormCommentId(shouldClose ? null : commentId);
-    setReplyingToName(shouldClose ? null : targetName);
-
-    if (!shouldClose) {
-      setVisibleReplyCommentIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.add(commentId);
-        return nextIds;
-      });
-    }
-  }
-
-  function submitReply(commentId: number) {
-    const replyContent = replyDrafts[commentId]?.trim();
-
-    if (!replyContent) return;
-
-    const reply: CommentReply = {
-      id: `${commentId}-${Date.now()}`,
-      authorName: currentUserName ?? "Sen",
-      content: replyContent,
-      createdAt: new Date().toISOString(),
-      likedByMe: false,
-      likeCount: 0,
-      replyingTo: replyingToName ?? undefined,
-    };
-
-    setCommentReplies((currentReplies) => ({
-      ...currentReplies,
-      [commentId]: [...(currentReplies[commentId] ?? []), reply],
-    }));
-    setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [commentId]: "" }));
-    setVisibleReplyCommentIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      nextIds.add(commentId);
-      return nextIds;
-    });
-    setReplyFormCommentId(null);
-    setReplyingToName(null);
-  }
-
   function addEmojiToComment(emoji: string) {
     setCommentText((currentText) => `${currentText}${emoji}`);
-  }
-
-  function addEmojiToReply(commentId: number, emoji: string) {
-    setReplyDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [commentId]: `${currentDrafts[commentId] ?? ""}${emoji}`,
-    }));
   }
 
   async function runAuthorAction(action: () => Promise<void>) {
@@ -470,34 +349,57 @@ export function SocialPostCard({
     return `Oyuncu #${commentUserId}`;
   }
 
-  function getCommentAvatar(commentUserId: number) {
-    if (commentUserId === currentUserId) {
-      return post.authorUserId === currentUserId
-        ? post.author.avatarUrl
-        : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
+  function getCommentAvatar(comment: { author?: SocialUser; userId: number }) {
+    if (comment.author?.avatarUrl) {
+      return comment.author.avatarUrl;
     }
 
-    if (commentUserId === post.authorUserId) {
+    if (comment.userId === post.authorUserId) {
       return post.author.avatarUrl;
     }
 
-    return "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80";
+    return "";
   }
 
   const currentUserAvatarUrl =
-    currentUserId === post.authorUserId
-      ? post.author.avatarUrl
-      : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
+    currentUserId === post.authorUserId ? post.author.avatarUrl : "";
+
+  function renderCommentAvatar(comment: { author?: SocialUser; userId: number }) {
+    const avatarUrl = getCommentAvatar(comment);
+    const label = comment.author?.name ?? getCommentAuthorName(comment.userId);
+
+    if (avatarUrl) {
+      return (
+        <img
+          alt={label}
+          className="h-9 w-9 rounded-full border border-white/15 object-cover"
+          src={avatarUrl}
+        />
+      );
+    }
+
+    return (
+      <div className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-violet-700 text-xs font-bold text-white">
+        {label.slice(0, 1).toUpperCase()}
+      </div>
+    );
+  }
 
   return (
     <article className="rounded-lg border border-white/10 bg-[#0a101c]/88 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img
-            src={post.author.avatarUrl}
-            alt={post.author.name}
-            className="h-12 w-12 rounded-full border border-fuchsia-300/40 object-cover"
-          />
+          {post.author.avatarUrl ? (
+            <img
+              src={post.author.avatarUrl}
+              alt={post.author.name}
+              className="h-12 w-12 rounded-full border border-fuchsia-300/40 object-cover"
+            />
+          ) : (
+            <div className="grid h-12 w-12 place-items-center rounded-full border border-fuchsia-300/40 bg-violet-700 text-sm font-bold text-white">
+              {post.author.name.slice(0, 1).toUpperCase()}
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <h2 className="text-base font-bold text-white">{post.author.name}</h2>
@@ -869,7 +771,7 @@ export function SocialPostCard({
         </div>
       </div>
 
-      <footer className="grid grid-cols-4 gap-2 pt-3 text-sm font-semibold text-zinc-300">
+      <footer className="grid grid-cols-3 gap-2 pt-3 text-sm font-semibold text-zinc-300">
         <button
           className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md transition hover:-translate-y-0.5 hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isBusy || !canUsePostActions}
@@ -900,18 +802,6 @@ export function SocialPostCard({
         >
           <Share2 size={18} />
           <span className="hidden sm:inline">Paylaş</span>
-        </button>
-        <button
-          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md transition hover:-translate-y-0.5 hover:bg-white/[0.06] hover:text-white"
-          onClick={() => onToggleSave(post.id)}
-          type="button"
-          aria-label={post.savedByMe ? "Kaydedildi" : "Kaydet"}
-        >
-          <Bookmark
-            className={post.savedByMe ? "text-violet-300" : undefined}
-            fill={post.savedByMe ? "currentColor" : "none"}
-            size={18}
-          />
         </button>
       </footer>
 
@@ -951,226 +841,27 @@ export function SocialPostCard({
                   className="flex gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-3"
                   key={comment.id}
                 >
-                  <img
-                    alt={comment.author?.name ?? getCommentAuthorName(comment.userId)}
-                    className="h-9 w-9 rounded-full border border-white/15 object-cover"
-                    src={comment.author?.avatarUrl ?? getCommentAvatar(comment.userId)}
-                  />
+                  {renderCommentAvatar(comment)}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-xs font-semibold text-violet-200">
-                            {comment.author?.name ??
-                              getCommentAuthorName(comment.userId)}
-                          </p>
-                          <span className="text-[11px] font-medium text-zinc-500">
-                            {formatSocialTime(comment.createdAt)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm leading-5 text-zinc-200">
-                          {comment.content}
-                        </p>
-                      </div>
-                      <button
-                        aria-label="Yorumu beğen"
-                        className={
-                          likedCommentIds.has(comment.id)
-                            ? "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-rose-500 transition hover:bg-white/[0.06]"
-                            : "grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-rose-300"
-                        }
-                        onClick={() => toggleCommentLike(comment.id)}
-                        type="button"
-                      >
-                        <Heart
-                          fill={
-                            likedCommentIds.has(comment.id)
-                              ? "currentColor"
-                              : "none"
-                          }
-                          size={15}
-                        />
-                      </button>
-                    </div>
-                    <div className="mt-2 flex items-center gap-4 text-[11px] font-semibold text-zinc-500">
-                      <button
-                        className={
-                          likedCommentIds.has(comment.id)
-                            ? "cursor-pointer text-rose-400 transition hover:text-rose-300"
-                            : "cursor-pointer transition hover:text-white"
-                        }
-                        onClick={() => toggleCommentLike(comment.id)}
-                        type="button"
-                      >
-                        {likedCommentIds.has(comment.id) ? "Beğenildi" : "Beğen"}
-                      </button>
-                      <span>
-                        {(comment.likeCount ?? 0) +
-                          (likedCommentIds.has(comment.id) ? 1 : 0)}{" "}
-                        beğeni
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-xs font-semibold text-violet-200">
+                        {comment.author?.name ?? getCommentAuthorName(comment.userId)}
+                      </p>
+                      <span className="text-[11px] font-medium text-zinc-500">
+                        {formatSocialTime(comment.createdAt)}
                       </span>
-                      <button
-                        className="cursor-pointer transition hover:text-white"
-                        onClick={() =>
-                          openReplyForm(
-                            comment.id,
-                            comment.author?.name ??
-                              getCommentAuthorName(comment.userId),
-                          )
-                        }
-                        type="button"
-                      >
-                        Yanıtla
-                      </button>
-                      {currentUserId === comment.userId && (
-                        <button
-                          className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={isBusy}
-                          onClick={() => void onDeleteComment(post.id, comment.id)}
-                          type="button"
-                        >
-                          Sil
-                        </button>
-                      )}
                     </div>
-                    {(commentReplies[comment.id]?.length ?? 0) > 0 && (
+                    <p className="mt-1 text-sm leading-5 text-zinc-200">{comment.content}</p>
+                    {currentUserId === comment.userId ? (
                       <button
-                        className="mt-2 cursor-pointer text-[11px] font-semibold text-zinc-500 transition hover:text-white"
-                        onClick={() => toggleReplies(comment.id)}
+                        className="mt-2 cursor-pointer text-[11px] font-semibold text-zinc-500 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isBusy}
+                        onClick={() => void onDeleteComment(post.id, comment.id)}
                         type="button"
                       >
-                        {visibleReplyCommentIds.has(comment.id)
-                          ? "Yanıtları gizle"
-                          : `${commentReplies[comment.id].length} yanıtı gör`}
+                        Sil
                       </button>
-                    )}
-                    {visibleReplyCommentIds.has(comment.id) &&
-                      (commentReplies[comment.id] ?? []).map((reply) => (
-                        <div
-                          className="mt-3 flex gap-2 border-l border-white/10 pl-3"
-                          key={reply.id}
-                        >
-                          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-violet-700 text-[10px] font-black text-white">
-                            {reply.authorName.slice(0, 1).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-[11px] font-semibold text-violet-200">
-                                {reply.authorName}
-                              </p>
-                              <span className="text-[10px] font-medium text-zinc-500">
-                                {formatSocialTime(reply.createdAt)}
-                              </span>
-                            </div>
-                            <p className="mt-0.5 text-xs leading-5 text-zinc-300">
-                              {reply.replyingTo && (
-                                <span className="mr-1 font-semibold text-violet-300">
-                                  @{reply.replyingTo}
-                                </span>
-                              )}
-                              {reply.content}
-                            </p>
-                            <div className="mt-1 flex items-center gap-4 text-[11px] font-semibold text-zinc-500">
-                              <button
-                                className={
-                                  reply.likedByMe
-                                    ? "cursor-pointer text-rose-400 transition hover:text-rose-300"
-                                    : "cursor-pointer transition hover:text-white"
-                                }
-                                onClick={() =>
-                                  toggleReplyLike(comment.id, reply.id)
-                                }
-                                type="button"
-                              >
-                                {reply.likedByMe ? "Beğenildi" : "Beğen"}
-                              </button>
-                              <span>{reply.likeCount} beğeni</span>
-                              <button
-                                className="cursor-pointer transition hover:text-white"
-                                onClick={() =>
-                                  openReplyForm(comment.id, reply.authorName)
-                                }
-                                type="button"
-                              >
-                                Yanıtla
-                              </button>
-                            </div>
-                          </div>
-                          <button
-                            aria-label="Yanıtı beğen"
-                            className={
-                              reply.likedByMe
-                                ? "grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-full text-rose-500 transition hover:bg-white/[0.06]"
-                                : "grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-rose-300"
-                            }
-                            onClick={() => toggleReplyLike(comment.id, reply.id)}
-                            type="button"
-                          >
-                            <Heart
-                              fill={reply.likedByMe ? "currentColor" : "none"}
-                              size={13}
-                            />
-                          </button>
-                        </div>
-                      ))}
-                    {replyFormCommentId === comment.id && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <img
-                          alt={currentUserName ?? "Sen"}
-                          className="h-8 w-8 rounded-full border border-white/15 object-cover"
-                          src={currentUserAvatarUrl}
-                        />
-                        <div className="relative flex flex-1 items-center">
-                          <input
-                            className="h-9 w-full rounded-full border border-white/10 bg-slate-950/55 px-3 pr-10 text-xs text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
-                            maxLength={500}
-                            onChange={(event) => {
-                              setReplyDrafts((currentDrafts) => ({
-                                ...currentDrafts,
-                                [comment.id]: event.target.value,
-                              }));
-                              setReplyEmojiOpenForCommentId(null);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                submitReply(comment.id);
-                              }
-                            }}
-                            placeholder={`${
-                              replyingToName ??
-                              comment.author?.name ??
-                              getCommentAuthorName(comment.userId)
-                            } kullanıcısına yanıt yaz...`}
-                            value={replyDrafts[comment.id] ?? ""}
-                          />
-                          <button
-                            aria-label="Emoji ekle"
-                            className="absolute right-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
-                            onClick={() =>
-                              setReplyEmojiOpenForCommentId((currentId) =>
-                                currentId === comment.id ? null : comment.id,
-                              )
-                            }
-                            type="button"
-                          >
-                            <Smile size={15} />
-                          </button>
-                          {replyEmojiOpenForCommentId === comment.id && (
-                            <EmojiPicker
-                              onSelect={(emoji) => addEmojiToReply(comment.id, emoji)}
-                            />
-                          )}
-                        </div>
-                        <button
-                          className="h-9 cursor-pointer rounded-full bg-violet-700 px-3 text-xs font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={!replyDrafts[comment.id]?.trim()}
-                          onClick={() => submitReply(comment.id)}
-                          type="button"
-                        >
-                          Yanıtla
-                        </button>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))
@@ -1182,11 +873,17 @@ export function SocialPostCard({
           </div>
 
           <div className="mt-3 flex items-center gap-3">
-            <img
-              alt={currentUserName ?? "Sen"}
-              className="h-9 w-9 rounded-full border border-white/15 object-cover"
-              src={currentUserAvatarUrl}
-            />
+            {currentUserAvatarUrl ? (
+              <img
+                alt={currentUserName ?? "Sen"}
+                className="h-9 w-9 rounded-full border border-white/15 object-cover"
+                src={currentUserAvatarUrl}
+              />
+            ) : (
+              <div className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-violet-700 text-xs font-bold text-white">
+                {(currentUserName ?? "S").slice(0, 1).toUpperCase()}
+              </div>
+            )}
             <div className="relative flex flex-1 items-center">
               <input
                 className="h-10 w-full rounded-full border border-white/10 bg-slate-950/55 px-4 pr-11 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
@@ -1245,10 +942,11 @@ export function SocialPostCard({
                     className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-white/[0.04]"
                     key={`${likedUser.username}-${likedUser.name}`}
                   >
-                    <img
-                      alt={likedUser.name}
-                      className="h-10 w-10 rounded-full border border-white/15 object-cover"
-                      src={likedUser.avatarUrl}
+                    <UserAvatar
+                      avatarUrl={likedUser.avatarUrl}
+                      className="h-10 w-10"
+                      imageClassName="h-10 w-10 rounded-full border border-white/15 object-cover"
+                      name={likedUser.name}
                     />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-white">
