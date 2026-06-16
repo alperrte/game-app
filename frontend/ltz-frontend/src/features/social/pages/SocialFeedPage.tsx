@@ -7,8 +7,7 @@ import { cacheUserIdentity } from "../../../utils/userIdentityCache";
 import { useAuthStore } from "../../../store/authStore";
 import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
 import { API_BASE_URL, ROUTES, SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
-import { gameService } from "../../game/services/gameService";
-import type { Game } from "../../game/types/gameTypes";
+import type { Game, GamePlatform } from "../../game/types/gameTypes";
 import { userService } from "../../user/services/userService";
 import type { UserProfileResponse } from "../../user/types/user";
 import { getImageUrl, isImageValid } from "../../user/utils/profileImage";
@@ -632,6 +631,40 @@ function readUserIdentityCache(): Map<number, string> {
   }
 }
 
+function isGameNewsPost(post: SocialPost): boolean {
+  return post.content.trim().toLocaleLowerCase("tr").startsWith("oyun:");
+}
+
+function normalizeList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const response = value as {
+    content?: unknown;
+    data?: unknown;
+    items?: unknown;
+    results?: unknown;
+  };
+
+  for (const candidate of [
+    response.content,
+    response.data,
+    response.items,
+    response.results,
+  ]) {
+    if (Array.isArray(candidate)) {
+      return candidate as T[];
+    }
+  }
+
+  return [];
+}
+
 export default function SocialFeedPage() {
   const { user, isAuthenticated } = useAuthStore();
   const { displayName, avatarUrl } = useCurrentUserProfile();
@@ -648,6 +681,7 @@ export default function SocialFeedPage() {
   const [busyPostId, setBusyPostId] = useState<number | string | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [games, setGames] = useState<Game[]>([]);
+  const [platforms, setPlatforms] = useState<GamePlatform[]>([]);
   const [onlineFriendProfiles, setOnlineFriendProfiles] = useState<OnlineFriend[]>([]);
   const [savedPostState, setSavedPostState] = useState(() => ({
     ids: readSavedPostIds(savedPostStorageKey),
@@ -696,14 +730,19 @@ export default function SocialFeedPage() {
 
     async function loadGames() {
       try {
-        const loadedGames = await gameService.getGames();
+        const [loadedGames, loadedPlatforms] = await Promise.all([
+          socialService.getComposerGames(),
+          socialService.getComposerPlatforms(),
+        ]);
 
         if (isMounted) {
-          setGames(loadedGames);
+          setGames(normalizeList<Game>(loadedGames));
+          setPlatforms(normalizeList<GamePlatform>(loadedPlatforms));
         }
       } catch {
         if (isMounted) {
           setGames([]);
+          setPlatforms([]);
         }
       }
     }
@@ -780,13 +819,6 @@ export default function SocialFeedPage() {
 
       try {
         const currentSavedPostIds = savedPostIdsRef.current;
-
-        if (activeTab === "news") {
-          if (!isMounted) return;
-
-          setPosts([]);
-          return;
-        }
 
         if (activeTab === "market") {
           const lookingForPlayerPosts =
@@ -884,6 +916,10 @@ export default function SocialFeedPage() {
           });
         }
 
+        if (activeTab === "news") {
+          nextPosts = nextPosts.filter(isGameNewsPost);
+        }
+
         if (activeTab === "saved") {
           const savedLookingForPlayerPosts = lookingForPlayerPosts
               .map((post) =>
@@ -970,10 +1006,15 @@ export default function SocialFeedPage() {
         mediaUrls: uploadResponses.map((response) => response.imageUrl),
         visibility: "PUBLIC",
       });
+      const mappedPost = mapBackendPostToSocialPost(
+          createdPost,
+          currentUser,
+          user?.userId,
+      );
 
-      setActiveTab("all");
+      setActiveTab(isGameNewsPost(mappedPost) ? "news" : "all");
       setPosts((currentPosts) => [
-        mapBackendPostToSocialPost(createdPost, currentUser, user?.userId),
+        mappedPost,
         ...currentPosts.filter((post) => post.source !== "mock"),
       ]);
     } catch (error) {
@@ -1494,6 +1535,7 @@ export default function SocialFeedPage() {
           <main className="space-y-5">
             <SocialComposer
                 games={games}
+                platforms={platforms}
                 isSubmitting={isSubmittingPost}
                 onCreateLookingForPlayer={handleCreateLookingForPlayer}
                 onSubmit={handleCreatePost}

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Earth,
   FastForward,
+  Gamepad2,
   Heart,
   Maximize2,
   MessageCircle,
@@ -16,6 +17,7 @@ import {
   Rewind,
   Share2,
   Smile,
+  Tag,
   ThumbsUp,
   UserPlus,
   UserRoundPlus,
@@ -84,6 +86,20 @@ interface ParsedPollContent {
   question: string;
 }
 
+interface ParsedGameContent {
+  body: string;
+  title: string;
+}
+
+interface ParsedListingContent {
+  description: string;
+  details: Array<{
+    label: string;
+    value: string;
+  }>;
+  title: string;
+}
+
 interface FullscreenVideoElement extends HTMLVideoElement {
   webkitEnterFullscreen?: () => void;
 }
@@ -110,6 +126,55 @@ function parsePollContent(content: string): ParsedPollContent | null {
       .trim();
 
   return question && options.length >= 2 ? { body, options, question } : null;
+}
+
+function parseGameContent(content: string): ParsedGameContent | null {
+  const lines = content.split("\n");
+  const firstLine = lines[0]?.trim();
+
+  if (!firstLine?.startsWith("Oyun:")) return null;
+
+  const title = firstLine.replace(/^Oyun:\s*/, "").trim();
+  const body = lines.slice(1).join("\n").trim();
+
+  return title ? { body, title } : null;
+}
+
+function parseListingContent(content: string): ParsedListingContent | null {
+  const lines = content.split("\n");
+  const firstLine = lines[0]?.trim();
+
+  if (!firstLine?.startsWith("İlan:")) return null;
+
+  const title = firstLine.replace(/^İlan:\s*/, "").trim();
+  const detailLine = lines.find((line) => line.includes("Platform:"));
+  const details =
+      detailLine
+          ?.split(" · ")
+          .map((part) => {
+            const normalizedPart = part.trim();
+
+            if (normalizedPart === "Mikrofon gerekli") {
+              return {
+                label: "Mikrofon",
+                value: "Gerekli",
+              };
+            }
+
+            const [label, ...valueParts] = part.split(":");
+            return {
+              label: label?.trim() ?? "",
+              value: valueParts.join(":").trim(),
+            };
+          })
+          .filter((detail) => detail.label && detail.value) ?? [];
+  const description = lines
+      .slice(1)
+      .filter((line) => line !== detailLine)
+      .join("\n")
+      .trim();
+
+  return title ? { description, details, title } : null;
 }
 
 function formatVideoTime(seconds: number): string {
@@ -190,6 +255,9 @@ export function SocialPostCard({
       currentUserId !== post.authorUserId;
   const canUsePostActions = post.source === "backend" && typeof post.id === "number";
   const pollContent = parsePollContent(post.content);
+  const gameContent = pollContent ? null : parseGameContent(post.content);
+  const listingContent =
+      pollContent || gameContent ? null : parseListingContent(post.content);
   const videoProgressPercent = videoDuration
       ? Math.min(100, Math.max(0, (videoCurrentTime / videoDuration) * 100))
       : 0;
@@ -743,6 +811,62 @@ export function SocialPostCard({
                   );
                 })}
               </div>
+            </section>
+        ) : gameContent ? (
+            <section className="mt-4 overflow-hidden rounded-lg border border-violet-300/20 bg-violet-500/[0.07]">
+              <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-500/20 text-violet-100">
+                  <Gamepad2 size={19} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-black text-white">
+                    {gameContent.title}
+                  </h3>
+                </div>
+              </div>
+              {gameContent.body && (
+                  <p className="whitespace-pre-line px-4 py-3 text-[15px] leading-7 text-zinc-100">
+                    {gameContent.body}
+                  </p>
+              )}
+            </section>
+        ) : listingContent ? (
+            <section className="mt-4 overflow-hidden rounded-lg border border-emerald-300/20 bg-emerald-500/[0.06]">
+              <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/20 text-emerald-100">
+                  <Tag size={18} />
+                </span>
+                <div className="min-w-0">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-200">
+                    Oyuncu İlanı
+                  </span>
+                  <h3 className="truncate text-base font-black text-white">
+                    {listingContent.title}
+                  </h3>
+                </div>
+              </div>
+              {listingContent.description && (
+                  <p className="whitespace-pre-line px-4 py-3 text-[15px] leading-7 text-zinc-100">
+                    {listingContent.description}
+                  </p>
+              )}
+              {listingContent.details.length > 0 && (
+                  <div className="grid border-t border-white/10 sm:grid-cols-2">
+                    {listingContent.details.map((detail) => (
+                        <div
+                            className="border-white/10 px-4 py-3 text-sm odd:border-r"
+                            key={`${detail.label}-${detail.value}`}
+                        >
+                          <span className="block text-[11px] font-black uppercase tracking-wider text-zinc-500">
+                            {detail.label}
+                          </span>
+                          <span className="mt-1 block font-semibold text-zinc-100">
+                            {detail.value}
+                          </span>
+                        </div>
+                    ))}
+                  </div>
+              )}
             </section>
         ) : (
             <p className="mt-4 whitespace-pre-line text-[15px] leading-7 text-zinc-100">

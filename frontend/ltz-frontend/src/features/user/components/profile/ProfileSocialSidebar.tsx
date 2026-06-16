@@ -5,12 +5,6 @@ import { UserAvatar } from "../UserAvatar";
 import type { ProfileIdentity } from "../../hooks/useProfileIdentities";
 import { SectionPanel } from "./ProfilePrimitives";
 
-type FriendRequest = {
-  id: number;
-  senderUserId?: number;
-  receiverUserId?: number;
-};
-
 type ProfileSocialSidebarProps = {
   socialError: string | null;
   socialDataLoading: boolean;
@@ -22,13 +16,6 @@ type ProfileSocialSidebarProps = {
     following: Map<number, ProfileIdentity>;
     friends: Map<number, ProfileIdentity>;
   };
-  isOwnProfile: boolean;
-  friendRequests: {
-    incoming: FriendRequest[];
-    outgoing: FriendRequest[];
-  };
-  friendRequestIdentities: Map<number, ProfileIdentity>;
-  onFriendRequestAction: (requestId: number, action: "accept" | "reject" | "cancel") => void;
   onOpenList: (title: string, group: Map<number, ProfileIdentity>) => void;
 };
 
@@ -39,10 +26,6 @@ export function ProfileSocialSidebar({
   showFollowing,
   showFriends,
   socialIdentityGroups,
-  isOwnProfile,
-  friendRequests,
-  friendRequestIdentities,
-  onFriendRequestAction,
   onOpenList,
 }: ProfileSocialSidebarProps) {
   const navigate = useNavigate();
@@ -57,7 +40,7 @@ export function ProfileSocialSidebar({
     showFriends ? { title: "Arkadaşlar", group: socialIdentityGroups.friends } : null,
   ].filter(Boolean) as { title: string; group: Map<number, ProfileIdentity> }[];
 
-  if (!sections.length && !isOwnProfile) return null;
+  if (!sections.length) return null;
 
   return (
     <SectionPanel description="Takipçi, takip ve arkadaş önizlemesi." title="Sosyal Bağlantılar">
@@ -111,71 +94,6 @@ export function ProfileSocialSidebar({
           ))}
         </div>
       )}
-
-      {isOwnProfile ? (
-        <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Arkadaşlık İstekleri
-          </h4>
-          <div className="grid gap-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-              <p className="text-sm font-semibold text-zinc-300">
-                Gelen ({friendRequests.incoming.length})
-              </p>
-              <div className="mt-2 space-y-2">
-                {friendRequests.incoming.slice(0, 3).map((request) => {
-                  const identity = friendRequestIdentities.get(request.senderUserId ?? 0);
-                  const label = identity?.displayName ?? `#${request.senderUserId}`;
-                  return (
-                    <div className="flex items-center justify-between text-sm" key={request.id}>
-                      <span className="truncate">{label}</span>
-                      <div className="flex gap-1">
-                        <button
-                          className="rounded bg-emerald-500/20 px-2 py-1 text-xs text-emerald-300"
-                          onClick={() => onFriendRequestAction(request.id, "accept")}
-                          type="button"
-                        >
-                          Kabul
-                        </button>
-                        <button
-                          className="rounded bg-rose-500/20 px-2 py-1 text-xs text-rose-300"
-                          onClick={() => onFriendRequestAction(request.id, "reject")}
-                          type="button"
-                        >
-                          Red
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-              <p className="text-sm font-semibold text-zinc-300">
-                Giden ({friendRequests.outgoing.length})
-              </p>
-              <div className="mt-2 space-y-2">
-                {friendRequests.outgoing.slice(0, 3).map((request) => {
-                  const identity = friendRequestIdentities.get(request.receiverUserId ?? 0);
-                  const label = identity?.displayName ?? `#${request.receiverUserId}`;
-                  return (
-                    <div className="flex items-center justify-between text-sm" key={request.id}>
-                      <span className="truncate">{label}</span>
-                      <button
-                        className="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-300"
-                        onClick={() => onFriendRequestAction(request.id, "cancel")}
-                        type="button"
-                      >
-                        İptal
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </SectionPanel>
   );
 }

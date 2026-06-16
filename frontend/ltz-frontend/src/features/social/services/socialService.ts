@@ -1,6 +1,7 @@
 import axiosClient, { apiClient } from "../../../lib/axios";
 import type { AxiosProgressEvent } from "axios";
 import { SOCIAL_API_ENDPOINTS } from "../../../lib/constants";
+import type { Game, GameFilters, GamePlatform } from "../../game/types/gameTypes";
 import type {
   BlockUserRequest,
   ChatRoomCreateRequest,
@@ -25,7 +26,24 @@ import type {
   UserBlockResponse,
 } from "../types/social.types";
 
+const socialGameClient = {
+  getGames: (options: { includeSystemRequirementOnly?: boolean } = {}) =>
+    apiClient.get<Game[]>(SOCIAL_API_ENDPOINTS.gameCatalogGames, options),
+
+  filterGames: (filters: GameFilters = {}) =>
+    apiClient.get<Game[]>(SOCIAL_API_ENDPOINTS.gameCatalogGames, filters),
+
+  getPlatforms: () =>
+    apiClient.get<GamePlatform[]>(SOCIAL_API_ENDPOINTS.gameCatalogPlatforms),
+};
+
 export const socialService = {
+  getComposerGames: socialGameClient.getGames,
+
+  filterComposerGames: socialGameClient.filterGames,
+
+  getComposerPlatforms: socialGameClient.getPlatforms,
+
   uploadImage: async (
     file: File,
     onUploadProgress?: (event: AxiosProgressEvent) => void,
