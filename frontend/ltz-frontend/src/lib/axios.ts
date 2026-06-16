@@ -2,8 +2,8 @@ import axios from "axios";
 import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 import { API_BASE_URL, AUTH_ENDPOINTS, ROUTES } from "./constants";
+import { clearAuth } from "../store/authStore";
 import {
-  clearAuthStorage,
   getAccessToken,
   getRefreshToken,
   setTokens,
@@ -98,34 +98,40 @@ axiosClient.interceptors.response.use(
       status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
-      !isAuthEndpoint(originalRequest.url) &&
-      getRefreshToken()
+      !isAuthEndpoint(originalRequest.url)
     ) {
-      originalRequest._retry = true;
+      if (getRefreshToken()) {
+        originalRequest._retry = true;
 
-      try {
-        if (!refreshPromise) {
-          refreshPromise = requestNewAccessToken().finally(() => {
-            refreshPromise = null;
-          });
+        try {
+          if (!refreshPromise) {
+            refreshPromise = requestNewAccessToken().finally(() => {
+              refreshPromise = null;
+            });
+          }
+
+          const newToken = await refreshPromise;
+
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return axiosClient(originalRequest);
+        } catch (refreshError) {
+          clearAuth();
+
+          if (window.location.pathname !== ROUTES.login) {
+            window.location.href = ROUTES.login;
+          }
+
+          return Promise.reject(refreshError);
         }
-
-        const newToken = await refreshPromise;
-
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return axiosClient(originalRequest);
-      } catch (refreshError) {
-        /*
-         * Refresh başarısız: oturumu temizle ve login'e yönlendir.
-         */
-        clearAuthStorage();
-
-        if (window.location.pathname !== ROUTES.login) {
-          window.location.href = ROUTES.login;
-        }
-
-        return Promise.reject(refreshError);
       }
+
+      clearAuth();
+
+      if (window.location.pathname !== ROUTES.login) {
+        window.location.href = ROUTES.login;
+      }
+
+      return Promise.reject(error);
     }
 
     return Promise.reject(error);

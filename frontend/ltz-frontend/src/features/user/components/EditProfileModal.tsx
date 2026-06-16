@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useToast } from "../../../components/ui/toastContext";
 import { userService } from "../services/userService";
 import type { UserProfileResponse } from "../types/user";
+import { BIO_MAX_LENGTH } from "../types/user";
 import { X, Camera, Plus, Trash2, Check, AlertCircle } from "lucide-react";
 import { useBodyScrollLock } from "../../../hooks/useBodyScrollLock";
 import { DEFAULT_PROFILE_COVER, getImageUrl, isImageValid, PROFILE_IMAGE_ACCEPT, PROFILE_IMAGE_MAX_MB } from "../utils/profileImage";
@@ -297,14 +298,20 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
 
           {/* Bio */}
           <div>
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest">Biyografi (Bio)</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest text-zinc-400">
+              Biyografi
+            </label>
             <textarea
               value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={3}
+              onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX_LENGTH))}
+              maxLength={BIO_MAX_LENGTH}
+              rows={4}
               placeholder="Kendinden bahset..."
-              className="mt-2 w-full rounded-xl border border-violet-500/25 bg-slate-950/70 px-4 py-2.5 text-sm text-zinc-100 focus:border-violet-500/50 focus:bg-slate-950/90 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all duration-200 resize-none"
+              className="mt-2 w-full resize-none rounded-xl border border-violet-500/25 bg-slate-950/70 px-4 py-2.5 text-sm text-zinc-100 transition-all duration-200 focus:border-violet-500/50 focus:bg-slate-950/90 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
             />
+            <p className="mt-1 text-right text-[10px] text-zinc-500">
+              {bio.length}/{BIO_MAX_LENGTH}
+            </p>
           </div>
 
           {/* Favorite Categories Tag Input */}

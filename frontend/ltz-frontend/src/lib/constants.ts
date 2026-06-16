@@ -126,6 +126,10 @@ export const USER_API_ENDPOINTS = {
   upload: "/api/users/profile/upload",
   auditLogs: "/api/users/audit-logs",
   batch: "/api/users/profiles/batch",
+  adminBadgeCatalog: "/api/users/admin/badges/catalog",
+  adminUserBadges: (userId: string) => `/api/users/admin/${userId}/badges`,
+  adminUserBadge: (userId: string, badgeKey: string) =>
+    `/api/users/admin/${userId}/badges/${badgeKey}`,
 } as const;
 
 

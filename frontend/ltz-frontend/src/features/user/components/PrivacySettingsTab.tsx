@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useToast } from "../../../components/ui/toastContext";
 import { userService } from "../services/userService";
 import type { PrivacySettingsResponse, VisibilityLevel } from "../types/user";
-import { Eye, Shield, Cpu, Users } from "lucide-react";
+import { Clock, Eye, Shield, Cpu, Users, UserPlus } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -33,9 +33,25 @@ const SECTIONS = [
     key: "friendListVisibility" as const,
     title: "Arkadaş Listesi",
     description:
-      "Profilinizde ekli olan arkadaşlarınızın listenin diğer kullanıcılar tarafından aranabilirliğini ayarlar.",
+      "Profilinizde ekli olan arkadaşlarınızın listenin diğer kullanıcılar tarafından görülebilirliğini ayarlar.",
     icon: Users,
     iconClass: "text-emerald-400",
+  },
+  {
+    key: "followerListVisibility" as const,
+    title: "Takipçi Listesi",
+    description:
+      "Takipçi listenizin profilinizde başkaları tarafından görüntülenip görüntülenmeyeceğini belirler.",
+    icon: UserPlus,
+    iconClass: "text-cyan-400",
+  },
+  {
+    key: "lastSeenVisibility" as const,
+    title: "Son Görülme",
+    description:
+      "Profilinizde son görülme zamanınızın diğer kullanıcılara gösterilip gösterilmeyeceğini ayarlar.",
+    icon: Clock,
+    iconClass: "text-amber-400",
   },
 ] as const;
 
@@ -72,7 +88,7 @@ export const PrivacySettingsTab: React.FC = () => {
 
   const handleUpdate = async (
     field: keyof Omit<PrivacySettingsResponse, "userId">,
-    value: VisibilityLevel
+    value: VisibilityLevel,
   ) => {
     if (!settings) return;
 
@@ -84,6 +100,8 @@ export const PrivacySettingsTab: React.FC = () => {
         gameLibraryVisibility: updatedSettings.gameLibraryVisibility,
         hardwareVisibility: updatedSettings.hardwareVisibility,
         friendListVisibility: updatedSettings.friendListVisibility,
+        followerListVisibility: updatedSettings.followerListVisibility,
+        lastSeenVisibility: updatedSettings.lastSeenVisibility,
       });
       setSettings(result);
       showToast("Gizlilik ayarları başarıyla güncellendi.", "success");
@@ -101,45 +119,50 @@ export const PrivacySettingsTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold text-white tracking-wide">Gizlilik Tercihleri</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-lg font-semibold tracking-wide text-white">Gizlilik Tercihleri</h2>
+        <p className="text-sm leading-relaxed text-zinc-400">
           Uygulama genelinde profilinizin ve verilerinizin görünürlük düzeyini kendinize göre özelleştirin.
+        </p>
+        <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-200/90">
+          &quot;Sadece arkadaşlar&quot; seçeneği şu an güvenli modda çalışır: arkadaş olmayan kullanıcılar
+          bu bilgileri göremez. Tam arkadaş kontrolü yakında eklenecek.
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {settings &&
           SECTIONS.map((section) => {
             const Icon = section.icon;
             return (
               <div
+                className="flex flex-col gap-4 rounded-xl border border-violet-500/10 bg-slate-950/45 p-4"
                 key={section.key}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-violet-500/10 bg-slate-950/45 p-5"
               >
-                <div className="flex gap-4">
-                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900/60 border border-violet-500/20">
-                    <Icon className={`h-5 w-5 ${section.iconClass}`} />
+                <div className="flex gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-slate-900/60">
+                    <Icon className={`h-4 w-4 ${section.iconClass}`} />
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white tracking-wide">{section.title}</h3>
-                    <p className="text-xs text-zinc-400 mt-1 max-w-xl leading-relaxed">{section.description}</p>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold tracking-wide text-white">{section.title}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-400">{section.description}</p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 shrink-0 self-start md:self-center">
+                <div className="grid grid-cols-1 gap-2">
                   {VISIBILITY_OPTIONS.map((opt) => {
                     const isActive = settings[section.key] === opt.value;
                     return (
                       <button
+                        className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-xs font-bold tracking-wide transition-colors ${
+                          isActive
+                            ? "border-violet-500 bg-violet-500/15 text-violet-200"
+                            : "border-zinc-800 bg-slate-900 text-zinc-500 hover:border-violet-500/40 hover:text-zinc-200"
+                        }`}
                         key={opt.value}
                         onClick={() => void handleUpdate(section.key, opt.value)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider transition-colors border cursor-pointer ${
-                          isActive
-                            ? "bg-violet-500/15 border-violet-500 text-violet-200"
-                            : "bg-slate-900 border-zinc-800 text-zinc-500 hover:border-violet-500/40 hover:text-zinc-200"
-                        }`}
+                        type="button"
                       >
                         {opt.label}
                       </button>

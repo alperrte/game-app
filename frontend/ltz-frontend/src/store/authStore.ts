@@ -11,6 +11,7 @@ import type { AuthResponse, AuthUser } from "../features/auth/types/auth.types";
 import { STORAGE_KEYS } from "../lib/constants";
 import {
     clearAuthStorage,
+    getAccessToken,
     getStoredUser,
     setStoredUser,
     setTokens,
@@ -23,10 +24,17 @@ interface AuthState {
 
 type Listener = () => void;
 
-let state: AuthState = {
-    user: getStoredUser(),
-    isAuthenticated: Boolean(getStoredUser()),
-};
+function readAuthState(): AuthState {
+    const token = getAccessToken();
+    const user = token ? getStoredUser() : null;
+
+    return {
+        user,
+        isAuthenticated: Boolean(token),
+    };
+}
+
+let state: AuthState = readAuthState();
 
 const listeners = new Set<Listener>();
 

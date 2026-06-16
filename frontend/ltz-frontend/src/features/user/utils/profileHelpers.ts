@@ -1,11 +1,22 @@
 export const getYouTubeVideoId = (url: string | null | undefined): string | null => {
   if (!url) return null;
-  const regExp = /^.*(?:youtu\.be\/|v\/|embed\/|watch\?v=|&v=)([^#&?]{11})/;
-  const match = url.match(regExp);
-  if (match?.[1]) return match[1];
-  if (url.trim().length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(url.trim())) {
-    return url.trim();
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  const patterns = [
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|watch\?v=|watch\?.+&v=))([^#&?]{11})/,
+    /music\.youtube\.com\/watch\?v=([^#&?]{11})/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = trimmed.match(pattern);
+    if (match?.[1]) return match[1];
   }
+
+  if (trimmed.length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+
   return null;
 };
 

@@ -3,14 +3,18 @@ package com.ltz.user_service.service;
 import com.ltz.user_service.dto.request.ConnectedAccountRequest;
 import com.ltz.user_service.dto.request.PrivacySettingsRequest;
 import com.ltz.user_service.dto.request.UserProfileRequest;
+import com.ltz.user_service.dto.response.AssignedBadgeResponse;
 import com.ltz.user_service.dto.response.ConnectedAccountResponse;
 import com.ltz.user_service.dto.response.PrivacySettingsResponse;
+import com.ltz.user_service.dto.response.ProfileSectionVisibility;
 import com.ltz.user_service.dto.response.UserProfileResponse;
 import com.ltz.user_service.entity.ConnectedAccount;
 import com.ltz.user_service.entity.PrivacySettings;
+import com.ltz.user_service.entity.UserAssignedBadge;
 import com.ltz.user_service.entity.UserProfile;
 import com.ltz.user_service.repository.ConnectedAccountRepository;
 import com.ltz.user_service.repository.PrivacySettingsRepository;
+import com.ltz.user_service.repository.UserAssignedBadgeRepository;
 import com.ltz.user_service.repository.UserProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +23,9 @@ import com.ltz.user_service.exception.BadRequestException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.Authentication;
 import com.ltz.user_service.security.JwtUserPrincipal;
+import com.ltz.user_service.util.ClientRequestContext;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -48,16 +54,19 @@ public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final PrivacySettingsRepository privacySettingsRepository;
     private final ConnectedAccountRepository connectedAccountRepository;
+    private final UserAssignedBadgeRepository userAssignedBadgeRepository;
     private final AuditLogService auditLogService;
 
     // Dependency Injection (Constructor Injection) kullanılmıştır.
     public UserProfileService(UserProfileRepository userProfileRepository,
                               PrivacySettingsRepository privacySettingsRepository,
                               ConnectedAccountRepository connectedAccountRepository,
+                              UserAssignedBadgeRepository userAssignedBadgeRepository,
                               AuditLogService auditLogService) {
         this.userProfileRepository = userProfileRepository;
         this.privacySettingsRepository = privacySettingsRepository;
         this.connectedAccountRepository = connectedAccountRepository;
+        this.userAssignedBadgeRepository = userAssignedBadgeRepository;
         this.auditLogService = auditLogService;
     }
 
@@ -79,7 +88,7 @@ public class UserProfileService {
             }
         }
 
-        return mapToProfileResponse(profile);
+        return mapToProfileResponse(profile, currentUserId);
     }
 
     @Transactional(readOnly = true)
@@ -96,7 +105,7 @@ public class UserProfileService {
             }
         }
 
-        return mapToProfileResponse(profile);
+        return mapToProfileResponse(profile, currentUserId);
     }
 
     private String getCurrentUserId() {
@@ -105,6 +114,32 @@ public class UserProfileService {
             return ((JwtUserPrincipal) auth.getPrincipal()).userId().toString();
         }
         return null;
+    }
+
+    @Transactional
+    public void touchLastSeenIfNeeded(String userId) {
+        userProfileRepository.findByUserId(userId).ifPresent(profile -> {
+            LocalDateTime now = LocalDateTime.now();
+            if (profile.getLastSeenAt() == null
+                    || profile.getLastSeenAt().isBefore(now.minusMinutes(5))) {
+                profile.setLastSeenAt(now);
+                userProfileRepository.save(profile);
+            }
+        });
+    }
+
+    @Transactional
+    public void syncRoleFromJwt(String userId, String role) {
+        if (role == null || role.isBlank()) {
+            return;
+        }
+        String normalized = role.toUpperCase().replace("ROLE_", "");
+        userProfileRepository.findByUserId(userId).ifPresent(profile -> {
+            if (!normalized.equals(profile.getRole())) {
+                profile.setRole(normalized);
+                userProfileRepository.save(profile);
+            }
+        });
     }
 
 
@@ -116,7 +151,7 @@ public class UserProfileService {
      *   arka planda otomatik olarak oluşturulur ve kaydedilir.
      */
     @Transactional
-    public UserProfileResponse createOrUpdateProfile(String userId, String username, String email, UserProfileRequest request, String ipAddress) {
+    public UserProfileResponse createOrUpdateProfile(String userId, String username, String email, UserProfileRequest request, ClientRequestContext context) {
         boolean isNew = !userProfileRepository.findByUserId(userId).isPresent();
 
         // Profil varsa bul, yoksa veritabanına eklemek üzere yeni bir UserProfile modeli inşa et
@@ -149,7 +184,7 @@ public class UserProfileService {
 
         // Asenkron Audit Loglama
         String details = isNew ? "Profile initialized for user " + username : "Profile fields updated";
-        auditLogService.log(userId, isNew ? "CREATE_PROFILE" : "UPDATE_PROFILE", details, ipAddress);
+        auditLogService.log(userId, isNew ? "CREATE_PROFILE" : "UPDATE_PROFILE", details, context);
 
         return mapToProfileResponse(saved);
     }
@@ -169,7 +204,7 @@ public class UserProfileService {
      * Kullanıcının gizlilik ayarlarını günceller.
      */
     @Transactional
-    public PrivacySettingsResponse updatePrivacySettings(String userId, PrivacySettingsRequest request, String ipAddress) {
+    public PrivacySettingsResponse updatePrivacySettings(String userId, PrivacySettingsRequest request, ClientRequestContext context) {
         PrivacySettings settings = privacySettingsRepository.findByUserId(userId)
                 .orElseGet(() -> PrivacySettings.builder().userId(userId).build());
 
@@ -177,11 +212,13 @@ public class UserProfileService {
         if (request.getGameLibraryVisibility() != null) settings.setGameLibraryVisibility(request.getGameLibraryVisibility());
         if (request.getHardwareVisibility() != null) settings.setHardwareVisibility(request.getHardwareVisibility());
         if (request.getFriendListVisibility() != null) settings.setFriendListVisibility(request.getFriendListVisibility());
+        if (request.getFollowerListVisibility() != null) settings.setFollowerListVisibility(request.getFollowerListVisibility());
+        if (request.getLastSeenVisibility() != null) settings.setLastSeenVisibility(request.getLastSeenVisibility());
 
         PrivacySettings saved = privacySettingsRepository.save(settings);
 
         // Asenkron Audit Loglama
-        auditLogService.log(userId, "UPDATE_PRIVACY", "Privacy settings modified", ipAddress);
+        auditLogService.log(userId, "UPDATE_PRIVACY", "Privacy settings modified", context);
 
         return mapToPrivacyResponse(saved);
     }
@@ -204,7 +241,7 @@ public class UserProfileService {
      * - Eşsizlik kısıtlaması nedeniyle veritabanı duplicate kaydı reddeder ve GlobalExceptionHandler yakalar.
      */
     @Transactional
-    public ConnectedAccountResponse connectAccount(String userId, ConnectedAccountRequest request, String ipAddress) {
+    public ConnectedAccountResponse connectAccount(String userId, ConnectedAccountRequest request, ClientRequestContext context) {
         Optional<ConnectedAccount> existing = connectedAccountRepository
                 .findByUserIdAndPlatformName(userId, request.getPlatformName().toUpperCase());
 
@@ -229,7 +266,7 @@ public class UserProfileService {
 
         // Asenkron Audit Loglama
         auditLogService.log(userId, isNew ? "CONNECT_ACCOUNT" : "UPDATE_CONNECTED_ACCOUNT",
-                "Linked platform: " + request.getPlatformName().toUpperCase(), ipAddress);
+                "Linked platform: " + request.getPlatformName().toUpperCase(), context);
 
         return mapToConnectedAccountResponse(saved);
     }
@@ -242,7 +279,7 @@ public class UserProfileService {
      * - Yetkisiz silme denemelerinde BadRequestException fırlatılır.
      */
     @Transactional
-    public void disconnectAccount(String userId, Long id, String ipAddress) {
+    public void disconnectAccount(String userId, Long id, ClientRequestContext context) {
         ConnectedAccount account = connectedAccountRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Connected account not found"));
 
@@ -254,7 +291,7 @@ public class UserProfileService {
         connectedAccountRepository.delete(account);
 
         // Asenkron Audit Loglama
-        auditLogService.log(userId, "DISCONNECT_ACCOUNT", "Disconnected platform: " + account.getPlatformName(), ipAddress);
+        auditLogService.log(userId, "DISCONNECT_ACCOUNT", "Disconnected platform: " + account.getPlatformName(), context);
     }
 
     // ==========================================
@@ -263,14 +300,59 @@ public class UserProfileService {
     // ==========================================
 
     private UserProfileResponse mapToProfileResponse(UserProfile profile) {
+        return mapToProfileResponse(profile, getCurrentUserId());
+    }
+
+    private boolean isVisibilityAllowedForViewer(String visibility, boolean isOwner) {
+        if (isOwner) {
+            return true;
+        }
+        if (visibility == null || "PUBLIC".equalsIgnoreCase(visibility)) {
+            return true;
+        }
+        return false;
+    }
+
+    private UserProfileResponse mapToProfileResponse(UserProfile profile, String viewerUserId) {
+        boolean isOwner = viewerUserId != null && viewerUserId.equals(profile.getUserId());
+        PrivacySettings settings = privacySettingsRepository.findByUserId(profile.getUserId()).orElse(null);
+
+        boolean showHardware = isVisibilityAllowedForViewer(
+                settings != null ? settings.getHardwareVisibility() : "PUBLIC", isOwner);
+        boolean showFriendList = isVisibilityAllowedForViewer(
+                settings != null ? settings.getFriendListVisibility() : "PUBLIC", isOwner);
+        boolean showFollowerList = isVisibilityAllowedForViewer(
+                settings != null ? settings.getFollowerListVisibility() : "PUBLIC", isOwner);
+        boolean showLastSeen = isVisibilityAllowedForViewer(
+                settings != null ? settings.getLastSeenVisibility() : "PUBLIC", isOwner);
+        boolean showGameLibrary = isVisibilityAllowedForViewer(
+                settings != null ? settings.getGameLibraryVisibility() : "PUBLIC", isOwner);
+
+        ProfileSectionVisibility sectionVisibility = ProfileSectionVisibility.builder()
+                .showHardware(showHardware)
+                .showFriendList(showFriendList)
+                .showFollowerList(showFollowerList)
+                .showLastSeen(showLastSeen || isOwner)
+                .showGameLibrary(showGameLibrary)
+                .build();
+
         List<ConnectedAccountResponse> connected = connectedAccountRepository.findByUserId(profile.getUserId()).stream()
                 .map(this::mapToConnectedAccountResponse)
+                .collect(Collectors.toList());
+
+        List<AssignedBadgeResponse> assignedBadges = userAssignedBadgeRepository.findByUserId(profile.getUserId()).stream()
+                .map(badge -> AssignedBadgeResponse.builder()
+                        .badgeKey(badge.getBadgeKey())
+                        .label(badge.getLabel())
+                        .assignedBy(badge.getAssignedBy())
+                        .assignedAt(badge.getAssignedAt())
+                        .build())
                 .collect(Collectors.toList());
 
         return UserProfileResponse.builder()
                 .userId(profile.getUserId())
                 .username(profile.getUsername())
-                .email(profile.getEmail())
+                .email(isOwner ? profile.getEmail() : null)
                 .displayName(profile.getDisplayName())
                 .bio(profile.getBio())
                 .avatarUrl(profile.getAvatarUrl())
@@ -280,11 +362,15 @@ public class UserProfileService {
                 .profileThemeUrl(profile.getProfileThemeUrl())
                 .profileBackgroundUrl(profile.getProfileBackgroundUrl())
                 .profileMusicUrl(profile.getProfileMusicUrl())
-                .hardwareCpu(profile.getHardwareCpu())
-                .hardwareGpu(profile.getHardwareGpu())
-                .hardwareRam(profile.getHardwareRam())
-                .hardwareOs(profile.getHardwareOs())
+                .hardwareCpu(showHardware ? profile.getHardwareCpu() : null)
+                .hardwareGpu(showHardware ? profile.getHardwareGpu() : null)
+                .hardwareRam(showHardware ? profile.getHardwareRam() : null)
+                .hardwareOs(showHardware ? profile.getHardwareOs() : null)
                 .connectedAccounts(connected)
+                .role(profile.getRole())
+                .lastSeenAt(showLastSeen || isOwner ? profile.getLastSeenAt() : null)
+                .sectionVisibility(sectionVisibility)
+                .assignedBadges(assignedBadges)
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())
                 .build();
@@ -297,6 +383,8 @@ public class UserProfileService {
                 .gameLibraryVisibility(settings.getGameLibraryVisibility())
                 .hardwareVisibility(settings.getHardwareVisibility())
                 .friendListVisibility(settings.getFriendListVisibility())
+                .followerListVisibility(settings.getFollowerListVisibility())
+                .lastSeenVisibility(settings.getLastSeenVisibility())
                 .build();
     }
 
@@ -311,8 +399,8 @@ public class UserProfileService {
                 .build();
     }
 
-    public List<com.ltz.user_service.entity.UserAuditLog> getAuditLogs(String userId) {
-        return auditLogService.getAuditLogs(userId);
+    public List<com.ltz.user_service.dto.response.AuditLogResponse> getAuditLogs(String userId, String viewerRole) {
+        return auditLogService.getAuditLogResponses(userId, viewerRole);
     }
 
     @Transactional(readOnly = true)
@@ -350,7 +438,7 @@ public class UserProfileService {
                     }
                     return true;
                 })
-                .map(this::mapToProfileResponse)
+                .map(p -> mapToProfileResponse(p, currentUserId))
                 .collect(Collectors.toList());
     }
 }

@@ -29,6 +29,10 @@ public class UserProfileResponse {
     private String hardwareRam;
     private String hardwareOs;
     private java.util.List<ConnectedAccountResponse> connectedAccounts;
+    private String role;
+    private LocalDateTime lastSeenAt;
+    private ProfileSectionVisibility sectionVisibility;
+    private java.util.List<AssignedBadgeResponse> assignedBadges;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatSocialTime } from "../../../utils/formatSocialTime";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { useAuthStore } from "../../../store/authStore";
 import { API_BASE_URL, STORAGE_KEYS } from "../../../lib/constants";
+import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
+import { getImageUrl, isImageValid } from "../../user/utils/profileImage";
 import { gameService } from "../../game/services/gameService";
 import type { Game } from "../../game/types/gameTypes";
 import { userService } from "../../user/services/userService";
@@ -29,181 +31,9 @@ import type {
   SuggestedGroup,
 } from "../types/social.types";
 
-const avatarBase =
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
-
-const currentUserFallback: SocialUser = {
-  name: "Arda Demir",
-  username: "ArdaDemir",
-  avatarUrl: avatarBase,
-  level: 24,
-  verified: true,
-  status: "online",
-};
-
-const mockPosts: SocialPost[] = [
-  {
-    id: "post-cyberpunk",
-    authorUserId: 100,
-    author: {
-      name: "LunaWolf",
-      username: "lunawolf",
-      avatarUrl:
-        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80",
-      verified: true,
-    },
-    createdAt: "2 saat önce",
-    visibility: "public",
-    content:
-      "Cyberpunk 2077 2.12 güncellemesi gerçekten oyunu bambaşka bir seviyeye taşımış.\nGece şehirde dolaşmak apayrı bir his!",
-    media: [
-      {
-        url: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1200&q=85",
-        alt: "Neon ışıklı gece şehri",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=600&q=80",
-        alt: "Gelecek temalı oyun karakteri",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80",
-        alt: "Oyun salonu",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80",
-        alt: "Oyun kontrolcüsü",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80",
-        alt: "Karanlık oyun atmosferi",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?auto=format&fit=crop&w=600&q=80",
-        alt: "Konsol oyun gecesi",
-      },
-    ],
-    reactions: {
-      likes: 128,
-      comments: 36,
-      shares: 12,
-    },
-  },
-  {
-    id: "post-elden",
-    authorUserId: 101,
-    author: {
-      name: "xCem",
-      username: "xcem",
-      avatarUrl:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-    },
-    createdAt: "5 saat önce",
-    visibility: "public",
-    content:
-      "Elden Ring DLC incelemem yayında! Shadow of the Erdtree dünyası muazzam olmuş.",
-    media: [
-      {
-        url: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=85",
-        alt: "Fantastik karanlik kale manzarasi",
-      },
-    ],
-    reactions: {
-      likes: 86,
-      comments: 19,
-      shares: 8,
-    },
-  },
-];
-
-const suggestedGroups: SuggestedGroup[] = [
-  {
-    id: "soulslike",
-    name: "Soulslike Turkiye",
-    members: "12.3K",
-    description: "Soulslike oyunlar hakkında tartış, rehber paylaş!",
-    imageUrl:
-      "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=120&q=80",
-  },
-  {
-    id: "fps",
-    name: "FPS Oyunculari",
-    members: "8.9K",
-    description: "Rekabetçi ruhunuzu konuşturun!",
-    imageUrl:
-      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=120&q=80",
-  },
-  {
-    id: "photo",
-    name: "Oyun Fotografcilari",
-    members: "5.7K",
-    description: "En iyi oyun karelerini paylaş!",
-    imageUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=120&q=80",
-  },
-];
-
-const attendeeAvatars = [
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80",
-  "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=80&q=80",
-  "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=80&q=80",
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80",
-];
-
-const activeEvents: ActiveEvent[] = [
-  {
-    id: "valorant",
-    title: "Valorant Turnuvası #12",
-    date: { day: "24", month: "MAY", detail: "24 Mayıs, 20:00" },
-    tag: "Turnuva",
-    tagTone: "purple",
-    attendeeAvatars,
-    extraAttendees: 124,
-  },
-  {
-    id: "game-night",
-    title: "Cuma Oyun Gecesi",
-    date: { day: "25", month: "MAY", detail: "25 Mayıs, 21:00" },
-    tag: "Etkinlik",
-    tagTone: "green",
-    attendeeAvatars,
-    extraAttendees: 38,
-  },
-];
-
-const onlineFriends: OnlineFriend[] = [
-  {
-    id: "nova",
-    name: "NovaStrike",
-    statusText: "Çevrim içi",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=120&q=80",
-    status: "online",
-  },
-  {
-    id: "kaan",
-    name: "TheKaan",
-    statusText: "Oyunda",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-    status: "playing",
-  },
-  {
-    id: "blade",
-    name: "BladeRunner",
-    statusText: "Çevrim içi",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80",
-    status: "online",
-  },
-  {
-    id: "mert",
-    name: "MertBey",
-    statusText: "Çevrim içi",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80",
-    status: "online",
-  },
-];
+const EMPTY_GROUPS: SuggestedGroup[] = [];
+const EMPTY_EVENTS: ActiveEvent[] = [];
+const EMPTY_FRIENDS: OnlineFriend[] = [];
 
 function formatPostDate(dateValue: string): string {
   const date = new Date(dateValue);
@@ -251,6 +81,11 @@ function resolveMediaUrl(imageUrl: string): string {
     : `${baseUrl}/${normalizedImageUrl}`;
 }
 
+function resolveProfileAvatar(avatarUrl?: string | null): string {
+  if (!avatarUrl?.trim()) return "";
+  return isImageValid(avatarUrl) ? getImageUrl(avatarUrl) : "";
+}
+
 function resolveAuthor(
   authorUserId: number,
   currentUser: SocialUser,
@@ -270,7 +105,7 @@ function resolveAuthor(
     return {
       name: displayName,
       username: profile.username,
-      avatarUrl: profile.avatarUrl?.trim() || avatarBase,
+      avatarUrl: resolveProfileAvatar(profile.avatarUrl),
       verified: false,
     };
   }
@@ -281,7 +116,7 @@ function resolveAuthor(
     return {
       name: cachedUsername,
       username: cachedUsername,
-      avatarUrl: avatarBase,
+      avatarUrl: "",
       verified: false,
     };
   }
@@ -289,8 +124,7 @@ function resolveAuthor(
   return {
     name: `Oyuncu #${authorUserId}`,
     username: `oyuncu-${authorUserId}`,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
+    avatarUrl: "",
     verified: false,
   };
 }
@@ -315,7 +149,6 @@ function mapCommentAuthor(
             userProfiles,
             cachedUsernames,
           ),
-    likeCount: comment.likeCount ?? 0,
   };
 }
 
@@ -342,7 +175,6 @@ function mapBackendPostToSocialPost(
   currentUser: SocialUser,
   currentUserId?: number,
   followingUserIds = new Set<number>(),
-  savedPostIds = new Set<string>(),
   userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialPost {
@@ -391,7 +223,6 @@ function mapBackendPostToSocialPost(
       typeof currentUserId === "number" &&
       !isCurrentUserPost &&
       followingUserIds.has(post.userId),
-    savedByMe: savedPostIds.has(String(post.id)),
     source: "backend",
   };
 }
@@ -400,7 +231,6 @@ function mapLookingForPlayerToSocialPost(
   post: LookingForPlayerPostResponse,
   currentUser: SocialUser,
   currentUserId?: number,
-  savedPostIds = new Set<string>(),
   userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialPost {
@@ -441,7 +271,6 @@ function mapLookingForPlayerToSocialPost(
       shares: 0,
     },
     likedByMe: false,
-    savedByMe: savedPostIds.has(`looking-for-player-${post.id}`),
     source: "lookingForPlayer",
   };
 }
@@ -456,8 +285,6 @@ function getEmptyFeedMessage(activeTab: SocialFeedTab): string {
       return "Oyun haberleri modülü backend tarafında henüz yok.";
     case "market":
       return "Açık oyuncu aranıyor ilanı yok.";
-    case "saved":
-      return "Henüz kaydedilen gönderin yok.";
     default:
       return "Henüz gönderi yok. İlk gönderiyi sen paylaş.";
   }
@@ -491,34 +318,6 @@ async function loadUserProfiles(
   }
 }
 
-function getSavedPostStorageKey(userId?: number): string {
-  return `${STORAGE_KEYS.savedSocialPosts}:${userId ?? "guest"}`;
-}
-
-function readSavedPostIds(storageKey: string): Set<string> {
-  try {
-    const rawValue = localStorage.getItem(storageKey);
-    const parsedValue: unknown = rawValue ? JSON.parse(rawValue) : [];
-
-    return Array.isArray(parsedValue)
-      ? new Set(
-          parsedValue.filter(
-            (value): value is string => typeof value === "string",
-          ),
-        )
-      : new Set<string>();
-  } catch {
-    return new Set<string>();
-  }
-}
-
-function writeSavedPostIds(storageKey: string, savedPostIds: Set<string>) {
-  localStorage.setItem(
-    storageKey,
-    JSON.stringify(Array.from(savedPostIds)),
-  );
-}
-
 function readUserIdentityCache(): Map<number, string> {
   try {
     const rawValue = localStorage.getItem(STORAGE_KEYS.userIdentityCache);
@@ -542,11 +341,8 @@ function readUserIdentityCache(): Map<number, string> {
 }
 
 export default function SocialFeedPage() {
-  const { user } = useAuthStore();
-  const savedPostStorageKey = useMemo(
-    () => getSavedPostStorageKey(user?.userId),
-    [user?.userId],
-  );
+  const { user, isAuthenticated } = useAuthStore();
+  const { displayName, avatarUrl } = useCurrentUserProfile();
   const [activeTab, setActiveTab] = useState<SocialFeedTab>("all");
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
@@ -555,10 +351,6 @@ export default function SocialFeedPage() {
   const [busyPostId, setBusyPostId] = useState<number | string | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [games, setGames] = useState<Game[]>([]);
-  const [savedPostState, setSavedPostState] = useState(() => ({
-    ids: readSavedPostIds(savedPostStorageKey),
-    storageKey: savedPostStorageKey,
-  }));
   const cachedUsernames = useMemo(
     () => {
       const cache = readUserIdentityCache();
@@ -571,29 +363,23 @@ export default function SocialFeedPage() {
     },
     [user],
   );
-  const savedPostIds = useMemo(
-    () =>
-      savedPostState.storageKey === savedPostStorageKey
-        ? savedPostState.ids
-        : readSavedPostIds(savedPostStorageKey),
-    [savedPostState, savedPostStorageKey],
-  );
-  const savedPostIdsRef = useRef(savedPostIds);
 
   const currentUser = useMemo<SocialUser>(
     () => ({
-      ...currentUserFallback,
-      name: user?.username ?? currentUserFallback.name,
-      username: user?.username ?? currentUserFallback.username,
+      name: displayName,
+      username: user?.username ?? "oyuncu",
+      avatarUrl: resolveProfileAvatar(avatarUrl),
+      verified: false,
+      status: "online",
     }),
-    [user?.username],
+    [avatarUrl, displayName, user?.username],
   );
 
   useEffect(() => {
-    savedPostIdsRef.current = savedPostIds;
-  }, [savedPostIds]);
+    if (!isAuthenticated) {
+      return;
+    }
 
-  useEffect(() => {
     let isMounted = true;
 
     async function loadGames() {
@@ -615,9 +401,13 @@ export default function SocialFeedPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     let isMounted = true;
 
     async function loadPosts() {
@@ -625,8 +415,6 @@ export default function SocialFeedPage() {
       setFeedError(null);
 
       try {
-        const currentSavedPostIds = savedPostIdsRef.current;
-
         if (activeTab === "news") {
           if (!isMounted) return;
 
@@ -649,7 +437,6 @@ export default function SocialFeedPage() {
                 post,
                 currentUser,
                 user?.userId,
-                currentSavedPostIds,
                 userProfiles,
                 cachedUsernames,
               ),
@@ -658,23 +445,16 @@ export default function SocialFeedPage() {
           return;
         }
 
-        const [backendPosts, following, lookingForPlayerPosts] =
-          await Promise.all([
+        const [backendPosts, following] = await Promise.all([
           socialService.getPublicPosts(),
           user?.userId
             ? socialService.getFollowing(user.userId)
             : Promise.resolve<FollowResponse[]>([]),
-          activeTab === "saved"
-            ? socialService.getOpenLookingForPlayerPosts()
-            : Promise.resolve<LookingForPlayerPostResponse[]>([]),
         ]);
         const followingUserIds = new Set(
           following.map((follow) => follow.followingUserId),
         );
-        const userProfiles = await loadUserProfiles([
-          ...backendPosts.map((post) => post.userId),
-          ...lookingForPlayerPosts.map((post) => post.userId),
-        ]);
+        const userProfiles = await loadUserProfiles(backendPosts.map((post) => post.userId));
 
         if (!isMounted) return;
 
@@ -684,7 +464,6 @@ export default function SocialFeedPage() {
               currentUser,
               user?.userId,
               followingUserIds,
-              currentSavedPostIds,
               userProfiles,
               cachedUsernames,
             ),
@@ -709,28 +488,6 @@ export default function SocialFeedPage() {
           });
         }
 
-        if (activeTab === "saved") {
-          const savedLookingForPlayerPosts = lookingForPlayerPosts
-            .map((post) =>
-              mapLookingForPlayerToSocialPost(
-                post,
-                currentUser,
-                user?.userId,
-                currentSavedPostIds,
-                userProfiles,
-                cachedUsernames,
-              ),
-            )
-            .filter((post) => currentSavedPostIds.has(String(post.id)));
-
-          nextPosts = [
-            ...nextPosts.filter((post) =>
-              currentSavedPostIds.has(String(post.id)),
-            ),
-            ...savedLookingForPlayerPosts,
-          ];
-        }
-
         setPosts(nextPosts);
       } catch (error) {
         if (!isMounted) return;
@@ -738,10 +495,10 @@ export default function SocialFeedPage() {
         setFeedError(
           getErrorMessage(
             error,
-            "Akış yüklenemedi. Backend çalışmıyorsa örnek gönderiler gösteriliyor.",
+            "Akış yüklenemedi. Lütfen daha sonra tekrar deneyin.",
           ),
         );
-        setPosts(activeTab === "all" ? mockPosts : []);
+        setPosts([]);
       } finally {
         if (isMounted) {
           setIsLoadingPosts(false);
@@ -754,7 +511,7 @@ export default function SocialFeedPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeTab, cachedUsernames, currentUser, user?.userId]);
+  }, [activeTab, cachedUsernames, currentUser, isAuthenticated, user?.userId]);
 
   async function handleCreatePost(payload: ComposerSubmitPayload) {
     setIsSubmittingPost(true);
@@ -799,7 +556,7 @@ export default function SocialFeedPage() {
       setActiveTab("all");
       setPosts((currentPosts) => [
         mapBackendPostToSocialPost(createdPost, currentUser, user?.userId),
-        ...currentPosts.filter((post) => post.source !== "mock"),
+        ...currentPosts,
       ]);
     } catch (error) {
       setFeedError(getErrorMessage(error, "Gönderi paylaşılamadı."));
@@ -1113,33 +870,6 @@ export default function SocialFeedPage() {
     }
   }
 
-  function handleToggleSave(postId: number | string) {
-    const normalizedPostId = String(postId);
-    const nextSavedPostIds = new Set(savedPostIds);
-
-    if (nextSavedPostIds.has(normalizedPostId)) {
-      nextSavedPostIds.delete(normalizedPostId);
-    } else {
-      nextSavedPostIds.add(normalizedPostId);
-    }
-
-    writeSavedPostIds(savedPostStorageKey, nextSavedPostIds);
-    setSavedPostState({
-      ids: nextSavedPostIds,
-      storageKey: savedPostStorageKey,
-    });
-    setPosts((currentPosts) =>
-      currentPosts
-        .map((post) =>
-          post.id === postId
-            ? { ...post, savedByMe: nextSavedPostIds.has(normalizedPostId) }
-            : post,
-        )
-        .filter((post) =>
-          activeTab === "saved" ? nextSavedPostIds.has(String(post.id)) : true,
-        ),
-    );
-  }
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_28%),#050914] px-4 py-6 text-white sm:px-6 lg:px-8">
@@ -1183,7 +913,6 @@ export default function SocialFeedPage() {
                     onShare={handleSharePost}
                     onStartChat={handleStartChat}
                     onToggleFollowAuthor={handleToggleFollowAuthor}
-                    onToggleSave={handleToggleSave}
                     onToggleLike={handleToggleLike}
                     post={post}
                   />
@@ -1198,9 +927,9 @@ export default function SocialFeedPage() {
 
           <div className="hidden xl:block">
             <SocialRightPanel
-              groups={suggestedGroups}
-              events={activeEvents}
-              friends={onlineFriends}
+              groups={EMPTY_GROUPS}
+              events={EMPTY_EVENTS}
+              friends={EMPTY_FRIENDS}
             />
           </div>
         </div>

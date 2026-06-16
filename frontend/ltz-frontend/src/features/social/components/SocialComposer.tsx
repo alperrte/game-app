@@ -17,6 +17,7 @@ import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../../../components/ui/Button";
+import { UserAvatar } from "../../user/components/UserAvatar";
 import type { Game } from "../../game/types/gameTypes";
 import type {
   ComposerMediaType,
@@ -389,11 +390,7 @@ export function SocialComposer({
   return (
     <section className="rounded-lg border border-white/10 bg-[#0a101c]/88 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
       <div className="flex items-start gap-4">
-        <img
-          src={user.avatarUrl}
-          alt={user.name}
-          className="h-12 w-12 rounded-full border border-white/20 object-cover"
-        />
+        <UserAvatar avatarUrl={user.avatarUrl} name={user.name} />
 
         <div className="flex-1 border-l border-white/10 pl-4">
           {mode !== "listing" && (

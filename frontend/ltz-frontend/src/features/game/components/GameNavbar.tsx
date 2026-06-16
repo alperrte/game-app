@@ -4,6 +4,8 @@ import { ROUTES } from "../../../lib/constants";
 import { getRefreshToken } from "../../../lib/token";
 import { authService } from "../../auth/services/authService";
 import { clearAuth, useAuthStore } from "../../../store/authStore";
+import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
+import { getImageUrl, isImageValid } from "../../user/utils/profileImage";
 import ltzLogo from "../../../assets/ltz-yazi.png";
 
 type GameNavbarActiveItem =
@@ -35,10 +37,17 @@ const navItems = [
   },
 ] as const;
 
+const roleLabels: Record<string, string> = {
+  USER: "Oyuncu",
+  ADMIN: "Yönetici",
+  MODERATOR: "Moderatör",
+};
+
 const GameNavbar = ({ activeItem }: GameNavbarProps) => {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { user } = useAuthStore();
+  const { displayName, avatarUrl } = useCurrentUserProfile();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -109,9 +118,6 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           type="button"
         >
           ♧
-          <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
-            12
-          </span>
         </button>
 
         <button
@@ -124,9 +130,9 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
           {isLoggingOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}
         </button>
 
-        {/* Dynamic User Profile Navigation */}
         {user ? (
-          <div
+          <button
+            type="button"
             onClick={() => navigate(`/profile/${user.username}`)}
             className={`hidden items-center gap-3 lg:flex cursor-pointer transition duration-150 select-none group px-3 py-1.5 rounded-xl border ${
               activeItem === "Profile"
@@ -134,25 +140,39 @@ const GameNavbar = ({ activeItem }: GameNavbarProps) => {
                 : "border-transparent hover:bg-white/5"
             }`}
           >
-            <div className={`grid h-11 w-11 place-items-center rounded-full text-sm font-bold text-white transition-all ${
-              activeItem === "Profile"
-                ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.5)] scale-105"
-                : "bg-gradient-to-br from-violet-400 to-indigo-600 shadow-[0_0_10px_rgba(139,92,246,0.2)] group-hover:shadow-[0_0_15px_rgba(139,92,246,0.5)]"
-            }`}>
-              {user.username.substring(0, 2).toUpperCase()}
+            <div
+              className={`h-11 w-11 overflow-hidden rounded-full border transition-all ${
+                activeItem === "Profile"
+                  ? "border-violet-400 shadow-[0_0_15px_rgba(217,70,239,0.5)] scale-105"
+                  : "border-violet-500/30 group-hover:border-violet-400/60"
+              }`}
+            >
+              {isImageValid(avatarUrl) ? (
+                <img
+                  src={getImageUrl(avatarUrl)}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="grid h-full w-full place-items-center bg-gradient-to-br from-violet-400 to-indigo-600 text-sm font-bold text-white">
+                  {user.username.substring(0, 2).toUpperCase()}
+                </div>
+              )}
             </div>
-            <div>
-              <div className={`text-sm font-semibold transition-colors ${
-                activeItem === "Profile" ? "text-violet-300 font-bold" : "text-white group-hover:text-violet-300"
-              }`}>
-                {user.username}
+            <div className="text-left">
+              <div
+                className={`text-sm font-semibold transition-colors ${
+                  activeItem === "Profile" ? "text-violet-300 font-bold" : "text-white group-hover:text-violet-300"
+                }`}
+              >
+                {displayName}
               </div>
               <div className="text-[10px] text-slate-400 uppercase tracking-wider">
-                {user.role}
+                {roleLabels[user.role?.toUpperCase() ?? "USER"] ?? user.role}
               </div>
             </div>
             <span className="text-slate-500 group-hover:text-white transition-colors">⌄</span>
-          </div>
+          </button>
         ) : null}
       </div>
     </header>

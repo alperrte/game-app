@@ -5,8 +5,7 @@ export type SocialFeedTab =
   | "following"
   | "popular"
   | "news"
-  | "market"
-  | "saved";
+  | "market";
 
 export interface SocialUser {
   name: string;
@@ -38,8 +37,7 @@ export interface SocialPost {
   };
   likedByMe?: boolean;
   followedByMe?: boolean;
-  savedByMe?: boolean;
-  source?: "backend" | "lookingForPlayer" | "mock";
+  source?: "backend" | "lookingForPlayer";
   comments?: SocialComment[];
 }
 
@@ -104,8 +102,6 @@ export interface SocialComment {
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
-  likedByMe?: boolean;
-  likeCount?: number;
 }
 
 export interface SocialCommentCreateRequest {
