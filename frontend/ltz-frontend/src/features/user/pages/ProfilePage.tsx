@@ -14,6 +14,7 @@ import { formatProfileDate, getYouTubeVideoId } from "../utils/profileHelpers";
 import { buildProfileBadges, mergeAssignedBadges } from "../utils/badges";
 import { normalizeRole } from "../utils/roleStyles";
 import { useProfileIdentities } from "../hooks/useProfileIdentities";
+import { SOCIAL_ROUTES } from "../../../lib/constants";
 import { socialService } from "../../social/services/socialService";
 import { socialProfileService, type RelationshipSnapshot } from "../../social/services/socialProfileService";
 import { gameService } from "../../game/services/gameService";
@@ -543,15 +544,7 @@ export const ProfilePage: React.FC = () => {
         targetUserId: profileUserId,
         targetUsername: profile.username,
       });
-      const messages = await socialService.getChatRoomMessages(room.id);
-
-      setChatState({
-        open: true,
-        room,
-        messages,
-        text: "",
-        loading: false,
-      });
+      navigate(SOCIAL_ROUTES.chatRoom(room.id));
     } catch (error) {
       showToast(getErrorMessage(error, "Sohbet başlatılamadı."), "error");
     } finally {
