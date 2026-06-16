@@ -3,6 +3,7 @@ package com.ltz.user_service.controller;
 import com.ltz.user_service.dto.request.ConnectedAccountRequest;
 import com.ltz.user_service.dto.request.PrivacySettingsRequest;
 import com.ltz.user_service.dto.request.UserProfileRequest;
+import com.ltz.user_service.dto.request.UserProfilesBatchRequest;
 import com.ltz.user_service.dto.response.ConnectedAccountResponse;
 import com.ltz.user_service.dto.response.PrivacySettingsResponse;
 import com.ltz.user_service.dto.response.UserProfileResponse;
@@ -208,10 +209,22 @@ public class UserController {
         }
     }
 
+
     @GetMapping("/audit-logs")
     public ResponseEntity<List<com.ltz.user_service.entity.UserAuditLog>> getMyAuditLogs(@AuthenticationPrincipal JwtUserPrincipal principal) {
         return ResponseEntity.ok(userProfileService.getAuditLogs(userId(principal)));
     }
+
+    /**
+     * 👥 Toplu Profil Sorgulama (Batch API)
+     */
+    @PostMapping("/profiles/batch")
+    public ResponseEntity<List<UserProfileResponse>> getProfilesBatch(
+            @Valid @RequestBody UserProfilesBatchRequest request
+    ) {
+        return ResponseEntity.ok(userProfileService.getProfilesBatch(request.getUserIds()));
+    }
+
 
     private String getClientIp() {
         String xForwardedFor = httpServletRequest.getHeader("X-Forwarded-For");

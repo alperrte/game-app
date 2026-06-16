@@ -314,5 +314,45 @@ public class UserProfileService {
     public List<com.ltz.user_service.entity.UserAuditLog> getAuditLogs(String userId) {
         return auditLogService.getAuditLogs(userId);
     }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileResponse> getProfilesBatch(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+
+        // Clean and deduplicate IDs
+        List<String> cleanIds = userIds.stream()
+                .filter(id -> id != null && !id.trim().isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (cleanIds.isEmpty()) {
+            return List.of();
+        }
+
+        // Bulk load profiles and settings
+        List<UserProfile> profiles = userProfileRepository.findAllByUserIdIn(cleanIds);
+        List<PrivacySettings> settingsList = privacySettingsRepository.findAllByUserIdIn(cleanIds);
+
+        java.util.Map<String, PrivacySettings> settingsMap = settingsList.stream()
+                .collect(Collectors.toMap(PrivacySettings::getUserId, s -> s, (s1, s2) -> s1));
+
+        String currentUserId = getCurrentUserId();
+
+        return profiles.stream()
+                .filter(profile -> {
+                    PrivacySettings settings = settingsMap.get(profile.getUserId());
+                    if (settings != null && ("PRIVATE".equalsIgnoreCase(settings.getProfileVisibility()) 
+                            || "FRIENDS_ONLY".equalsIgnoreCase(settings.getProfileVisibility()))) {
+                        // Secure gating: Private profiles are only returned if requested by their owner.
+                        return currentUserId != null && currentUserId.equals(profile.getUserId());
+                    }
+                    return true;
+                })
+                .map(this::mapToProfileResponse)
+                .collect(Collectors.toList());
+    }
 }
+
 

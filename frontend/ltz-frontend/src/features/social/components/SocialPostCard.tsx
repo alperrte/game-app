@@ -149,6 +149,17 @@ export function SocialPostCard({
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [videoVolume, setVideoVolume] = useState(1);
   const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
+  const [prevActiveMediaUrl, setPrevActiveMediaUrl] = useState<string | undefined>(
+    activeMedia?.url,
+  );
+
+  if (activeMedia?.url !== prevActiveMediaUrl) {
+    setPrevActiveMediaUrl(activeMedia?.url);
+    setIsVideoPlaying(false);
+    setVideoCurrentTime(0);
+    setVideoDuration(0);
+  }
+
   const [commentText, setCommentText] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -191,11 +202,6 @@ export function SocialPostCard({
     : 0;
   const videoVolumePercent = (isVideoMuted ? 0 : videoVolume) * 100;
 
-  useEffect(() => {
-    setIsVideoPlaying(false);
-    setVideoCurrentTime(0);
-    setVideoDuration(0);
-  }, [activeMedia?.url]);
 
   useEffect(() => {
     function syncFullscreenState() {

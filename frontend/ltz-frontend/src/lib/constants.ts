@@ -125,7 +125,9 @@ export const USER_API_ENDPOINTS = {
   disconnectAccount: (id: number | string) => `/api/users/connected-accounts/${id}`,
   upload: "/api/users/profile/upload",
   auditLogs: "/api/users/audit-logs",
+  batch: "/api/users/profiles/batch",
 } as const;
+
 
 
 /*

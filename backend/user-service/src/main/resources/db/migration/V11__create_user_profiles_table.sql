@@ -13,6 +13,14 @@ CREATE TABLE user_profiles (
     cover_url VARCHAR(255),
     gamer_type VARCHAR(50),
     favorite_categories VARCHAR(255),
+    profile_theme_url VARCHAR(255) NULL,
+    profile_background_url VARCHAR(255) NULL,
+    profile_music_url VARCHAR(255) NULL,
+    hardware_cpu VARCHAR(100) NULL,
+    hardware_gpu VARCHAR(100) NULL,
+    hardware_ram VARCHAR(100) NULL,
+    hardware_os VARCHAR(100) NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
     updated_at DATETIME2 NOT NULL DEFAULT GETDATE()
 );
+

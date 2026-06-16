@@ -104,6 +104,15 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
     }
   }, [showToast]);
 
+  const cancelPreview = useCallback(() => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewFile(null);
+    setPreviewUrl(null);
+    setPreviewType(null);
+  }, [previewUrl]);
+
   const confirmUpload = useCallback(async () => {
     if (!previewFile || !previewType) return;
 
@@ -127,16 +136,8 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
     } finally {
       setUploading(false);
     }
-  }, [previewFile, previewType, showToast]);
+  }, [previewFile, previewType, showToast, cancelPreview]);
 
-  const cancelPreview = useCallback(() => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewFile(null);
-    setPreviewUrl(null);
-    setPreviewType(null);
-  }, [previewUrl]);
 
   const handleSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,38 +356,89 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
               Profil Görselleri (URL veya Yükle)
             </label>
             <div className="mt-2 space-y-3 p-4 rounded-xl border border-violet-500/20 bg-slate-950/50">
-              {([
-                { label: "Avatar", value: avatarUrl, set: setAvatarUrl, upload: openAvatarUpload },
-                { label: "Kapak", value: coverUrl, set: setCoverUrl, upload: openCoverUpload },
-                { label: "Arka Plan", value: profileBackgroundUrl, set: setProfileBackgroundUrl, upload: openBackgroundUpload },
-              ] as const).map(({ label, value, set, upload }) => (
-                <div key={label} className="flex gap-2">
-                  <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">{label}</span>
-                  <input
-                    type="text"
-                    placeholder="https://... görsel linki"
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
-                    className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
-                  />
-                  {value && (
-                    <button
-                      type="button"
-                      onClick={() => set("")}
-                      className="flex items-center rounded-lg bg-rose-500/10 border border-rose-500/20 px-2.5 text-rose-400 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+              {/* Avatar Row */}
+              <div className="flex gap-2">
+                <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">Avatar</span>
+                <input
+                  type="text"
+                  placeholder="https://... görsel linki"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+                />
+                {avatarUrl && (
                   <button
                     type="button"
-                    onClick={upload}
-                    className="flex items-center gap-1 rounded-lg bg-violet-500/10 border border-violet-500/25 px-3 py-1.5 text-xs font-semibold text-violet-400 hover:bg-violet-500 hover:text-white transition-colors cursor-pointer"
+                    onClick={() => setAvatarUrl("")}
+                    className="flex items-center rounded-lg bg-rose-500/10 border border-rose-500/20 px-2.5 text-rose-400 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
                   >
-                    <Camera className="h-3.5 w-3.5" /> Yükle
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              ))}
+                )}
+                <button
+                  type="button"
+                  onClick={openAvatarUpload}
+                  className="flex items-center gap-1 rounded-lg bg-violet-500/10 border border-violet-500/25 px-3 py-1.5 text-xs font-semibold text-violet-400 hover:bg-violet-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  <Camera className="h-3.5 w-3.5" /> Yükle
+                </button>
+              </div>
+
+              {/* Kapak Row */}
+              <div className="flex gap-2">
+                <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">Kapak</span>
+                <input
+                  type="text"
+                  placeholder="https://... görsel linki"
+                  value={coverUrl}
+                  onChange={(e) => setCoverUrl(e.target.value)}
+                  className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+                />
+                {coverUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCoverUrl("")}
+                    className="flex items-center rounded-lg bg-rose-500/10 border border-rose-500/20 px-2.5 text-rose-400 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={openCoverUpload}
+                  className="flex items-center gap-1 rounded-lg bg-violet-500/10 border border-violet-500/25 px-3 py-1.5 text-xs font-semibold text-violet-400 hover:bg-violet-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  <Camera className="h-3.5 w-3.5" /> Yükle
+                </button>
+              </div>
+
+              {/* Arka Plan Row */}
+              <div className="flex gap-2">
+                <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">Arka Plan</span>
+                <input
+                  type="text"
+                  placeholder="https://... görsel linki"
+                  value={profileBackgroundUrl}
+                  onChange={(e) => setProfileBackgroundUrl(e.target.value)}
+                  className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+                />
+                {profileBackgroundUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileBackgroundUrl("")}
+                    className="flex items-center rounded-lg bg-rose-500/10 border border-rose-500/20 px-2.5 text-rose-400 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={openBackgroundUpload}
+                  className="flex items-center gap-1 rounded-lg bg-violet-500/10 border border-violet-500/25 px-3 py-1.5 text-xs font-semibold text-violet-400 hover:bg-violet-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  <Camera className="h-3.5 w-3.5" /> Yükle
+                </button>
+              </div>
               <input
                 type="file"
                 ref={backgroundInputRef}

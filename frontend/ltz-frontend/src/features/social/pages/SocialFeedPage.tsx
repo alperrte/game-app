@@ -6,8 +6,8 @@ import { useAuthStore } from "../../../store/authStore";
 import { API_BASE_URL, STORAGE_KEYS } from "../../../lib/constants";
 import { gameService } from "../../game/services/gameService";
 import type { Game } from "../../game/types/gameTypes";
-import { userProfileService } from "../../user/services/userProfileService";
-import type { UserProfile } from "../../user/types/userProfile.types";
+import { userService } from "../../user/services/userService";
+import type { UserProfileResponse } from "../../user/types/user";
 import { SocialComposer } from "../components/SocialComposer";
 import { SocialFeedTabs } from "../components/SocialFeedTabs";
 import { SocialPostCard } from "../components/SocialPostCard";
@@ -255,7 +255,7 @@ function resolveAuthor(
   authorUserId: number,
   currentUser: SocialUser,
   currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
+  userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialUser {
   if (currentUserId === authorUserId) {
@@ -300,7 +300,7 @@ function mapCommentAuthor(
   post: SocialPost,
   currentUser: SocialUser,
   currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
+  userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialComment {
   return {
@@ -323,7 +323,7 @@ function mapLikeUsers(
   likes: SocialPostLikeResponse[],
   currentUser: SocialUser,
   currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
+  userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialUser[] {
   return likes.map((like) =>
@@ -343,7 +343,7 @@ function mapBackendPostToSocialPost(
   currentUserId?: number,
   followingUserIds = new Set<number>(),
   savedPostIds = new Set<string>(),
-  userProfiles = new Map<number, UserProfile>(),
+  userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialPost {
   const isCurrentUserPost = currentUserId === post.userId;
@@ -401,7 +401,7 @@ function mapLookingForPlayerToSocialPost(
   currentUser: SocialUser,
   currentUserId?: number,
   savedPostIds = new Set<string>(),
-  userProfiles = new Map<number, UserProfile>(),
+  userProfiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = new Map<number, string>(),
 ): SocialPost {
   const details = [
@@ -465,22 +465,30 @@ function getEmptyFeedMessage(activeTab: SocialFeedTab): string {
 
 async function loadUserProfiles(
   userIds: Array<number | undefined>,
-): Promise<Map<number, UserProfile>> {
+): Promise<Map<number, UserProfileResponse>> {
   const uniqueUserIds = Array.from(
     new Set(userIds.filter((userId): userId is number => typeof userId === "number")),
   );
 
-  const profiles = await Promise.allSettled(
-    uniqueUserIds.map((userId) => userProfileService.getProfileById(userId)),
-  );
+  if (uniqueUserIds.length === 0) {
+    return new Map();
+  }
 
-  return profiles.reduce<Map<number, UserProfile>>((profileMap, result, index) => {
-    if (result.status === "fulfilled") {
-      profileMap.set(uniqueUserIds[index], result.value);
-    }
+  try {
+    const profiles = await userService.getProfilesBatch(uniqueUserIds.map(String));
+    const profileMap = new Map<number, UserProfileResponse>();
+    profiles.forEach((profile) => {
 
+      const numericId = Number(profile.userId);
+      if (!Number.isNaN(numericId)) {
+        profileMap.set(numericId, profile);
+      }
+    });
     return profileMap;
-  }, new Map());
+  } catch (error) {
+    console.error("Batch profiles load failed:", error);
+    return new Map();
+  }
 }
 
 function getSavedPostStorageKey(userId?: number): string {

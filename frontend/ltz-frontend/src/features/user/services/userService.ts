@@ -44,6 +44,10 @@ export const userService = {
   getAuditLogs: () =>
     apiClient.get<UserAuditLog[]>(USER_API_ENDPOINTS.auditLogs),
 
+  getProfilesBatch: (userIds: string[]) =>
+    apiClient.post<UserProfileResponse[]>(USER_API_ENDPOINTS.batch, { userIds }),
+
+
   uploadFile: async (file: File, type: "avatar" | "cover" | "background") => {
     const formData = new FormData();
     formData.append("file", file);

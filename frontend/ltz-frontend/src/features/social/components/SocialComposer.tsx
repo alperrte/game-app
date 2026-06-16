@@ -12,7 +12,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -103,6 +103,17 @@ export function SocialComposer({
   const previewMedia =
     previewModalIndex === null ? null : selectedMedia[previewModalIndex] ?? null;
 
+  const changePreviewMedia = useCallback((direction: number) => {
+    setPreviewModalIndex((currentIndex) => {
+      if (currentIndex === null || selectedMedia.length === 0) return currentIndex;
+
+      return (
+        (currentIndex + direction + selectedMedia.length) % selectedMedia.length
+      );
+    });
+  }, [selectedMedia.length]);
+
+
   useEffect(() => {
     selectedMediaRef.current = selectedMedia;
   }, [selectedMedia]);
@@ -114,45 +125,24 @@ export function SocialComposer({
       );
     };
   }, []);
-
   useEffect(() => {
     if (previewModalIndex === null) return;
 
-    if (selectedMedia.length === 0) {
-      setPreviewModalIndex(null);
-      return;
-    }
-
-    if (previewModalIndex >= selectedMedia.length) {
-      setPreviewModalIndex(selectedMedia.length - 1);
-    }
-  }, [previewModalIndex, selectedMedia.length]);
-
-  useEffect(() => {
-    if (previewModalIndex === null) return undefined;
-
-    function handlePreviewKeydown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
         setPreviewModalIndex(null);
-        return;
-      }
-
-      if (event.key === "ArrowRight") {
-        changePreviewMedia(1);
-        return;
-      }
-
-      if (event.key === "ArrowLeft") {
+      } else if (e.key === "ArrowLeft") {
         changePreviewMedia(-1);
+      } else if (e.key === "ArrowRight") {
+        changePreviewMedia(1);
       }
-    }
-
-    window.addEventListener("keydown", handlePreviewKeydown);
-
-    return () => {
-      window.removeEventListener("keydown", handlePreviewKeydown);
     };
-  }, [previewModalIndex, selectedMedia.length]);
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [previewModalIndex, changePreviewMedia]);
 
   function chooseFile(type: ComposerMediaType) {
     const nextAccept = type === "video" ? VIDEO_FILE_ACCEPT : "image/*";
@@ -281,28 +271,27 @@ export function SocialComposer({
       currentMedia.forEach((media) => URL.revokeObjectURL(media.previewUrl));
       return [];
     });
+    setPreviewModalIndex(null);
   }
 
   function removeSelectedMedia(previewUrl: string) {
-    setSelectedMedia((currentMedia) =>
-      currentMedia.filter((media) => {
+    setSelectedMedia((currentMedia) => {
+      const filtered = currentMedia.filter((media) => {
         if (media.previewUrl !== previewUrl) return true;
-
         URL.revokeObjectURL(media.previewUrl);
         return false;
-      }),
-    );
-  }
+      });
 
-  function changePreviewMedia(direction: number) {
-    setPreviewModalIndex((currentIndex) => {
-      if (currentIndex === null || selectedMedia.length === 0) return currentIndex;
+      setPreviewModalIndex((currentIndex) => {
+        if (currentIndex === null || filtered.length === 0) return null;
+        if (currentIndex >= filtered.length) return filtered.length - 1;
+        return currentIndex;
+      });
 
-      return (
-        (currentIndex + direction + selectedMedia.length) % selectedMedia.length
-      );
+      return filtered;
     });
   }
+
 
   function resetComposer() {
     setContent("");
