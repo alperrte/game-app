@@ -40,6 +40,7 @@ public class SteamGameProvider implements ExternalGameProvider {
     private static final int POPULAR_GAME_LIMIT = 80;
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS = 120;
+    private static final int INITIAL_TAG_ENRICHMENT_LIMIT = 60;
     private static final Duration STEAM_APP_LIST_CACHE_TTL = Duration.ofHours(6);
     private static final Duration STEAM_TAG_CACHE_TTL = Duration.ofHours(6);
 
@@ -417,7 +418,9 @@ public class SteamGameProvider implements ExternalGameProvider {
             return cachedSteamTags;
         }
 
-        cachedSteamTags = fetchSteamTags(false);
+        List<ExternalGameTagResponse> fastTags = fetchSteamTags(false);
+
+        cachedSteamTags = fastTags;
         cachedSteamTagsExpiresAt = now.plus(STEAM_TAG_CACHE_TTL);
 
         triggerSteamTagBackgroundEnrichment();
@@ -440,7 +443,7 @@ public class SteamGameProvider implements ExternalGameProvider {
 
                 synchronized (this) {
                     if (!enrichedTags.isEmpty()) {
-                        cachedSteamTags = enrichedTags;
+                        cachedSteamTags = mergeEnrichedSteamTags(cachedSteamTags, enrichedTags);
                         cachedSteamTagsExpiresAt = Instant.now().plus(STEAM_TAG_CACHE_TTL);
                     }
                 }
@@ -452,6 +455,54 @@ public class SteamGameProvider implements ExternalGameProvider {
                 }
             }
         });
+    }
+
+    private List<ExternalGameTagResponse> mergeEnrichedSteamTags(
+            List<ExternalGameTagResponse> currentTags,
+            List<ExternalGameTagResponse> enrichedTags
+    ) {
+        Map<String, ExternalGameTagResponse> currentTagsById = currentTags.stream()
+                .collect(Collectors.toMap(
+                        ExternalGameTagResponse::getExternalId,
+                        tag -> tag,
+                        (existingTag, duplicateTag) -> existingTag,
+                        LinkedHashMap::new
+                ));
+
+        for (ExternalGameTagResponse enrichedTag : enrichedTags) {
+            ExternalGameTagResponse currentTag = currentTagsById.get(enrichedTag.getExternalId());
+
+            if (currentTag == null) {
+                currentTagsById.put(enrichedTag.getExternalId(), enrichedTag);
+                continue;
+            }
+
+            Integer resolvedGameCount =
+                    enrichedTag.getGameCount() != null && enrichedTag.getGameCount() > 0
+                            ? enrichedTag.getGameCount()
+                            : currentTag.getGameCount();
+
+            String resolvedImageUrl =
+                    enrichedTag.getImageUrl() != null && !enrichedTag.getImageUrl().isBlank()
+                            ? enrichedTag.getImageUrl()
+                            : currentTag.getImageUrl();
+
+            currentTagsById.put(
+                    enrichedTag.getExternalId(),
+                    new ExternalGameTagResponse(
+                            currentTag.getSource(),
+                            currentTag.getExternalId(),
+                            currentTag.getName(),
+                            currentTag.getDescription(),
+                            resolvedGameCount,
+                            currentTag.getStatus(),
+                            currentTag.getSourceProvider(),
+                            resolvedImageUrl
+                    )
+            );
+        }
+
+        return sortAndDeduplicateTags(new ArrayList<>(currentTagsById.values()));
     }
 
     private List<ExternalGameSearchResponse> fetchSteamAppList() {
@@ -691,8 +742,9 @@ public class SteamGameProvider implements ExternalGameProvider {
                     );
 
                     boolean shouldEnrich =
-                            allowBackgroundEnrichment
-                                    && tags.size() < MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS;
+                            tags.size() < INITIAL_TAG_ENRICHMENT_LIMIT
+                                    || (allowBackgroundEnrichment
+                                    && tags.size() < MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS);
 
                     tags.add(buildSteamTagResponse(
                             externalId,
@@ -743,8 +795,9 @@ public class SteamGameProvider implements ExternalGameProvider {
                 String externalId = slugify(rawTagValue);
 
                 boolean shouldEnrich =
-                        allowBackgroundEnrichment
-                                && tagsByExternalId.size() < MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS;
+                        tagsByExternalId.size() < INITIAL_TAG_ENRICHMENT_LIMIT
+                                || (allowBackgroundEnrichment
+                                && tagsByExternalId.size() < MAX_BACKGROUND_TAG_ENRICHMENT_ATTEMPTS);
 
                 ExternalGameTagResponse tagResponse = buildSteamTagResponse(
                         externalId,

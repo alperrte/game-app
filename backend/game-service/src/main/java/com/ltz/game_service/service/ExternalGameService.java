@@ -87,11 +87,6 @@ public class ExternalGameService {
         return getProvider(source).getCategories(query);
     }
 
-    @Cacheable(
-            cacheNames = CacheConfig.EXTERNAL_GAME_TAGS,
-            key = "T(java.lang.String).valueOf(#source).toLowerCase()",
-            unless = "#result == null"
-    )
     public List<ExternalGameTagResponse> getTags(GameSource source) {
         return getProvider(source).getTags();
     }

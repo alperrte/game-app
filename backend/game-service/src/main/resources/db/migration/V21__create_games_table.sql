@@ -20,6 +20,7 @@ CREATE TABLE games (
                        early_access BIT NOT NULL DEFAULT 0,
                        on_sale BIT NOT NULL DEFAULT 0,
                        turkish_language_support BIT NOT NULL DEFAULT 0,
+                       popularity_score INT NOT NULL DEFAULT 0,
 
                        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
                        updated_at DATETIME2 NULL
