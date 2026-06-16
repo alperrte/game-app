@@ -9,7 +9,6 @@ import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 
 import { useAuthStore } from "../store/authStore";
 import { GAME_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
-import { ROUTES } from "../lib/constants";
 import { ProfilePage } from "../features/user/pages/ProfilePage";
 
 import GamesPage from "../features/game/pages/GamesPage";

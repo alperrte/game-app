@@ -13,11 +13,13 @@ export function MainLayout() {
 
   const getActiveItem = () => {
     const path = location.pathname;
+    if (path === "/") return "Feed";
     if (path.startsWith("/games/categories")) return "Categories";
     if (path.startsWith("/games/platforms")) return "Platforms";
     if (path.startsWith("/games/developers")) return "Developers";
     if (path.startsWith("/games/publishers")) return "Publishers";
     if (path.startsWith("/games/system-requirements")) return "SystemRequirements";
+    if (path === "/games" || path.startsWith("/games/")) return "Games";
     if (path.startsWith("/profile")) return "Profile";
     return "Games";
   };

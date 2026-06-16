@@ -107,15 +107,15 @@ export const SOCIAL_API_ENDPOINTS = {
     `/api/social/looking-for-player/${postId}/cancel`,
 } as const;
 
-export const USER_API_ENDPOINTS = {
-  profileById: (userId: number | string) => `/api/users/profile/${userId}`,
-} as const;
+
 
 /*
  * User-service endpoint path'leri (Gateway üzerinden).
  */
 export const USER_API_ENDPOINTS = {
   profile: (userId: string) => `/api/users/profile/${userId}`,
+  // Backward-compatible alias used by existing services.
+  profileById: (userId: number | string) => `/api/users/profile/${userId}`,
   profileByUsername: (username: string) => `/api/users/profile/username/${username}`,
   me: "/api/users/me",
   setupProfile: "/api/users/profile/setup",
@@ -200,17 +200,3 @@ export const ROLES = {
   admin: "ADMIN",
 } as const;
 
-/*
- * Social-service endpoint path'leri (Gateway üzerinden).
- */
-export const SOCIAL_API_ENDPOINTS = {
-  users: {
-    friends: (userId: number | string) => `/api/social/users/${userId}/friends`,
-    followers: (userId: number | string) => `/api/social/users/${userId}/followers`,
-    following: (userId: number | string) => `/api/social/users/${userId}/following`,
-    posts: (userId: number | string) => `/api/social/users/${userId}/posts`,
-  },
-  follows: "/api/social/follows",
-  friendRequests: "/api/social/friend-requests",
-  posts: "/api/social/posts",
-} as const;
