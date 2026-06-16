@@ -20,6 +20,8 @@ public interface ExternalGameProvider {
 
     ExternalGamePageResponse getGames(int page, int size);
 
+    ExternalGamePageResponse getGames(int page, int size, String tag);
+
     ExternalGameDetailResponse getGameDetail(String externalId);
 
     List<ExternalGameCategoryResponse> getCategories(String query);

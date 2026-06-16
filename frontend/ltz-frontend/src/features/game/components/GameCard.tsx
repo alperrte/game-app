@@ -28,7 +28,7 @@ const isExternalGame = (
 
 const getSubtitle = (game: GameCardData) => {
   if (isExternalGame(game)) {
-    return `Harici ID: ${game.externalId}`;
+    return "Harici oyun";
   }
 
   return [game.categoryName, game.genre, game.platform]

@@ -53,6 +53,8 @@ public class GameRequest {
 
     private Integer popularityScore = 0;
 
+    private Boolean systemRequirementOnly = false;
+
     public GameRequest() {
     }
 
@@ -190,5 +192,13 @@ public class GameRequest {
 
     public void setPopularityScore(Integer popularityScore) {
         this.popularityScore = popularityScore;
+    }
+
+    public Boolean getSystemRequirementOnly() {
+        return systemRequirementOnly;
+    }
+
+    public void setSystemRequirementOnly(Boolean systemRequirementOnly) {
+        this.systemRequirementOnly = systemRequirementOnly;
     }
 }

@@ -13,6 +13,10 @@ public interface GameRepository extends JpaRepository<Game, Long>, JpaSpecificat
 
     List<Game> findTop10ByOrderByPopularityScoreDesc();
 
+    List<Game> findTop10BySystemRequirementOnlyFalseOrderByPopularityScoreDesc();
+
+    List<Game> findBySystemRequirementOnlyFalse();
+
     List<Game> findBySource(GameSource source);
 
     List<Game> findByCategoryId(Long categoryId);

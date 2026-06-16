@@ -44,9 +44,10 @@ public class ExternalGameController {
     public ExternalGamePageResponse getGames(
             @RequestParam GameSource source,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String tag
     ) {
-        return externalGameService.getGames(source, page, size);
+        return externalGameService.getGames(source, page, size, tag);
     }
 
     @GetMapping("/detail")

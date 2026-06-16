@@ -314,6 +314,18 @@ public class SteamGameProvider implements ExternalGameProvider {
     }
 
     @Override
+    public ExternalGamePageResponse getGames(int page, int size, String tag) {
+        if (tag == null || tag.isBlank()) {
+            return getGames(page, size);
+        }
+
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+
+        return fetchSteamGamesByTag(tag, safePage, safeSize);
+    }
+
+    @Override
     public ExternalGameDetailResponse getGameDetail(String externalId) {
         SteamAppDetailsResponse steamResponse = fetchSteamGameDetail(externalId);
 
@@ -512,6 +524,136 @@ public class SteamGameProvider implements ExternalGameProvider {
 
             throw new RuntimeException("Steam app listesi alınamadı: " + e.getMessage(), e);
         }
+    }
+
+    private ExternalGamePageResponse fetchSteamGamesByTag(String tag, int page, int size) {
+        String normalizedTag = tag.trim();
+        int start = Math.max(0, (page - 1) * size);
+
+        SteamTagSearchParam tagSearchParam = resolveSteamTagSearchParam(normalizedTag);
+
+        try {
+            String response = steamStoreClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder
+                                .path("/search/results/")
+                                .queryParam("cc", "tr")
+                                .queryParam("l", "turkish")
+                                .queryParam("count", size)
+                                .queryParam("start", start)
+                                .queryParam("infinite", 1);
+
+                        if ("tags".equals(tagSearchParam.paramName())) {
+                            builder.queryParam("tags", tagSearchParam.paramValue());
+                        } else {
+                            builder.queryParam("term", tagSearchParam.paramValue());
+                        }
+
+                        return builder.build();
+                    })
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode rootNode = objectMapper.readTree(response);
+
+            Integer totalCount = readOptionalInt(
+                    rootNode,
+                    "total_count",
+                    "totalCount",
+                    "count"
+            );
+
+            int totalItems = totalCount != null && totalCount > 0 ? totalCount : 0;
+            int totalPages = totalItems == 0
+                    ? 0
+                    : (int) Math.ceil((double) totalItems / size);
+
+            String resultsHtml = rootNode.path("results_html").asText(null);
+            List<ExternalGameSearchResponse> games = parseSteamSearchResultsHtml(resultsHtml);
+
+            return new ExternalGamePageResponse(
+                    games,
+                    page,
+                    size,
+                    totalItems,
+                    totalPages
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Steam kategori/tag oyunları alınamadı. Tag: " + tag, e);
+        }
+    }
+
+    private SteamTagSearchParam resolveSteamTagSearchParam(String tag) {
+        String normalizedSelectedTag = normalizeText(tag);
+
+        try {
+            return getCachedSteamTags()
+                    .stream()
+                    .filter(steamTag ->
+                            normalizeText(steamTag.getName()).equals(normalizedSelectedTag)
+                                    || normalizeText(steamTag.getExternalId()).equals(normalizedSelectedTag)
+                    )
+                    .filter(steamTag -> steamTag.getExternalId() != null && !steamTag.getExternalId().isBlank())
+                    .filter(steamTag -> isNumeric(steamTag.getExternalId()))
+                    .findFirst()
+                    .map(steamTag -> new SteamTagSearchParam("tags", steamTag.getExternalId()))
+                    .orElseGet(() -> new SteamTagSearchParam("term", tag));
+        } catch (Exception e) {
+            return new SteamTagSearchParam("term", tag);
+        }
+    }
+
+    private List<ExternalGameSearchResponse> parseSteamSearchResultsHtml(String html) {
+        if (html == null || html.isBlank()) {
+            return List.of();
+        }
+
+        Pattern resultPattern = Pattern.compile(
+                "(?is)<a[^>]*href=\"https://store\\.steampowered\\.com/app/(\\d+)/[^\"]*\"[^>]*>(.*?)</a>"
+        );
+
+        Matcher matcher = resultPattern.matcher(html);
+        Map<String, ExternalGameSearchResponse> gamesByExternalId = new LinkedHashMap<>();
+
+        while (matcher.find()) {
+            String externalId = matcher.group(1);
+            String resultHtml = matcher.group(2);
+            String title = extractSteamSearchResultTitle(resultHtml);
+
+            if (externalId == null || externalId.isBlank() || title == null || title.isBlank()) {
+                continue;
+            }
+
+            gamesByExternalId.putIfAbsent(
+                    externalId,
+                    new ExternalGameSearchResponse(
+                            GameSource.STEAM,
+                            externalId,
+                            title,
+                            buildSteamHeaderImageUrl(Integer.parseInt(externalId))
+                    )
+            );
+        }
+
+        return new ArrayList<>(gamesByExternalId.values());
+    }
+
+    private String extractSteamSearchResultTitle(String html) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+
+        Pattern titlePattern = Pattern.compile(
+                "(?is)<span[^>]*class=\"[^\"]*title[^\"]*\"[^>]*>(.*?)</span>"
+        );
+
+        Matcher titleMatcher = titlePattern.matcher(html);
+
+        if (titleMatcher.find()) {
+            return cleanHtml(titleMatcher.group(1));
+        }
+
+        return null;
     }
 
     private List<ExternalGameTagResponse> fetchSteamTags(boolean allowBackgroundEnrichment) {
@@ -1108,6 +1250,12 @@ public class SteamGameProvider implements ExternalGameProvider {
     private record SteamCategoryStats(
             Integer gameCount,
             String imageUrl
+    ) {
+    }
+
+    private record SteamTagSearchParam(
+            String paramName,
+            String paramValue
     ) {
     }
 }

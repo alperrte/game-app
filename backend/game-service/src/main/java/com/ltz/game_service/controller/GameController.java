@@ -22,8 +22,10 @@ public class GameController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GameResponse>> getAllGames() {
-        return ResponseEntity.ok(gameService.getAllGames());
+    public ResponseEntity<List<GameResponse>> getAllGames(
+            @RequestParam(defaultValue = "false") boolean includeSystemRequirementOnly
+    ) {
+        return ResponseEntity.ok(gameService.getAllGames(includeSystemRequirementOnly));
     }
 
     @GetMapping("/filter")

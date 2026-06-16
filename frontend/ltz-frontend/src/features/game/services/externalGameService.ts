@@ -85,19 +85,24 @@ export function searchExternalGames(
 export function getExternalAppsPage(
     source: GameSource,
     page: number,
-    size: number
+    size: number,
+    tag?: string
 ): Promise<ExternalGamePageResponse> {
+    const normalizedTag = tag?.trim();
+
     return getCachedExternalData(
         buildCacheKey(GAME_API_ENDPOINTS.externalApps, {
             page: String(page),
             size: String(size),
             source,
+            tag: normalizedTag,
         }),
         () =>
             apiClient.get<ExternalGamePageResponse>(GAME_API_ENDPOINTS.externalApps, {
                 source,
                 page,
                 size,
+                tag: normalizedTag || undefined,
             })
     );
 }

@@ -41,6 +41,17 @@ public class EpicGameProvider implements ExternalGameProvider {
     }
 
     @Override
+    public ExternalGamePageResponse getGames(int page, int size, String tag) {
+        return new ExternalGamePageResponse(
+                List.of(),
+                page,
+                size,
+                0,
+                0
+        );
+    }
+
+    @Override
     public ExternalGameDetailResponse getGameDetail(String externalId) {
         throw new UnsupportedOperationException("Epic Games provider henüz aktif değil.");
     }

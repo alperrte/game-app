@@ -12,11 +12,13 @@ import {
 } from "../services/gameService";
 import {
   getExternalAppsPage,
+  getExternalGameTags,
   searchExternalGames,
 } from "../services/externalGameService";
 import type { Game, GameCategory, GameRequest } from "../types/gameTypes";
 import type {
   ExternalGameSearchResponse,
+  ExternalGameTag,
   GameSource,
 } from "../types/externalGame.types";
 import { useAuthStore } from "../../../store/authStore";
@@ -28,6 +30,7 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 450;
 const PAGINATION_WINDOW_SIZE = 30;
+const ALL_CATEGORIES_VALUE = "all";
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
 
 type GameListItem =
@@ -38,6 +41,13 @@ type GameListItem =
     | {
   game: Game;
   origin: "manual";
+};
+
+type CategoryOption = {
+  externalId?: string | null;
+  id?: number | string;
+  name: string;
+  source?: GameSource | null;
 };
 
 const initialGameForm: GameRequest = {
@@ -64,15 +74,135 @@ const sourceLabel = (source: GameSource) => {
   return source === "STEAM" ? "Steam" : "Epic";
 };
 
+const normalizeCategory = (value: string) => {
+  return value.trim().toLocaleLowerCase("tr-TR");
+};
+
+const getSelectedCategoryTag = (selectedCategory: string) => {
+  return selectedCategory === ALL_CATEGORIES_VALUE ? undefined : selectedCategory;
+};
+
+const collectCategoryValues = (value: unknown): string[] => {
+  if (!value) {
+    return [];
+  }
+
+  if (typeof value === "string") {
+    return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap(collectCategoryValues);
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+
+    const namedValue = ["name", "title", "label", "description"].find(
+        (key) =>
+            typeof record[key] === "string" &&
+            Boolean((record[key] as string).trim())
+    );
+
+    if (namedValue) {
+      return collectCategoryValues(record[namedValue]);
+    }
+
+    return Object.keys(record)
+        .map((key) => key.trim())
+        .filter(Boolean);
+  }
+
+  return [];
+};
+
+const getGameCategoryLabels = (game: Game | ExternalGameSearchResponse) => {
+  const record = game as Record<string, unknown>;
+
+  return [
+    record.categoryName,
+    record.genre,
+    record.genres,
+    record.category,
+    record.categories,
+    record.tag,
+    record.tags,
+    record.steamSpyTags,
+    record.steamTags,
+    record.externalCategories,
+    record.externalTags,
+  ]
+      .flatMap(collectCategoryValues)
+      .map((category) => category.trim())
+      .filter(Boolean);
+};
+
+const hasCategoryMatch = (
+    game: Game | ExternalGameSearchResponse,
+    selectedCategory: string
+) => {
+  const normalizedSelectedCategory = normalizeCategory(selectedCategory);
+  const categoryLabels = getGameCategoryLabels(game);
+
+  if (categoryLabels.length === 0) {
+    return false;
+  }
+
+  return categoryLabels.some((category) => {
+    const normalizedGameCategory = normalizeCategory(category);
+
+    return (
+        normalizedGameCategory === normalizedSelectedCategory ||
+        normalizedGameCategory.includes(normalizedSelectedCategory) ||
+        normalizedSelectedCategory.includes(normalizedGameCategory)
+    );
+  });
+};
+
+const toManualCategoryOption = (category: GameCategory): CategoryOption => ({
+  id: category.id,
+  name: category.name,
+  source: category.source,
+});
+
+const toExternalCategoryOption = (category: ExternalGameTag): CategoryOption => ({
+  externalId: category.externalId,
+  name: category.name,
+  source: category.source,
+});
+
+const mergeCategoryOptions = (options: CategoryOption[]) => {
+  const categoryMap = new Map<string, CategoryOption>();
+
+  options.forEach((option) => {
+    const categoryName = option.name.trim();
+
+    if (!categoryName) {
+      return;
+    }
+
+    const key = normalizeCategory(categoryName);
+
+    if (!categoryMap.has(key)) {
+      categoryMap.set(key, { ...option, name: categoryName });
+    }
+  });
+
+  return Array.from(categoryMap.values()).sort((firstCategory, nextCategory) =>
+      firstCategory.name.localeCompare(nextCategory.name, "tr")
+  );
+};
+
 const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
   const startPage =
       Math.floor((currentPage - 1) / PAGINATION_WINDOW_SIZE) *
       PAGINATION_WINDOW_SIZE +
       1;
-  const endPage = Math.min(
-      totalPages,
-      startPage + PAGINATION_WINDOW_SIZE - 1
-  );
+
+  const endPage = Math.min(totalPages, startPage + PAGINATION_WINDOW_SIZE - 1);
 
   return Array.from(
       { length: endPage - startPage + 1 },
@@ -143,9 +273,14 @@ const normalizeGameRequest = (value: GameRequest): GameRequest => {
 const GamesPage = () => {
   const { user } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
+
   const [games, setGames] = useState<ExternalGameSearchResponse[]>([]);
   const [manualGames, setManualGames] = useState<Game[]>([]);
   const [source, setSource] = useState<GameSource>("STEAM");
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_VALUE);
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -164,8 +299,10 @@ const GamesPage = () => {
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [creatingGame, setCreatingGame] = useState(false);
+
   const searchTimeoutRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
+  const categoryFilterRef = useRef<HTMLDivElement | null>(null);
 
   const fetchManualGames = async (nextSource: GameSource) => {
     setManualGamesLoading(true);
@@ -193,6 +330,7 @@ const GamesPage = () => {
 
     try {
       const results = await getGameCategories(nextSource);
+
       setFormCategories(results);
       setGameForm((currentForm) => ({
         ...currentForm,
@@ -200,7 +338,7 @@ const GamesPage = () => {
             (category) => category.id === currentForm.categoryId
         )
             ? currentForm.categoryId
-            : (results[0]?.id ?? null),
+            : results[0]?.id ?? null,
       }));
     } catch (categoryLoadError) {
       setFormCategories([]);
@@ -216,18 +354,25 @@ const GamesPage = () => {
     }
   };
 
-  useEffect(() => {
-    void fetchManualGames("STEAM");
-    void runSearch("", "STEAM", 1, perPage);
+  const fetchCategoryOptions = async (nextSource: GameSource) => {
+    const [externalCategoriesResult, manualCategoriesResult] =
+        await Promise.allSettled([
+          getExternalGameTags(nextSource),
+          getGameCategories(nextSource),
+        ]);
 
-    return () => {
-      if (searchTimeoutRef.current) {
-        window.clearTimeout(searchTimeoutRef.current);
-      }
+    const externalOptions =
+        externalCategoriesResult.status === "fulfilled"
+            ? externalCategoriesResult.value.map(toExternalCategoryOption)
+            : [];
 
-      requestIdRef.current += 1;
-    };
-  }, []);
+    const manualOptions =
+        manualCategoriesResult.status === "fulfilled"
+            ? manualCategoriesResult.value.map(toManualCategoryOption)
+            : [];
+
+    setCategoryOptions(mergeCategoryOptions([...externalOptions, ...manualOptions]));
+  };
 
   const clearScheduledSearch = () => {
     if (searchTimeoutRef.current) {
@@ -240,9 +385,11 @@ const GamesPage = () => {
       rawQuery: string,
       nextSource: GameSource = source,
       nextPage = 1,
-      nextPerPage = perPage
+      nextPerPage = perPage,
+      nextSelectedCategory = selectedCategory
   ) => {
     const trimmedQuery = rawQuery.trim();
+    const selectedTag = getSelectedCategoryTag(nextSelectedCategory);
 
     clearScheduledSearch();
 
@@ -254,10 +401,7 @@ const GamesPage = () => {
 
     try {
       if (trimmedQuery) {
-        const searchResults = await searchExternalGames(
-            nextSource,
-            trimmedQuery
-        );
+        const searchResults = await searchExternalGames(nextSource, trimmedQuery);
 
         if (requestIdRef.current === requestId) {
           setGames(searchResults);
@@ -274,7 +418,8 @@ const GamesPage = () => {
       const appsPage = await getExternalAppsPage(
           nextSource,
           nextPage,
-          nextPerPage
+          nextPerPage,
+          selectedTag
       );
 
       if (requestIdRef.current === requestId) {
@@ -297,41 +442,102 @@ const GamesPage = () => {
     }
   };
 
-  const scheduleSearch = (nextQuery: string, nextSource: GameSource = source) => {
+  const scheduleSearch = (
+      nextQuery: string,
+      nextSource: GameSource = source,
+      nextSelectedCategory = selectedCategory
+  ) => {
     clearScheduledSearch();
 
     searchTimeoutRef.current = window.setTimeout(() => {
-      void runSearch(nextQuery, nextSource, 1, perPage);
+      void runSearch(nextQuery, nextSource, 1, perPage, nextSelectedCategory);
     }, SEARCH_DEBOUNCE_MS);
   };
+
+  useEffect(() => {
+    void fetchManualGames("STEAM");
+    void fetchCategoryOptions("STEAM");
+    void runSearch("", "STEAM", 1, perPage, ALL_CATEGORIES_VALUE);
+
+    return () => {
+      clearScheduledSearch();
+      requestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      if (
+          categoryFilterRef.current &&
+          event.target instanceof Node &&
+          !categoryFilterRef.current.contains(event.target)
+      ) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, []);
 
   const handleQueryChange = (nextQuery: string) => {
     setQuery(nextQuery);
     setPage(1);
-    scheduleSearch(nextQuery, source);
+    scheduleSearch(nextQuery, source, selectedCategory);
   };
 
   const handleSourceChange = (nextSource: GameSource) => {
     setSource(nextSource);
+    setSelectedCategory(ALL_CATEGORIES_VALUE);
+    setCategorySearchTerm("");
+    setIsCategoryDropdownOpen(false);
     setPage(1);
     setNotice(null);
-    void fetchManualGames(nextSource);
 
-    void runSearch(query, nextSource, 1, perPage);
+    void fetchManualGames(nextSource);
+    void fetchCategoryOptions(nextSource);
+    void runSearch(query, nextSource, 1, perPage, ALL_CATEGORIES_VALUE);
+  };
+
+  const selectAllCategories = () => {
+    setSelectedCategory(ALL_CATEGORIES_VALUE);
+    setCategorySearchTerm("");
+    setIsCategoryDropdownOpen(false);
+    setPage(1);
+
+    void runSearch(query, source, 1, perPage, ALL_CATEGORIES_VALUE);
+  };
+
+  const handleCategorySelect = (category: CategoryOption) => {
+    setSelectedCategory(category.name);
+    setCategorySearchTerm(category.name);
+    setIsCategoryDropdownOpen(false);
+    setPage(1);
+
+    void runSearch(query, source, 1, perPage, category.name);
+  };
+
+  const handleCategorySearchChange = (nextSearchTerm: string) => {
+    setCategorySearchTerm(nextSearchTerm);
+    setIsCategoryDropdownOpen(true);
+    setSelectedCategory(ALL_CATEGORIES_VALUE);
+    setPage(1);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void runSearch(query, source, 1, perPage);
+    void runSearch(query, source, 1, perPage, selectedCategory);
   };
 
   const handlePageChange = (nextPage: number) => {
-    if (query.trim()) {
-      setPage(nextPage);
-      return;
-    }
+    setPage(nextPage);
 
-    void runSearch("", source, nextPage, perPage);
+    if (!query.trim()) {
+      void runSearch("", source, nextPage, perPage, selectedCategory);
+    }
   };
 
   const handlePerPageChange = (nextPerPage: number) => {
@@ -339,7 +545,7 @@ const GamesPage = () => {
     setPage(1);
 
     if (!query.trim()) {
-      void runSearch("", source, 1, nextPerPage);
+      void runSearch("", source, 1, nextPerPage, selectedCategory);
     }
   };
 
@@ -381,6 +587,7 @@ const GamesPage = () => {
       source: nextSource,
       categoryId: null,
     }));
+
     void fetchFormCategories(nextSource);
   };
 
@@ -409,12 +616,12 @@ const GamesPage = () => {
       await createGame(request);
       closeModal();
       setNotice("Oyun başarıyla eklendi.");
+
       const createdSource = request.source ?? source;
 
       setSource(createdSource);
       await fetchManualGames(createdSource);
-
-      await runSearch(query, createdSource, 1, perPage);
+      await runSearch(query, createdSource, 1, perPage, selectedCategory);
     } catch (createError) {
       setFormError(
           getCreateErrorMessage(createError, "Oyun eklenirken bir hata oluştu.")
@@ -425,31 +632,52 @@ const GamesPage = () => {
   };
 
   const isSearchMode = Boolean(query.trim());
+  const isCategoryFilterActive = selectedCategory !== ALL_CATEGORIES_VALUE;
 
-  const manualGamesForList = useMemo(() => {
-    const trimmedQuery = query.trim().toLocaleLowerCase("tr");
+  const filteredCategoryOptions = useMemo(() => {
+    const normalizedSearchTerm = normalizeCategory(categorySearchTerm);
 
-    if (!trimmedQuery) {
-      return page === 1 ? manualGames : [];
+    if (!normalizedSearchTerm) {
+      return categoryOptions;
     }
 
-    return manualGames.filter((game) => {
-      const searchableText = [
-        game.title,
-        game.description,
-        game.genre,
-        game.platform,
-        game.developer,
-        game.publisher,
-        game.categoryName,
-      ]
-          .filter(Boolean)
-          .join(" ")
-          .toLocaleLowerCase("tr");
+    return categoryOptions.filter((category) =>
+        normalizeCategory(category.name).includes(normalizedSearchTerm)
+    );
+  }, [categoryOptions, categorySearchTerm]);
 
-      return searchableText.includes(trimmedQuery);
-    });
-  }, [manualGames, page, query]);
+  const manualGamesForList = useMemo(() => {
+    const trimmedQuery = query.trim().toLocaleLowerCase("tr-TR");
+
+    const filteredByQuery = trimmedQuery
+        ? manualGames.filter((game) => {
+          const searchableText = [
+            game.title,
+            game.description,
+            game.genre,
+            game.platform,
+            game.developer,
+            game.publisher,
+            game.categoryName,
+          ]
+              .filter(Boolean)
+              .join(" ")
+              .toLocaleLowerCase("tr-TR");
+
+          return searchableText.includes(trimmedQuery);
+        })
+        : manualGames;
+
+    const filteredByCategory = isCategoryFilterActive
+        ? filteredByQuery.filter((game) => hasCategoryMatch(game, selectedCategory))
+        : filteredByQuery;
+
+    if (!trimmedQuery) {
+      return page === 1 ? filteredByCategory : [];
+    }
+
+    return filteredByCategory;
+  }, [isCategoryFilterActive, manualGames, page, query, selectedCategory]);
 
   const listedGames = useMemo<GameListItem[]>(
       () => [
@@ -462,25 +690,33 @@ const GamesPage = () => {
       [games, manualGamesForList]
   );
 
-  const searchTotalPages = Math.max(1, Math.ceil(listedGames.length / perPage));
-  const totalPages = isSearchMode ? searchTotalPages : externalTotalPages;
+  const filteredListedGames = listedGames;
+
+  const usesClientPagination = isSearchMode;
+
+  const clientTotalPages = Math.max(
+      1,
+      Math.ceil(filteredListedGames.length / perPage)
+  );
+
+  const totalPages = usesClientPagination ? clientTotalPages : externalTotalPages;
   const currentPage = Math.min(page, totalPages);
   const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages);
 
   const visibleGames = useMemo(() => {
-    if (!isSearchMode) {
-      return listedGames;
+    if (!usesClientPagination) {
+      return filteredListedGames;
     }
 
-    return listedGames.slice(
+    return filteredListedGames.slice(
         (currentPage - 1) * perPage,
         currentPage * perPage
     );
-  }, [currentPage, isSearchMode, listedGames, perPage]);
+  }, [currentPage, filteredListedGames, perPage, usesClientPagination]);
 
-  const displayedResultCount = isSearchMode
-      ? listedGames.length
-      : externalTotalItems + manualGames.length;
+  const displayedResultCount = usesClientPagination
+      ? filteredListedGames.length
+      : externalTotalItems + manualGamesForList.length;
 
   const gameSubmitDisabled =
       creatingGame ||
@@ -493,17 +729,18 @@ const GamesPage = () => {
         <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.20),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.14),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
         <div className="relative min-h-screen">
-
           <main className="mx-auto max-w-[1840px] px-8 py-8">
             <section className="mb-7 flex flex-wrap items-center justify-between gap-5">
               <div className="flex items-center gap-5">
                 <div className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl font-black text-violet-300 shadow-2xl shadow-violet-950/40">
                   {source === "STEAM" ? "ST" : "EP"}
                 </div>
+
                 <div>
                   <h1 className="text-4xl font-black tracking-tight text-white">
                     Oyunlar
                   </h1>
+
                   <p className="mt-3 text-base text-slate-400">
                     {sourceLabel(source)} oyunlarını backend üzerinden ara ve
                     manuel kayıtlarla birlikte görüntüle.
@@ -524,14 +761,15 @@ const GamesPage = () => {
             </section>
 
             <form
-                className="rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl"
+                className="relative z-[80] rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl"
                 onSubmit={handleSubmit}
             >
-              <div className="grid gap-4 lg:grid-cols-[220px_1fr_auto]">
+              <div className="grid gap-4 lg:grid-cols-[220px_260px_1fr_auto]">
                 <label className="space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                   Kaynak
                 </span>
+
                   <select
                       className="h-12 w-full cursor-pointer rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm font-semibold text-white outline-none"
                       onChange={(event) =>
@@ -547,12 +785,107 @@ const GamesPage = () => {
                   </select>
                 </label>
 
+                <div
+                    className="relative z-[90] space-y-2"
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setIsCategoryDropdownOpen(false);
+                      }
+                    }}
+                    ref={categoryFilterRef}
+                >
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Kategori
+                </span>
+
+                  <div className="relative">
+                    <input
+                        className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 pr-20 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400/70"
+                        onChange={(event) =>
+                            handleCategorySearchChange(event.target.value)
+                        }
+                        onFocus={() => setIsCategoryDropdownOpen(true)}
+                        placeholder="Kategori ara veya seç"
+                        type="text"
+                        value={categorySearchTerm}
+                    />
+
+                    {categorySearchTerm ? (
+                        <button
+                            aria-label="Kategori seçimini temizle"
+                            className="absolute right-10 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-sm font-black text-slate-400 hover:bg-white/10 hover:text-white"
+                            onClick={selectAllCategories}
+                            type="button"
+                        >
+                          x
+                        </button>
+                    ) : null}
+
+                    <button
+                        aria-label="Kategori listesini aç"
+                        className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-xs text-slate-400 hover:bg-white/10 hover:text-white"
+                        onClick={() =>
+                            setIsCategoryDropdownOpen((isOpen) => !isOpen)
+                        }
+                        type="button"
+                    >
+                      v
+                    </button>
+                  </div>
+
+                  {isCategoryDropdownOpen ? (
+                      <div className="absolute left-0 right-0 top-full z-[9999] mt-2 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/98 p-2 shadow-2xl shadow-black/70 backdrop-blur-xl">
+                        <button
+                            className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold ${
+                                selectedCategory === ALL_CATEGORIES_VALUE
+                                    ? "bg-violet-600 text-white"
+                                    : "text-slate-200 hover:bg-white/10"
+                            }`}
+                            onClick={selectAllCategories}
+                            type="button"
+                        >
+                          <span className="truncate">Tüm Kategoriler</span>
+                        </button>
+
+                        {filteredCategoryOptions.length > 0 ? (
+                            filteredCategoryOptions.map((category) => (
+                                <button
+                                    className={`mt-1 flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold ${
+                                        selectedCategory === category.name
+                                            ? "bg-violet-600 text-white"
+                                            : "text-slate-200 hover:bg-white/10"
+                                    }`}
+                                    key={`${
+                                        category.source ?? "all"
+                                    }-${category.externalId ?? category.id ?? category.name}`}
+                                    onClick={() => handleCategorySelect(category)}
+                                    type="button"
+                                >
+                                  <span className="truncate">{category.name}</span>
+
+                                  {category.source ? (
+                                      <span className="shrink-0 rounded-lg bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+                              {category.source}
+                            </span>
+                                  ) : null}
+                                </button>
+                            ))
+                        ) : (
+                            <div className="px-3 py-4 text-sm text-slate-400">
+                              Kategori bulunamadı.
+                            </div>
+                        )}
+                      </div>
+                  ) : null}
+                </div>
+
                 <label className="space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                   Oyun adı
                 </span>
+
                   <input
-                      className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-violet-400/70"
+                      className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400/70"
                       onChange={(event) => handleQueryChange(event.target.value)}
                       placeholder="Örn. elden ring"
                       type="search"
@@ -569,7 +902,7 @@ const GamesPage = () => {
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-slate-400">
-                  {query.trim()
+                  {query.trim() || isCategoryFilterActive
                       ? `${displayedResultCount} ${sourceLabel(source)} sonucu`
                       : `${displayedResultCount} ${sourceLabel(source)} oyunu`}
                 </div>
@@ -586,6 +919,7 @@ const GamesPage = () => {
                   >
                     Izgara
                   </button>
+
                   <button
                       className={`rounded-lg px-3 py-2 text-xs font-semibold ${
                           viewMode === "list"
@@ -620,12 +954,12 @@ const GamesPage = () => {
             </form>
 
             {notice ? (
-                <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-100">
+                <div className="relative z-10 mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-100">
                   {notice}
                 </div>
             ) : null}
 
-            <section className="mt-5 rounded-3xl border border-white/10 bg-slate-950/45 p-3 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl">
+            <section className="relative z-0 mt-5 rounded-3xl border border-white/10 bg-slate-950/45 p-3 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl">
               {(loading || manualGamesLoading) && visibleGames.length === 0 ? (
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                     {Array.from({ length: perPage }).map((_, index) => (
@@ -640,15 +974,18 @@ const GamesPage = () => {
               {!loading &&
               !manualGamesLoading &&
               !query.trim() &&
+              !isCategoryFilterActive &&
               visibleGames.length === 0 ? (
                   <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-white/15 bg-slate-950/50 p-8 text-center">
                     <div>
                       <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-violet-500/15 text-2xl font-black text-violet-300">
                         {source === "STEAM" ? "ST" : "EP"}
                       </div>
+
                       <h2 className="text-xl font-bold text-white">
                         {sourceLabel(source)} oyunu bulunamadı
                       </h2>
+
                       <p className="mt-2 text-sm text-slate-400">
                         Bu kaynak için listelenecek oyun bulunamadı.
                       </p>
@@ -658,16 +995,15 @@ const GamesPage = () => {
 
               {!loading &&
               !manualGamesLoading &&
-              Boolean(query.trim()) &&
+              (Boolean(query.trim()) || isCategoryFilterActive) &&
               visibleGames.length === 0 ? (
                   <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-white/15 bg-slate-950/50 p-8 text-center">
                     <div>
-                      <h2 className="text-xl font-bold text-white">
-                        Oyun bulunamadı
-                      </h2>
+                      <h2 className="text-xl font-bold text-white">Oyun bulunamadı</h2>
+
                       <p className="mt-2 text-sm text-slate-400">
-                        Farklı bir {sourceLabel(source)} oyun adı ile tekrar arama
-                        yapmayı deneyin.
+                        Farklı bir {sourceLabel(source)} oyun adı veya kategori ile
+                        tekrar arama yapmayı deneyin.
                       </p>
                     </div>
                   </div>
@@ -703,7 +1039,7 @@ const GamesPage = () => {
                   </div>
               ) : null}
 
-              {listedGames.length > 0 ? (
+              {filteredListedGames.length > 0 ? (
                   <footer className="mt-6 flex flex-wrap items-center justify-between gap-4 px-2 pb-1">
                     <div className="flex items-center gap-2">
                       <button
@@ -714,24 +1050,22 @@ const GamesPage = () => {
                       >
                         Önceki
                       </button>
-                      {visiblePageNumbers.map(
-                          (pageNumber) => {
-                            return (
-                                <button
-                                    className={`grid h-10 w-10 place-items-center rounded-xl text-sm font-semibold ${
-                                        currentPage === pageNumber
-                                            ? "bg-violet-600 text-white"
-                                            : "text-slate-300 hover:bg-white/5"
-                                    }`}
-                                    key={pageNumber}
-                                    onClick={() => handlePageChange(pageNumber)}
-                                    type="button"
-                                >
-                                  {pageNumber}
-                                </button>
-                            );
-                          }
-                      )}
+
+                      {visiblePageNumbers.map((pageNumber) => (
+                          <button
+                              className={`grid h-10 w-10 place-items-center rounded-xl text-sm font-semibold ${
+                                  currentPage === pageNumber
+                                      ? "bg-violet-600 text-white"
+                                      : "text-slate-300 hover:bg-white/5"
+                              }`}
+                              key={pageNumber}
+                              onClick={() => handlePageChange(pageNumber)}
+                              type="button"
+                          >
+                            {pageNumber}
+                          </button>
+                      ))}
+
                       <button
                           className="grid h-10 place-items-center rounded-xl bg-slate-900/80 px-3 text-sm text-slate-300 disabled:opacity-40"
                           disabled={currentPage === totalPages}
@@ -779,6 +1113,7 @@ const GamesPage = () => {
                       Steam veya Epic için manuel oyun kaydı oluştur.
                     </p>
                   </div>
+
                   <button
                       aria-label="Modalı kapat"
                       className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
@@ -801,6 +1136,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Platform / Sağlayıcı
                   </span>
+
                       <select
                           className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                           onChange={(event) =>
@@ -815,6 +1151,7 @@ const GamesPage = () => {
 
                     <label className="grid gap-2">
                       <span className="text-sm font-bold text-white">Kategori</span>
+
                       <select
                           className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:border-violet-400/70"
                           disabled={categoriesLoading || formCategories.length === 0}
@@ -828,12 +1165,14 @@ const GamesPage = () => {
                               ? "Kategoriler yükleniyor..."
                               : "Kategori seç"}
                         </option>
+
                         {formCategories.map((category) => (
                             <option key={category.id} value={category.id}>
                               {category.name}
                             </option>
                         ))}
                       </select>
+
                       {!categoriesLoading && formCategories.length === 0 ? (
                           <span className="text-sm text-amber-200">
                       Bu platform için önce kategori eklemelisin.
@@ -843,6 +1182,7 @@ const GamesPage = () => {
 
                     <label className="grid gap-2">
                       <span className="text-sm font-bold text-white">Oyun adı</span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={150}
@@ -857,6 +1197,7 @@ const GamesPage = () => {
 
                     <label className="grid gap-2">
                       <span className="text-sm font-bold text-white">Tür</span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={100}
@@ -870,6 +1211,7 @@ const GamesPage = () => {
 
                     <label className="grid gap-2 md:col-span-2">
                       <span className="text-sm font-bold text-white">Açıklama</span>
+
                       <textarea
                           className="min-h-24 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={3000}
@@ -885,6 +1227,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Platform bilgisi
                   </span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={100}
@@ -900,6 +1243,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Çıkış tarihi
                   </span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                           onChange={(event) =>
@@ -914,6 +1258,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Geliştirici
                   </span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={150}
@@ -927,6 +1272,7 @@ const GamesPage = () => {
 
                     <label className="grid gap-2">
                       <span className="text-sm font-bold text-white">Yayıncı</span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={150}
@@ -942,6 +1288,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Kapak görseli URL
                   </span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={500}
@@ -957,6 +1304,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Minimum sistem gereksinimleri
                   </span>
+
                       <textarea
                           className="min-h-24 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={2000}
@@ -974,6 +1322,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Önerilen sistem gereksinimleri
                   </span>
+
                       <textarea
                           className="min-h-24 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={2000}
@@ -991,6 +1340,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Desteklenen diller
                   </span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                           maxLength={500}
@@ -1006,6 +1356,7 @@ const GamesPage = () => {
                   <span className="text-sm font-bold text-white">
                     Popülerlik puanı
                   </span>
+
                       <input
                           className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                           min={0}
@@ -1032,6 +1383,7 @@ const GamesPage = () => {
                             key={key}
                         >
                           {label}
+
                           <input
                               checked={gameForm[key as keyof GameRequest] === true}
                               className="h-4 w-4 cursor-pointer"
@@ -1061,6 +1413,7 @@ const GamesPage = () => {
                     >
                       {creatingGame ? "Kaydediliyor..." : "Oyun Ekle"}
                     </button>
+
                     <button
                         className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
                         onClick={closeModal}

@@ -57,6 +57,19 @@ public class ExternalGameService {
     }
 
     @Cacheable(
+            cacheNames = CacheConfig.EXTERNAL_GAME_APPS,
+            key = "T(java.lang.String).valueOf(#source).toLowerCase() + ':' + #page + ':' + #size + ':' + (#tag == null ? '' : #tag.trim().toLowerCase())",
+            unless = "#result == null"
+    )
+    public ExternalGamePageResponse getGames(GameSource source, int page, int size, String tag) {
+        if (tag == null || tag.isBlank()) {
+            return getProvider(source).getGames(page, size);
+        }
+
+        return getProvider(source).getGames(page, size, tag);
+    }
+
+    @Cacheable(
             cacheNames = CacheConfig.EXTERNAL_GAME_DETAIL,
             key = "T(java.lang.String).valueOf(#source).toLowerCase() + ':' + (#externalId == null ? '' : #externalId.trim().toLowerCase())",
             unless = "#result == null"

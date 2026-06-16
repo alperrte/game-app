@@ -46,6 +46,7 @@ export type Game = {
   onSale: boolean;
   turkishLanguageSupport: boolean;
   popularityScore: number;
+  systemRequirementOnly?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -68,6 +69,7 @@ export type GameRequest = {
   onSale?: boolean;
   turkishLanguageSupport?: boolean;
   popularityScore?: number;
+  systemRequirementOnly?: boolean;
 };
 
 export type GameFilters = {
