@@ -245,10 +245,18 @@ const GamesPage = () => {
     setHasSearched(true);
 
     try {
-      const results = await searchExternalGames(nextSource, trimmedQuery);
+      const [searchResult] = await Promise.allSettled([
+        searchExternalGames(nextSource, trimmedQuery),
+      ]);
 
       if (requestIdRef.current === requestId) {
-        setGames(results);
+        if (searchResult.status === "fulfilled") {
+          setGames(searchResult.value);
+        } else {
+          setGames([]);
+          setError(getSearchErrorMessage(searchResult.reason, nextSource));
+        }
+
         setPage(1);
       }
     } catch (searchError) {
@@ -567,6 +575,12 @@ const GamesPage = () => {
                 {manualGamesError}
               </div>
             ) : null}
+
+            {loading && !manualGamesLoading ? (
+              <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm text-cyan-100">
+                Harici veriler yükleniyor...
+              </div>
+            ) : null}
           </form>
 
           {notice ? (
@@ -576,7 +590,7 @@ const GamesPage = () => {
           ) : null}
 
           <section className="mt-5 rounded-3xl border border-white/10 bg-slate-950/45 p-3 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl">
-            {loading || manualGamesLoading ? (
+            {(loading || manualGamesLoading) && visibleGames.length === 0 ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 {Array.from({ length: perPage }).map((_, index) => (
                   <div
@@ -614,7 +628,7 @@ const GamesPage = () => {
               </div>
             ) : null}
 
-            {!loading && !manualGamesLoading && visibleGames.length > 0 ? (
+            {!manualGamesLoading && visibleGames.length > 0 ? (
               <div
                 className={
                   viewMode === "grid"

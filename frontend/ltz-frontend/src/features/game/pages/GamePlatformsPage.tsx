@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import GameNavbar from "../components/GameNavbar";
 import { getExternalGamePlatforms } from "../services/externalGameService";
@@ -290,6 +290,7 @@ const GamePlatformsPage = () => {
   const [statusFilter, setStatusFilter] =
     useState<PlatformStatusFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [externalLoading, setExternalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<number | null>(null);
   const [deletingPlatformId, setDeletingPlatformId] = useState<number | null>(
@@ -303,73 +304,120 @@ const GamePlatformsPage = () => {
   const [editingPlatformId, setEditingPlatformId] = useState<number | null>(
     null
   );
+  const requestIdRef = useRef(0);
 
   const loadPlatforms = async (selectFirst = true) => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     setLoading(true);
+    setExternalLoading(false);
     setError(null);
 
-    const [backendPlatformsResult, externalPlatformsResult] =
-      await Promise.allSettled([
-        platformService.getPlatforms(),
+    try {
+      const backendPlatforms = await platformService.getPlatforms();
+
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+
+      const fallbackPlatforms = backendPlatforms.map((platform) =>
+        toPlatformRow(platform)
+      );
+
+      setPlatforms(fallbackPlatforms);
+      setSelectedPlatform((currentPlatform) => {
+        if (!selectFirst) {
+          return null;
+        }
+
+        if (!currentPlatform) {
+          return fallbackPlatforms[0] ?? null;
+        }
+
+        return (
+          fallbackPlatforms.find(
+            (platform) => platform.id === currentPlatform.id
+          ) ??
+          fallbackPlatforms[0] ??
+          null
+        );
+      });
+      setLoading(false);
+      setExternalLoading(true);
+
+      const [externalPlatformsResult] = await Promise.allSettled([
         getExternalGamePlatforms(),
       ]);
 
-    if (backendPlatformsResult.status === "rejected") {
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (externalPlatformsResult.status === "fulfilled") {
+        const externalPlatformMap = buildExternalPlatformMap(
+          externalPlatformsResult.value
+        );
+        const enrichedPlatforms = backendPlatforms.map((platform) =>
+          toPlatformRow(
+            platform,
+            externalPlatformMap.get(normalizePlatformLookupName(platform.name))
+          )
+        );
+
+        setPlatforms(enrichedPlatforms);
+        setSelectedPlatform((currentPlatform) => {
+          if (!selectFirst) {
+            return null;
+          }
+
+          if (!currentPlatform) {
+            return enrichedPlatforms[0] ?? null;
+          }
+
+          return (
+            enrichedPlatforms.find(
+              (platform) => platform.id === currentPlatform.id
+            ) ??
+            enrichedPlatforms[0] ??
+            null
+          );
+        });
+      } else {
+        setError(
+          getErrorMessage(
+            externalPlatformsResult.reason,
+            "Harici platform detayları yüklenemedi; sunucu platformları fallback değerlerle gösteriliyor."
+          )
+        );
+      }
+    } catch (platformLoadError) {
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+
       setPlatforms([]);
       setSelectedPlatform(null);
       setError(
         getErrorMessage(
-          backendPlatformsResult.reason,
+          platformLoadError,
           "Platformlar yüklenirken bir hata oluştu."
         )
       );
-      setLoading(false);
-      return;
-    }
-
-    const externalPlatformMap =
-      externalPlatformsResult.status === "fulfilled"
-        ? buildExternalPlatformMap(externalPlatformsResult.value)
-        : new Map<string, ExternalGamePlatform>();
-
-    const nextPlatforms = backendPlatformsResult.value.map((platform) =>
-      toPlatformRow(
-        platform,
-        externalPlatformMap.get(normalizePlatformLookupName(platform.name))
-      )
-    );
-
-    setPlatforms(nextPlatforms);
-    setSelectedPlatform((currentPlatform) => {
-      if (!selectFirst) {
-        return null;
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setExternalLoading(false);
       }
-
-      if (!currentPlatform) {
-        return nextPlatforms[0] ?? null;
-      }
-
-      return (
-        nextPlatforms.find((platform) => platform.id === currentPlatform.id) ??
-        nextPlatforms[0] ??
-        null
-      );
-    });
-
-    if (externalPlatformsResult.status === "rejected") {
-      setError(
-        getErrorMessage(
-          externalPlatformsResult.reason,
-          "Harici platform detayları yüklenemedi; backend platformları fallback değerlerle gösteriliyor."
-        )
-      );
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
     void loadPlatforms();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, []);
 
   const stats = useMemo(() => {
@@ -659,6 +707,12 @@ const GamePlatformsPage = () => {
             {error ? (
               <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
                 {error}
+              </div>
+            ) : null}
+
+            {externalLoading && !loading ? (
+              <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm text-cyan-100">
+                Harici veriler yükleniyor...
               </div>
             ) : null}
 

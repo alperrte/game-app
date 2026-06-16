@@ -10,10 +10,12 @@ import com.ltz.game_service.dto.steam.SteamAppDetailsResponse;
 import com.ltz.game_service.dto.steam.SteamSearchResultsResponse;
 import com.ltz.game_service.dto.steam.SteamStoreSearchResponse;
 import com.ltz.game_service.enums.GameSource;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.text.Normalizer;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -104,8 +106,13 @@ public class SteamGameProvider implements ExternalGameProvider {
     public SteamGameProvider() {
         this.objectMapper = new ObjectMapper();
 
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(3));
+        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+
         this.steamStoreClient = RestClient.builder()
                 .baseUrl("https://store.steampowered.com")
+                .requestFactory(requestFactory)
                 .build();
     }
 
@@ -352,7 +359,7 @@ public class SteamGameProvider implements ExternalGameProvider {
         }
 
         if (data.getReleaseDate().isComingSoon()) {
-            return "Coming Soon";
+            return "Çok Yakında";
         }
 
         return data.getReleaseDate().getDate();

@@ -451,7 +451,7 @@ const GameCategoriesPage = () => {
       closeModal();
       setFormNotice("Kategori başarıyla eklendi.");
       setSource(request.source);
-      await Promise.all([
+      await Promise.allSettled([
         fetchCategories(request.source, search),
         fetchManualCategories(request.source),
       ]);
@@ -501,7 +501,7 @@ const GameCategoriesPage = () => {
             <div className="grid gap-4 lg:grid-cols-4">
               <StatCard
                 accent="bg-violet-500/15 text-violet-300"
-                helper="Loaded from selected source"
+                helper="Seçili kaynaktan yüklendi"
                 icon="#"
                 label="Toplam Kategori"
                 value={String(stats.totalCategories)}
@@ -522,7 +522,7 @@ const GameCategoriesPage = () => {
               />
               <StatCard
                 accent="bg-amber-500/15 text-amber-300"
-                helper="Average distribution"
+                helper="Ortalama dağılım"
                 icon="/"
                 label="Kategori Başına Ort. Oyun"
                 value={String(stats.average)}
@@ -649,8 +649,14 @@ const GameCategoriesPage = () => {
               </div>
             ) : null}
 
+            {loading && !manualLoading ? (
+              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm text-cyan-100">
+                Harici veriler yükleniyor...
+              </div>
+            ) : null}
+
             <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur-xl">
-              {loading || manualLoading ? (
+              {(loading || manualLoading) && filteredCategories.length === 0 ? (
                 <div className="grid h-96 place-items-center text-sm font-semibold text-slate-300">
                   Kategoriler yükleniyor...
                 </div>
@@ -665,13 +671,13 @@ const GameCategoriesPage = () => {
                     <p className="mt-2 text-sm text-slate-400">
                       {error
                         ? "Sağlayıcı kategori listesi döndürmedi."
-                        : "Try a different source or search query."}
+                        : "Farklı bir kaynak veya arama sorgusu deneyin."}
                     </p>
                   </div>
                 </div>
               ) : null}
 
-              {!loading && !manualLoading && filteredCategories.length > 0 && viewMode === "table" ? (
+              {!manualLoading && filteredCategories.length > 0 && viewMode === "table" ? (
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
@@ -740,7 +746,7 @@ const GameCategoriesPage = () => {
                 </table>
               ) : null}
 
-              {!loading && !manualLoading && filteredCategories.length > 0 && viewMode === "grid" ? (
+              {!manualLoading && filteredCategories.length > 0 && viewMode === "grid" ? (
                 <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
                   {filteredCategories.map((category) => (
                     <article
