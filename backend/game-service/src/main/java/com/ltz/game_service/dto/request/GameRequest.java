@@ -1,11 +1,16 @@
 package com.ltz.game_service.dto.request;
 
+import com.ltz.game_service.enums.GameSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
 public class GameRequest {
+
+    private GameSource source;
+
+    private Long categoryId;
 
     @NotBlank(message = "Oyun adı boş bırakılamaz.")
     @Size(max = 150, message = "Oyun adı en fazla 150 karakter olabilir.")
@@ -49,6 +54,22 @@ public class GameRequest {
     private Integer popularityScore = 0;
 
     public GameRequest() {
+    }
+
+    public GameSource getSource() {
+        return source;
+    }
+
+    public void setSource(GameSource source) {
+        this.source = source;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 
     public String getTitle() {

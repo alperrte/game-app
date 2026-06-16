@@ -1,5 +1,6 @@
 package com.ltz.game_service.entity;
 
+import com.ltz.game_service.enums.GameSource;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -14,9 +15,13 @@ public class GameCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", length = 50)
+    private GameSource source;
+
     @NotBlank(message = "Kategori adı boş bırakılamaz.")
     @Size(max = 100, message = "Kategori adı en fazla 100 karakter olabilir.")
-    @Column(name = "name", nullable = false, unique = true, length = 100)
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
     @Size(max = 500, message = "Kategori açıklaması en fazla 500 karakter olabilir.")
@@ -44,6 +49,14 @@ public class GameCategory {
 
     public Long getId() {
         return id;
+    }
+
+    public GameSource getSource() {
+        return source;
+    }
+
+    public void setSource(GameSource source) {
+        this.source = source;
     }
 
     public String getName() {

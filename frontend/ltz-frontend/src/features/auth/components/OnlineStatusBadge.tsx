@@ -41,7 +41,7 @@ export function OnlineStatusBadge({ count = 24568 }: OnlineStatusBadgeProps) {
             </span>
 
             <span className="text-[10px] font-bold tracking-[0.2em] text-emerald-300">
-                ONLINE
+                ÇEVRİMİÇİ
             </span>
 
             <span className="text-xs text-zinc-300">

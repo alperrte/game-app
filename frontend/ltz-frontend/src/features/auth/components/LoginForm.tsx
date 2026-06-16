@@ -36,7 +36,7 @@ export function LoginForm() {
 
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
-    const [rememberMe, setRememberMe] = useState(true);
+    const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<LoginFormErrors>({});
@@ -115,7 +115,7 @@ export function LoginForm() {
                     ease: [0.22, 1, 0.36, 1],
                 }}
             >
-                <span className="auth-access-badge">PLAYER ACCESS</span>
+                <span className="auth-access-badge">OYUNCU ERİŞİMİ</span>
                 <h1 className="auth-title mt-2 text-3xl font-bold tracking-tight">
                     Hoşgeldin Oyuncu
                 </h1>

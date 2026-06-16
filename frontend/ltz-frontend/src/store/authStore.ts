@@ -12,10 +12,13 @@ import { STORAGE_KEYS } from "../lib/constants";
 import {
     clearAuthStorage,
     getAccessToken,
+    getRefreshToken,
     getStoredUser,
+    isTokenExpired,
     setStoredUser,
     setTokens,
 } from "../lib/token";
+import { authService } from "../features/auth/services/authService";
 
 interface AuthState {
     user: AuthUser | null;
@@ -100,6 +103,47 @@ export function clearAuth(): void {
     clearAuthStorage();
     state = { user: null, isAuthenticated: false };
     emit();
+}
+
+/*
+ * Uygulama açılışında bir kez çağrılır.
+ *
+ * Storage'da oturum varmış gibi görünse bile (user objesi mevcut), access token'ın
+ * JWT exp'i kontrol edilir:
+ *  - Token geçerliyse dokunulmaz.
+ *  - Token süresi dolmuşsa ve geçerli bir refresh token varsa sessizce yenilenir;
+ *    yenileme aynı depolamada (localStorage/sessionStorage) kalır.
+ *  - Yenileme yoksa/başarısızsa oturum tamamen temizlenir ve kullanıcı login'e düşer.
+ *
+ * Böylece süresi dolmuş token ile "son sayfa" açık kalmaz.
+ */
+export async function bootstrapAuth(): Promise<void> {
+    const user = getStoredUser();
+    const accessToken = getAccessToken();
+
+    if (!user || !accessToken) {
+        if (state.isAuthenticated) clearAuth();
+        return;
+    }
+
+    if (!isTokenExpired(accessToken)) {
+        return;
+    }
+
+    const refreshToken = getRefreshToken();
+
+    if (refreshToken && !isTokenExpired(refreshToken)) {
+        try {
+            const response = await authService.refreshToken({ refreshToken });
+            // remember verilmez: token'lar hâlihazırdaki depolamada kalır.
+            setTokens(response.accessToken, response.refreshToken);
+            return;
+        } catch {
+            // Yenileme başarısız: aşağıda oturumu temizle.
+        }
+    }
+
+    clearAuth();
 }
 
 /*

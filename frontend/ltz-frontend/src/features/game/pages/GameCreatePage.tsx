@@ -1,8 +1,13 @@
+import { isAxiosError } from "axios";
 import { useMemo, useState } from "react";
 import { GAME_ROUTES } from "../../../lib/constants";
-import GameNavbar from "../components/GameNavbar";
+import { useAuthStore } from "../../../store/authStore";
 import { gameService } from "../services/gameService";
 import type { GameRequest } from "../types/gameTypes";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 const initialValue: GameRequest = {
   title: "",
@@ -23,30 +28,33 @@ const initialValue: GameRequest = {
 };
 
 const genreOptions = [
-  "Action",
-  "Adventure",
-  "RPG",
-  "Simulation",
-  "Strategy",
-  "Racing",
-  "Sports",
-  "Indie",
+  { label: "Aksiyon", value: "Action" },
+  { label: "Macera", value: "Adventure" },
+  { label: "RPG", value: "RPG" },
+  { label: "Simülasyon", value: "Simulation" },
+  { label: "Strateji", value: "Strategy" },
+  { label: "Yarış", value: "Racing" },
+  { label: "Spor", value: "Sports" },
+  { label: "Bağımsız", value: "Indie" },
 ];
 
 const platformOptions = [
-  "Windows",
-  "Windows, Steam",
-  "PlayStation",
-  "Xbox",
-  "Nintendo Switch",
-  "Mobile",
+  { label: "Windows", value: "Windows" },
+  { label: "Windows, Steam", value: "Windows, Steam" },
+  { label: "PlayStation", value: "PlayStation" },
+  { label: "Xbox", value: "Xbox" },
+  { label: "Nintendo Switch", value: "Nintendo Switch" },
+  { label: "Mobil", value: "Mobile" },
 ];
 
 const languageOptions = [
-  "English",
-  "English, Turkish",
-  "Turkish",
-  "English, Turkish, German, French",
+  { label: "İngilizce", value: "English" },
+  { label: "İngilizce, Türkçe", value: "English, Turkish" },
+  { label: "Türkçe", value: "Turkish" },
+  {
+    label: "İngilizce, Türkçe, Almanca, Fransızca",
+    value: "English, Turkish, German, French",
+  },
 ];
 
 const emptyToNull = (value: string | null | undefined) => {
@@ -72,6 +80,14 @@ const normalizeGameRequest = (value: GameRequest): GameRequest => {
     recommendedSystemRequirements: emptyToNull(value.recommendedSystemRequirements),
     popularityScore: value.popularityScore ?? 0,
   };
+};
+
+const getCreateGameErrorMessage = (error: unknown) => {
+  if (isAxiosError(error) && error.response?.status === 403) {
+    return ADMIN_ACTION_MESSAGE;
+  }
+
+  return "Oyun oluşturulamadı. Lütfen formu kontrol edip tekrar deneyin.";
 };
 
 const FieldLabel = ({
@@ -151,14 +167,14 @@ const RequirementBox = ({
           </p>
         </div>
         <span className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-200">
-          + Add Requirement
+          + Gereksinim Ekle
         </span>
       </div>
       <textarea
         className="min-h-28 w-full rounded-xl border border-dashed border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
         maxLength={2000}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="No requirements added yet."
+        placeholder="Henüz gereksinim eklenmedi."
         value={value ?? ""}
       />
     </section>
@@ -166,6 +182,8 @@ const RequirementBox = ({
 };
 
 const GameCreatePage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [formValue, setFormValue] = useState<GameRequest>(initialValue);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,31 +197,31 @@ const GameCreatePage = () => {
 
   const checklist = useMemo(
     () => [
-      { label: "Title", complete: Boolean(formValue.title.trim()), required: true },
+      { label: "Başlık", complete: Boolean(formValue.title.trim()), required: true },
       {
-        label: "Description",
+        label: "Açıklama",
         complete: Boolean(formValue.description?.trim()),
         required: true,
       },
-      { label: "Genre", complete: Boolean(formValue.genre), required: true },
+      { label: "Tür", complete: Boolean(formValue.genre), required: true },
       { label: "Platform", complete: Boolean(formValue.platform), required: true },
       {
-        label: "Release Date",
+        label: "Çıkış Tarihi",
         complete: Boolean(formValue.releaseDate),
         required: true,
       },
       {
-        label: "Cover Image",
+        label: "Kapak Görseli",
         complete: Boolean(formValue.coverImageUrl?.trim()),
         required: true,
       },
       {
-        label: "Developer",
+        label: "Geliştirici",
         complete: Boolean(formValue.developer?.trim()),
         required: false,
       },
       {
-        label: "Publisher",
+        label: "Yayıncı",
         complete: Boolean(formValue.publisher?.trim()),
         required: false,
       },
@@ -212,10 +230,15 @@ const GameCreatePage = () => {
   );
 
   const handleSubmit = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     const request = normalizeGameRequest(formValue);
 
     if (!request.title) {
-      setError("Title is required.");
+      setError("Başlık zorunludur.");
       return;
     }
 
@@ -226,19 +249,18 @@ const GameCreatePage = () => {
       await gameService.createGame(request);
       window.history.pushState({}, "", GAME_ROUTES.games);
       window.dispatchEvent(new Event("popstate"));
-    } catch {
-      setError("Game could not be created. Please check the form and try again.");
+    } catch (createError) {
+      setError(getCreateGameErrorMessage(createError));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
+    <div className="relative bg-[#020817] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
       <div className="relative min-h-screen">
-        <GameNavbar activeItem="Games" />
 
         <main className="mx-auto max-w-[1840px] px-8 py-6">
           <section className="mb-5 flex items-center gap-5">
@@ -247,7 +269,7 @@ const GameCreatePage = () => {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tight text-white">
-                Create New Game
+                Yeni Oyun Oluştur
               </h1>
               <p className="mt-2 text-base text-slate-400">
                 Fill in the details below to add a new game to the LobbyTwoZero
@@ -271,47 +293,47 @@ const GameCreatePage = () => {
               }}
             >
               <h2 className="mb-5 text-xl font-bold text-white">
-                Game Information
+                Oyun Bilgileri
               </h2>
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <label className="grid gap-2">
-                  <FieldLabel required>Title</FieldLabel>
+                  <FieldLabel required>Başlık</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={150}
                     onChange={(event) => setField("title", event.target.value)}
-                    placeholder="Enter game title"
+                    placeholder="Oyun başlığını girin"
                     required
                     value={formValue.title}
                   />
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Genre</FieldLabel>
+                  <FieldLabel required>Tür</FieldLabel>
                   <select
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) => setField("genre", event.target.value)}
                     value={formValue.genre ?? ""}
                   >
-                    <option value="">Select genre</option>
+                    <option value="">Tür seçin</option>
                     {genreOptions.map((genre) => (
-                      <option key={genre} value={genre}>
-                        {genre}
+                      <option key={genre.value} value={genre.value}>
+                        {genre.label}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Description</FieldLabel>
+                  <FieldLabel required>Açıklama</FieldLabel>
                   <textarea
                     className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={500}
                     onChange={(event) =>
                       setField("description", event.target.value)
                     }
-                    placeholder="Enter a short description of the game..."
+                    placeholder="Oyun için kısa bir açıklama girin..."
                     value={formValue.description ?? ""}
                   />
                   <span className="text-right text-xs text-slate-500">
@@ -329,17 +351,17 @@ const GameCreatePage = () => {
                       }
                       value={formValue.platform ?? ""}
                     >
-                      <option value="">Select platform</option>
+                      <option value="">Platform seçin</option>
                       {platformOptions.map((platform) => (
-                        <option key={platform} value={platform}>
-                          {platform}
+                        <option key={platform.value} value={platform.value}>
+                          {platform.label}
                         </option>
                       ))}
                     </select>
                   </label>
 
                   <label className="grid gap-2">
-                    <FieldLabel required>Release Date</FieldLabel>
+                    <FieldLabel required>Çıkış Tarihi</FieldLabel>
                     <input
                       className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                       onChange={(event) =>
@@ -352,33 +374,33 @@ const GameCreatePage = () => {
                 </div>
 
                 <label className="grid gap-2">
-                  <FieldLabel>Developer</FieldLabel>
+                  <FieldLabel>Geliştirici</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={150}
                     onChange={(event) =>
                       setField("developer", event.target.value)
                     }
-                    placeholder="Enter developer name"
+                    placeholder="Geliştirici adını girin"
                     value={formValue.developer ?? ""}
                   />
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel>Publisher</FieldLabel>
+                  <FieldLabel>Yayıncı</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={150}
                     onChange={(event) =>
                       setField("publisher", event.target.value)
                     }
-                    placeholder="Enter publisher name"
+                    placeholder="Yayıncı adını girin"
                     value={formValue.publisher ?? ""}
                   />
                 </label>
 
                 <label className="grid gap-2 lg:col-span-2">
-                  <FieldLabel>Supported Languages</FieldLabel>
+                  <FieldLabel>Desteklenen Diller</FieldLabel>
                   <select
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) =>
@@ -386,17 +408,17 @@ const GameCreatePage = () => {
                     }
                     value={formValue.supportedLanguages ?? ""}
                   >
-                    <option value="">Select languages</option>
+                    <option value="">Dil seçin</option>
                     {languageOptions.map((language) => (
-                      <option key={language} value={language}>
-                        {language}
+                      <option key={language.value} value={language.value}>
+                        {language.label}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className="grid gap-2 lg:col-span-2">
-                  <FieldLabel required>Cover Image URL</FieldLabel>
+                  <FieldLabel required>Kapak Görseli URL</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                     maxLength={500}
@@ -407,7 +429,7 @@ const GameCreatePage = () => {
                     value={formValue.coverImageUrl ?? ""}
                   />
                   <span className="text-xs text-slate-500">
-                    Enter a direct URL to the game cover image.
+                    Oyun kapak görseli için doğrudan bir URL girin.
                   </span>
                 </label>
               </div>
@@ -415,25 +437,25 @@ const GameCreatePage = () => {
               <div className="my-6 grid gap-4 lg:grid-cols-3">
                 <ToggleCard
                   active={formValue.earlyAccess === true}
-                  description="Game is in early access phase."
+                  description="Oyun erken erişim aşamasında."
                   icon="♘"
-                  label="Early Access"
+                  label="Erken Erişim"
                   onToggle={() =>
                     setField("earlyAccess", !(formValue.earlyAccess === true))
                   }
                 />
                 <ToggleCard
                   active={formValue.onSale === true}
-                  description="Game is currently on sale."
+                  description="Oyun şu anda indirimde."
                   icon="%"
-                  label="On Sale"
+                  label="İndirimde"
                   onToggle={() => setField("onSale", !(formValue.onSale === true))}
                 />
                 <ToggleCard
                   active={formValue.turkishLanguageSupport === true}
-                  description="Game supports Turkish language."
+                  description="Oyun Türkçe dil desteği sunuyor."
                   icon="TR"
-                  label="Turkish Language Support"
+                  label="Türkçe Dil Desteği"
                   onToggle={() =>
                     setField(
                       "turkishLanguageSupport",
@@ -445,14 +467,14 @@ const GameCreatePage = () => {
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <RequirementBox
-                  label="Minimum System Requirements"
+                  label="Minimum Sistem Gereksinimleri"
                   onChange={(value) =>
                     setField("minimumSystemRequirements", value)
                   }
                   value={formValue.minimumSystemRequirements}
                 />
                 <RequirementBox
-                  label="Recommended System Requirements"
+                  label="Önerilen Sistem Gereksinimleri"
                   onChange={(value) =>
                     setField("recommendedSystemRequirements", value)
                   }
@@ -465,24 +487,26 @@ const GameCreatePage = () => {
                   className="inline-flex h-12 items-center justify-center rounded-xl border border-white/10 bg-slate-950/60 px-8 text-sm font-bold text-white"
                   href={GAME_ROUTES.games}
                 >
-                  Cancel
+                  İptal
                 </a>
-                <button
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-8 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                  disabled={loading}
-                  type="submit"
-                >
-                  {loading ? "Creating..." : "Create Game"}
-                </button>
+                {isAdmin ? (
+                  <button
+                    className="inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-8 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
+                    disabled={loading}
+                    type="submit"
+                  >
+                    {loading ? "Oluşturuluyor..." : "Oyun Oluştur"}
+                  </button>
+                ) : null}
               </div>
             </form>
 
             <aside className="space-y-5">
               <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
                 <div className="mb-5 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-white">Live Preview</h2>
+                  <h2 className="text-xl font-bold text-white">Canlı Önizleme</h2>
                   <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-200">
-                    Real-time Preview
+                    Anlık Önizleme
                   </span>
                 </div>
 
@@ -490,7 +514,7 @@ const GameCreatePage = () => {
                   <div className="relative h-44">
                     {formValue.coverImageUrl ? (
                       <img
-                        alt={formValue.title || "Game preview"}
+                        alt={formValue.title || "Oyun önizlemesi"}
                         className="h-full w-full object-cover"
                         src={formValue.coverImageUrl}
                       />
@@ -500,7 +524,7 @@ const GameCreatePage = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
                     {formValue.earlyAccess ? (
                       <span className="absolute left-4 top-4 rounded-lg bg-violet-600 px-3 py-1 text-xs font-bold text-white">
-                        Early Access
+                        Erken Erişim
                       </span>
                     ) : null}
                     <button
@@ -513,17 +537,17 @@ const GameCreatePage = () => {
 
                   <div className="space-y-3 p-4">
                     <h3 className="text-2xl font-bold text-white">
-                      {formValue.title || "Game Title"}
+                      {formValue.title || "Oyun Başlığı"}
                     </h3>
                     <p className="text-sm text-slate-400">
-                      {formValue.genre || "Genre"} · {formValue.platform || "Platform"}
+                      {formValue.genre || "Tür"} · {formValue.platform || "Platform"}
                     </p>
                     <p className="text-sm text-slate-400">
-                      {formValue.releaseDate || "Release Date"}
+                      {formValue.releaseDate || "Çıkış Tarihi"}
                     </p>
                     <p className="text-sm text-slate-400">
-                      {formValue.developer || "Developer"} ·{" "}
-                      {formValue.publisher || "Publisher"}
+                      {formValue.developer || "Geliştirici"} ·{" "}
+                      {formValue.publisher || "Yayıncı"}
                     </p>
                     <p className="text-sm leading-6 text-slate-300">
                       {formValue.description ||
@@ -547,9 +571,9 @@ const GameCreatePage = () => {
               </section>
 
               <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                <h2 className="text-xl font-bold text-white">Status Checklist</h2>
+                <h2 className="text-xl font-bold text-white">Durum Kontrol Listesi</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Review the information before creating the game.
+                  Oyunu oluşturmadan önce bilgileri kontrol edin.
                 </p>
 
                 <div className="mt-5 space-y-3">
@@ -580,10 +604,10 @@ const GameCreatePage = () => {
                         }`}
                       >
                         {item.complete
-                          ? "Ready"
+                          ? "Hazır"
                           : item.required
-                            ? "Missing"
-                            : "Optional"}
+                            ? "Eksik"
+                            : "İsteğe Bağlı"}
                       </span>
                     </div>
                   ))}

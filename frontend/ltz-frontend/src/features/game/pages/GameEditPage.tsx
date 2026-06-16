@@ -1,8 +1,14 @@
+import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { GAME_ROUTES } from "../../../lib/constants";
-import GameNavbar from "../components/GameNavbar";
+import { useAuthStore } from "../../../store/authStore";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import { gameService } from "../services/gameService";
 import type { Game, GameRequest } from "../types/gameTypes";
+import {
+  ADMIN_ACTION_MESSAGE,
+  isAdminRole,
+} from "../utils/gameAdmin";
 
 type EditGameForm = GameRequest & {
   fullDescription: string;
@@ -39,7 +45,7 @@ const emptyToNull = (value: string | null | undefined) => {
 
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) {
-    return "No update date";
+    return "Güncelleme tarihi yok";
   }
 
   return new Intl.DateTimeFormat("en", {
@@ -49,6 +55,14 @@ const formatDateTime = (value: string | null | undefined) => {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+};
+
+const getGameEditErrorMessage = (error: unknown, fallback: string) => {
+  if (isAxiosError(error) && error.response?.status === 403) {
+    return ADMIN_ACTION_MESSAGE;
+  }
+
+  return fallback;
 };
 
 const mapGameToForm = (game: Game): EditGameForm => {
@@ -126,6 +140,8 @@ const DetailBadge = ({ label, value }: { label: string; value: string }) => {
 };
 
 const GameEditPage = () => {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const [gameId] = useState(() => getGameIdFromPath());
   const [originalGame, setOriginalGame] = useState<Game | null>(null);
   const [initialForm, setInitialForm] = useState<EditGameForm | null>(null);
@@ -133,6 +149,7 @@ const GameEditPage = () => {
   const [initialLoading, setInitialLoading] = useState(() => gameId !== null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(() =>
     gameId ? null : "Invalid game id."
   );
@@ -154,7 +171,7 @@ const GameEditPage = () => {
         setInitialForm(mappedForm);
         setFormValue(mappedForm);
       } catch {
-        setError("Game information could not be loaded.");
+        setError("Oyun bilgileri yüklenemedi.");
       } finally {
         setInitialLoading(false);
       }
@@ -173,6 +190,11 @@ const GameEditPage = () => {
   };
 
   const handleSave = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     if (!gameId || !formValue) {
       return;
     }
@@ -180,7 +202,7 @@ const GameEditPage = () => {
     const request = normalizeGameRequest(formValue);
 
     if (!request.title) {
-      setError("Title is required.");
+      setError("Başlık zorunludur.");
       return;
     }
 
@@ -194,9 +216,14 @@ const GameEditPage = () => {
       setOriginalGame(updatedGame);
       setInitialForm(mappedForm);
       setFormValue(mappedForm);
-      setNotice("Changes saved successfully.");
-    } catch {
-      setError("Game could not be updated. Please try again.");
+      setNotice("Değişiklikler başarıyla kaydedildi.");
+    } catch (saveError) {
+      setError(
+        getGameEditErrorMessage(
+          saveError,
+          "Oyun güncellenemedi. Lütfen tekrar deneyin."
+        )
+      );
     } finally {
       setSubmitting(false);
     }
@@ -205,21 +232,39 @@ const GameEditPage = () => {
   const handleReset = () => {
     if (initialForm) {
       setFormValue(initialForm);
-      setNotice("Form reset to the last loaded game data.");
+      setNotice("Form son yüklenen oyun verisine sıfırlandı.");
       setError(null);
     }
   };
 
-  const handleDelete = async () => {
+  const requestDelete = () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
     if (!gameId) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Deleting a game is permanent. Do you want to continue?"
-    );
+    setIsDeleteModalOpen(true);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    if (deleting) {
+      return;
+    }
+
+    setIsDeleteModalOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!isAdmin) {
+      setError(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    if (!gameId) {
       return;
     }
 
@@ -229,10 +274,17 @@ const GameEditPage = () => {
 
     try {
       await gameService.deleteGame(gameId);
+      setIsDeleteModalOpen(false);
       window.history.pushState({}, "", GAME_ROUTES.games);
       window.dispatchEvent(new Event("popstate"));
-    } catch {
-      setError("Game could not be deleted. Please try again.");
+    } catch (deleteError) {
+      setIsDeleteModalOpen(false);
+      setError(
+        getGameEditErrorMessage(
+          deleteError,
+          "Oyun silinemedi. Lütfen tekrar deneyin."
+        )
+      );
     } finally {
       setDeleting(false);
     }
@@ -240,8 +292,7 @@ const GameEditPage = () => {
 
   if (initialLoading) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto max-w-[1840px] px-8 py-8">
           <div className="h-[680px] animate-pulse rounded-3xl border border-white/10 bg-slate-900/70" />
         </main>
@@ -251,19 +302,18 @@ const GameEditPage = () => {
 
   if (!formValue || !originalGame) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-        <GameNavbar activeItem="Games" />
+      <div className="relative bg-[#020817] text-white">
         <main className="mx-auto grid min-h-[calc(100vh-80px)] max-w-[900px] place-items-center px-8 py-8">
           <section className="w-full rounded-3xl border border-red-400/20 bg-red-950/20 p-10 text-center">
-            <h1 className="text-2xl font-bold text-white">Game not found</h1>
+            <h1 className="text-2xl font-bold text-white">Oyun bulunamadı</h1>
             <p className="mt-3 text-sm text-red-100">
-              {error ?? "No game record matches this id."}
+              {error ?? "Bu id ile eşleşen oyun kaydı yok."}
             </p>
             <a
               className="mt-6 inline-flex rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white"
               href={GAME_ROUTES.games}
             >
-              Back to games
+              Oyunlara dön
             </a>
           </section>
         </main>
@@ -272,18 +322,17 @@ const GameEditPage = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
+    <div className="relative bg-[#020817] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
       <div className="relative min-h-screen">
-        <GameNavbar activeItem="Games" />
 
         <main className="mx-auto max-w-[1840px] px-8 py-7">
           <section className="mb-5 flex flex-wrap items-center justify-between gap-5">
             <div className="flex items-center gap-5">
               <a
                 className="grid h-14 w-14 place-items-center rounded-xl border border-white/10 bg-slate-950/60 text-3xl text-white"
-                href={GAME_ROUTES.gameDetail(originalGame.id)}
+                href={GAME_ROUTES.games}
               >
                 ←
               </a>
@@ -292,16 +341,16 @@ const GameEditPage = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-black tracking-tight text-white">
-                  Edit Game
+                  Oyunu Düzenle
                 </h1>
                 <p className="mt-2 text-base text-slate-400">
-                  Update game details, media, and settings.
+                  Oyun detaylarını, medyayı ve ayarları güncelle.
                 </p>
               </div>
             </div>
 
             <div className="text-sm text-slate-400">
-              Last updated: {formatDateTime(originalGame.updatedAt)}
+              Son güncelleme: {formatDateTime(originalGame.updatedAt)}
             </div>
           </section>
 
@@ -325,11 +374,11 @@ const GameEditPage = () => {
                 void handleSave();
               }}
             >
-              <h2 className="text-xl font-bold text-white">Game Information</h2>
+              <h2 className="text-xl font-bold text-white">Oyun Bilgileri</h2>
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <label className="grid gap-2">
-                  <FieldLabel required>Title</FieldLabel>
+                  <FieldLabel required>Başlık</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     maxLength={150}
@@ -342,20 +391,20 @@ const GameEditPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Slug</FieldLabel>
+                  <FieldLabel required>Kısa URL</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) => setField("slug", event.target.value)}
                     value={formValue.slug}
                   />
                   <span className="text-xs text-slate-500">
-                    URL-friendly version. Used in game page links.
+                    URL uyumlu sürüm. Oyun sayfası bağlantılarında kullanılır.
                   </span>
                 </label>
               </div>
 
               <label className="grid gap-2">
-                <FieldLabel required>Short Description</FieldLabel>
+                  <FieldLabel required>Kısa Açıklama</FieldLabel>
                 <textarea
                   className="min-h-20 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-violet-400/70"
                   maxLength={160}
@@ -370,7 +419,7 @@ const GameEditPage = () => {
               </label>
 
               <label className="grid gap-2">
-                <FieldLabel required>Full Description</FieldLabel>
+                <FieldLabel required>Tam Açıklama</FieldLabel>
                 <textarea
                   className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-violet-400/70"
                   maxLength={2000}
@@ -386,23 +435,23 @@ const GameEditPage = () => {
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <label className="grid gap-2">
-                  <FieldLabel required>Category</FieldLabel>
+                  <FieldLabel required>Kategori</FieldLabel>
                   <select
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) => setField("genre", event.target.value)}
                     value={formValue.genre ?? ""}
                   >
-                    <option value="">Select category</option>
-                    <option value="Action">Action</option>
+                    <option value="">Kategori seçin</option>
+                    <option value="Action">Aksiyon</option>
                     <option value="RPG">RPG</option>
-                    <option value="Simulation">Simulation</option>
-                    <option value="Strategy">Strategy</option>
-                    <option value="Racing">Racing</option>
+                    <option value="Simulation">Simülasyon</option>
+                    <option value="Strategy">Strateji</option>
+                    <option value="Racing">Yarış</option>
                   </select>
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel>Subcategory</FieldLabel>
+                  <FieldLabel>Alt Kategori</FieldLabel>
                   <select
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) =>
@@ -410,15 +459,15 @@ const GameEditPage = () => {
                     }
                     value={formValue.subcategory}
                   >
-                    <option value="Simulation">Simulation</option>
-                    <option value="Open World">Open World</option>
+                    <option value="Simulation">Simülasyon</option>
+                    <option value="Open World">Açık Dünya</option>
                     <option value="Sci-Fi">Sci-Fi</option>
-                    <option value="Adventure">Adventure</option>
+                    <option value="Adventure">Macera</option>
                   </select>
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Developer</FieldLabel>
+                  <FieldLabel required>Geliştirici</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     maxLength={150}
@@ -430,7 +479,7 @@ const GameEditPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Publisher</FieldLabel>
+                  <FieldLabel required>Yayıncı</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     maxLength={150}
@@ -442,7 +491,7 @@ const GameEditPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Release Date</FieldLabel>
+                  <FieldLabel required>Çıkış Tarihi</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) =>
@@ -454,19 +503,19 @@ const GameEditPage = () => {
                 </label>
 
                 <label className="grid gap-2">
-                  <FieldLabel required>Price (USD)</FieldLabel>
+                  <FieldLabel required>Fiyat (USD)</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) => setField("price", event.target.value)}
                     value={formValue.price}
                   />
                   <span className="text-xs text-slate-500">
-                    Use 0 for free games.
+                    Ücretsiz oyunlar için 0 kullanın.
                   </span>
                 </label>
 
                 <label className="grid gap-2 lg:col-span-2">
-                  <FieldLabel required>Platforms</FieldLabel>
+                  <FieldLabel required>Platformlar</FieldLabel>
                   <input
                     className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                     onChange={(event) =>
@@ -479,10 +528,10 @@ const GameEditPage = () => {
               </div>
 
               <section className="rounded-2xl border border-white/10 bg-slate-950/35 p-5">
-                <h2 className="text-xl font-bold text-white">Game Media</h2>
+                <h2 className="text-xl font-bold text-white">Oyun Medyası</h2>
                 <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_1.2fr]">
                   <label className="grid gap-2">
-                    <FieldLabel required>Cover Image</FieldLabel>
+                    <FieldLabel required>Kapak Görseli</FieldLabel>
                     <input
                       className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
                       onChange={(event) =>
@@ -493,11 +542,11 @@ const GameEditPage = () => {
                   </label>
 
                   <div>
-                    <FieldLabel>Gallery Images</FieldLabel>
+                    <FieldLabel>Galeri Görselleri</FieldLabel>
                     <div className="mt-2 flex flex-wrap gap-3">
                       {formValue.galleryImages.map((image) => (
                         <img
-                          alt="Gallery"
+                          alt="Galeri"
                           className="h-16 w-28 rounded-lg border border-white/10 object-cover"
                           key={image}
                           src={image}
@@ -507,7 +556,7 @@ const GameEditPage = () => {
                         className="h-16 w-28 rounded-lg border border-dashed border-violet-400/40 text-sm font-semibold text-violet-200"
                         type="button"
                       >
-                        + Add Images
+                        + Görsel Ekle
                       </button>
                     </div>
                   </div>
@@ -517,7 +566,7 @@ const GameEditPage = () => {
 
             <aside className="space-y-5">
               <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                <h2 className="mb-4 text-xl font-bold text-white">Current Cover</h2>
+                <h2 className="mb-4 text-xl font-bold text-white">Mevcut Kapak</h2>
                 {formValue.coverImageUrl ? (
                   <img
                     alt={formValue.title}
@@ -526,81 +575,94 @@ const GameEditPage = () => {
                   />
                 ) : (
                   <div className="grid h-64 place-items-center rounded-2xl bg-slate-900 text-slate-500">
-                    No cover image
+                    Kapak görseli yok
                   </div>
                 )}
                 <button
                   className="mt-4 h-12 w-full rounded-xl border border-violet-400/40 text-sm font-bold text-violet-200"
                   type="button"
                 >
-                  Change Cover
+                  Kapağı Değiştir
                 </button>
               </section>
 
               <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                <h2 className="mb-5 text-xl font-bold text-white">Game Details</h2>
+                <h2 className="mb-5 text-xl font-bold text-white">Oyun Detayları</h2>
                 <div className="grid gap-4 md:grid-cols-2">
                   <DetailBadge
-                    label="Status"
-                    value={formValue.onSale ? "On Sale" : "Active"}
+                    label="Durum"
+                    value={formValue.onSale ? "İndirimde" : "Aktif"}
                   />
-                  <DetailBadge label="Visibility" value="Public" />
+                  <DetailBadge label="Görünürlük" value="Herkese Açık" />
                   <DetailBadge
-                    label="Early Access"
-                    value={formValue.earlyAccess ? "Yes" : "No"}
+                    label="Erken Erişim"
+                    value={formValue.earlyAccess ? "Evet" : "Hayır"}
                   />
                   <DetailBadge
-                    label="On Sale"
-                    value={formValue.onSale ? "Yes" : "No"}
+                    label="İndirimde"
+                    value={formValue.onSale ? "Evet" : "Hayır"}
                   />
-                  <DetailBadge label="Discount" value={formValue.onSale ? "20%" : "0%"} />
+                  <DetailBadge label="İndirim" value={formValue.onSale ? "20%" : "0%"} />
                   <DetailBadge
-                    label="Created At"
+                    label="Oluşturulma"
                     value={formatDateTime(originalGame.createdAt)}
                   />
                   <DetailBadge
-                    label="Last Updated"
+                    label="Son Güncelleme"
                     value={formatDateTime(originalGame.updatedAt)}
                   />
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                <h2 className="mb-5 text-xl font-bold text-white">Actions</h2>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                    disabled={submitting || deleting}
-                    onClick={() => void handleSave()}
-                    type="button"
-                  >
-                    {submitting ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    className="h-12 rounded-xl border border-white/10 bg-slate-900/80 px-6 text-sm font-bold text-white"
-                    onClick={handleReset}
-                    type="button"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    className="h-12 rounded-xl border border-red-500/50 bg-red-500/10 px-6 text-sm font-bold text-red-200 disabled:opacity-60"
-                    disabled={submitting || deleting}
-                    onClick={() => void handleDelete()}
-                    type="button"
-                  >
-                    {deleting ? "Deleting..." : "Delete Game"}
-                  </button>
-                </div>
-                <p className="mt-5 text-sm leading-6 text-red-200">
-                  Deleting a game is permanent and cannot be undone. This action
-                  will remove the game and all associated data.
-                </p>
-              </section>
+              {isAdmin ? (
+                <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+                  <h2 className="mb-5 text-xl font-bold text-white">İşlemler</h2>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
+                      disabled={submitting || deleting}
+                      onClick={() => void handleSave()}
+                      type="button"
+                    >
+                      {submitting ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+                    </button>
+                    <button
+                      className="h-12 rounded-xl border border-white/10 bg-slate-900/80 px-6 text-sm font-bold text-white"
+                      onClick={handleReset}
+                      type="button"
+                    >
+                    Sıfırla
+                    </button>
+                    <button
+                      className="h-12 rounded-xl border border-red-500/50 bg-red-500/10 px-6 text-sm font-bold text-red-200 disabled:opacity-60"
+                      disabled={submitting || deleting}
+                      onClick={requestDelete}
+                      type="button"
+                    >
+                      {deleting ? "Siliniyor..." : "Oyunu Sil"}
+                    </button>
+                  </div>
+                  <p className="mt-5 text-sm leading-6 text-red-200">
+                    Oyunu silmek kalıcıdır ve geri alınamaz. Bu işlem oyunu ve
+                    ilişkili tüm verileri kaldırır.
+                  </p>
+                </section>
+              ) : null}
             </aside>
           </div>
         </main>
       </div>
+      <DeleteConfirmModal
+        description="Oyunu silmek kalıcıdır ve geri alınamaz. Devam etmek istiyor musunuz?"
+        isDeleting={deleting}
+        isOpen={isDeleteModalOpen}
+        itemName={formValue.title}
+        onCancel={closeDeleteModal}
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        title="Oyunu Sil"
+      />
     </div>
   );
 };

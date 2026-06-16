@@ -1,5 +1,36 @@
+import type { GameSource } from "./externalGame.types";
+
+export type { GameSource } from "./externalGame.types";
+export type {
+  Developer,
+  DeveloperRequest,
+  Developer as GameDeveloper,
+  DeveloperRequest as GameDeveloperRequest,
+} from "./developerTypes";
+export type {
+  Publisher,
+  PublisherRequest,
+  Publisher as GamePublisher,
+  PublisherRequest as GamePublisherRequest,
+} from "./publisherTypes";
+export type {
+  Platform,
+  PlatformRequest,
+  Platform as GamePlatform,
+  PlatformRequest as GamePlatformRequest,
+} from "./platformTypes";
+export type {
+  SystemRequirement,
+  SystemRequirementRequest,
+  SystemRequirement as GameSystemRequirement,
+  SystemRequirementRequest as GameSystemRequirementRequest,
+} from "./systemRequirementTypes";
+
 export type Game = {
   id: number;
+  source: GameSource;
+  categoryId: number | null;
+  categoryName: string | null;
   title: string;
   description: string | null;
   genre: string | null;
@@ -20,6 +51,8 @@ export type Game = {
 };
 
 export type GameRequest = {
+  source?: GameSource;
+  categoryId?: number | null;
   title: string;
   description?: string | null;
   genre?: string | null;
@@ -38,6 +71,8 @@ export type GameRequest = {
 };
 
 export type GameFilters = {
+  source?: GameSource;
+  categoryId?: number;
   title?: string;
   genre?: string;
   platform?: string;
@@ -46,94 +81,17 @@ export type GameFilters = {
   turkishLanguageSupport?: boolean;
 };
 
-export type GameSystemRequirement = {
-  id: number;
-  gameId: number;
-  minimumOs: string | null;
-  minimumCpu: string | null;
-  minimumGpu: string | null;
-  minimumRam: string | null;
-  minimumStorage: string | null;
-  recommendedOs: string | null;
-  recommendedCpu: string | null;
-  recommendedGpu: string | null;
-  recommendedRam: string | null;
-  recommendedStorage: string | null;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type GameSystemRequirementRequest = {
-  minimumOs?: string | null;
-  minimumCpu?: string | null;
-  minimumGpu?: string | null;
-  minimumRam?: string | null;
-  minimumStorage?: string | null;
-  recommendedOs?: string | null;
-  recommendedCpu?: string | null;
-  recommendedGpu?: string | null;
-  recommendedRam?: string | null;
-  recommendedStorage?: string | null;
-  notes?: string | null;
-};
-
 export type GameCategory = {
   id: number;
+  source: GameSource;
   name: string;
   description: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 };
 
 export type GameCategoryRequest = {
+  source: GameSource;
   name: string;
   description?: string | null;
-};
-
-export type GamePlatform = {
-  id: number;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type GamePlatformRequest = {
-  name: string;
-  description?: string | null;
-};
-
-export type GameDeveloper = {
-  id: number;
-  name: string;
-  description: string | null;
-  websiteUrl: string | null;
-  country: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type GameDeveloperRequest = {
-  name: string;
-  description?: string | null;
-  websiteUrl?: string | null;
-  country?: string | null;
-};
-
-export type GamePublisher = {
-  id: number;
-  name: string;
-  description: string | null;
-  websiteUrl: string | null;
-  country: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type GamePublisherRequest = {
-  name: string;
-  description?: string | null;
-  websiteUrl?: string | null;
-  country?: string | null;
 };

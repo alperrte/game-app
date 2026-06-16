@@ -8,7 +8,16 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SteamStoreSearchResponse {
 
+    private Integer total;
     private List<SteamStoreSearchItem> items;
+
+    public Integer getTotal() {
+        return total;
+    }
+
+    public void setTotal(Integer total) {
+        this.total = total;
+    }
 
     public List<SteamStoreSearchItem> getItems() {
         return items;
