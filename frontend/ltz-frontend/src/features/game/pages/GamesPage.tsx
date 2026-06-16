@@ -25,6 +25,23 @@ import {
 } from "../utils/gameAdmin";
 
 const SEARCH_DEBOUNCE_MS = 450;
+const DEFAULT_EXTERNAL_GAME_QUERIES = [
+  "a",
+  "e",
+  "i",
+  "o",
+  "u",
+  "r",
+  "s",
+  "t",
+  "n",
+  "m",
+  "l",
+  "c",
+  "d",
+  "g",
+  "p",
+];
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
 
 type GameListItem =
@@ -59,6 +76,20 @@ const initialGameForm: GameRequest = {
 
 const sourceLabel = (source: GameSource) => {
   return source === "STEAM" ? "Steam" : "Epic";
+};
+
+const mergeExternalGames = (
+  gameGroups: ExternalGameSearchResponse[][]
+): ExternalGameSearchResponse[] => {
+  const gameMap = new Map<string, ExternalGameSearchResponse>();
+
+  gameGroups.flat().forEach((game) => {
+    gameMap.set(`${game.source}-${game.externalId}`, game);
+  });
+
+  return Array.from(gameMap.values()).sort((leftGame, rightGame) =>
+    leftGame.title.localeCompare(rightGame.title, "tr")
+  );
 };
 
 const getSearchErrorMessage = (error: unknown, source: GameSource) => {
@@ -135,7 +166,6 @@ const GamesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [manualGamesError, setManualGamesError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [gameForm, setGameForm] = useState<GameRequest>(initialGameForm);
   const [formCategories, setFormCategories] = useState<GameCategory[]>([]);
@@ -196,6 +226,7 @@ const GamesPage = () => {
 
   useEffect(() => {
     void fetchManualGames("STEAM");
+    void runSearch("", "STEAM");
 
     return () => {
       if (searchTimeoutRef.current) {
@@ -213,48 +244,49 @@ const GamesPage = () => {
     }
   };
 
-  const resetSearch = (message: string | null, searched: boolean) => {
-    requestIdRef.current += 1;
-    setError(message);
-    setGames([]);
-    setHasSearched(searched);
-    setLoading(false);
-    setPage(1);
-  };
-
   const runSearch = async (rawQuery: string, nextSource: GameSource = source) => {
     const trimmedQuery = rawQuery.trim();
 
     clearScheduledSearch();
-
-    if (!trimmedQuery) {
-      resetSearch(null, false);
-      return;
-    }
-
-    if (trimmedQuery.length < 2) {
-      resetSearch("Arama yapmak için en az 2 karakter girin.", false);
-      return;
-    }
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
     setLoading(true);
     setError(null);
-    setHasSearched(true);
 
     try {
-      const [searchResult] = await Promise.allSettled([
-        searchExternalGames(nextSource, trimmedQuery),
-      ]);
+      const searchResults = trimmedQuery
+        ? await Promise.allSettled([searchExternalGames(nextSource, trimmedQuery)])
+        : await Promise.allSettled(
+            DEFAULT_EXTERNAL_GAME_QUERIES.map((defaultQuery) =>
+              searchExternalGames(nextSource, defaultQuery)
+            )
+          );
 
       if (requestIdRef.current === requestId) {
-        if (searchResult.status === "fulfilled") {
-          setGames(searchResult.value);
+        const fulfilledResults = searchResults
+          .filter(
+            (
+              result
+            ): result is PromiseFulfilledResult<
+              ExternalGameSearchResponse[]
+            > => result.status === "fulfilled"
+          )
+          .map((result) => result.value);
+
+        if (fulfilledResults.length > 0) {
+          setGames(mergeExternalGames(fulfilledResults));
         } else {
           setGames([]);
-          setError(getSearchErrorMessage(searchResult.reason, nextSource));
+          const rejectedResult = searchResults.find(
+            (result) => result.status === "rejected"
+          );
+          setError(
+            rejectedResult?.status === "rejected"
+              ? getSearchErrorMessage(rejectedResult.reason, nextSource)
+              : `${sourceLabel(nextSource)} oyunları yüklenirken bir hata oluştu.`
+          );
         }
 
         setPage(1);
@@ -277,12 +309,9 @@ const GamesPage = () => {
     const trimmedQuery = nextQuery.trim();
 
     if (!trimmedQuery) {
-      resetSearch(null, false);
-      return;
-    }
-
-    if (trimmedQuery.length < 2) {
-      resetSearch("Arama yapmak için en az 2 karakter girin.", false);
+      searchTimeoutRef.current = window.setTimeout(() => {
+        void runSearch("", nextSource);
+      }, SEARCH_DEBOUNCE_MS);
       return;
     }
 
@@ -301,18 +330,6 @@ const GamesPage = () => {
     setPage(1);
     setNotice(null);
     void fetchManualGames(nextSource);
-
-    const trimmedQuery = query.trim();
-
-    if (!trimmedQuery) {
-      resetSearch(null, false);
-      return;
-    }
-
-    if (trimmedQuery.length < 2) {
-      resetSearch("Arama yapmak için en az 2 karakter girin.", false);
-      return;
-    }
 
     void runSearch(query, nextSource);
   };
@@ -393,11 +410,7 @@ const GamesPage = () => {
       setSource(createdSource);
       await fetchManualGames(createdSource);
 
-      if (query.trim().length >= 2) {
-        await runSearch(query, createdSource);
-      } else {
-        resetSearch(null, false);
-      }
+      await runSearch(query, createdSource);
     } catch (createError) {
       setFormError(getCreateErrorMessage(createError, "Oyun eklenirken bir hata oluştu."));
     } finally {
@@ -408,7 +421,7 @@ const GamesPage = () => {
   const manualGamesForList = useMemo(() => {
     const trimmedQuery = query.trim().toLocaleLowerCase("tr");
 
-    if (!hasSearched || trimmedQuery.length < 2) {
+    if (!trimmedQuery) {
       return manualGames;
     }
 
@@ -428,7 +441,7 @@ const GamesPage = () => {
 
       return searchableText.includes(trimmedQuery);
     });
-  }, [hasSearched, manualGames, query]);
+  }, [manualGames, query]);
   const listedGames = useMemo<GameListItem[]>(
     () => [
       ...games.map((game) => ({ game, origin: "external" as const })),
@@ -533,9 +546,9 @@ const GamesPage = () => {
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm text-slate-400">
-                {hasSearched
+                {query.trim()
                   ? `${listedGames.length} ${sourceLabel(source)} sonucu`
-                  : `${manualGamesForList.length} ${sourceLabel(source)} manuel oyun`}
+                  : `${listedGames.length} ${sourceLabel(source)} oyunu`}
               </div>
 
               <div className="flex items-center gap-2">
@@ -601,23 +614,23 @@ const GamesPage = () => {
               </div>
             ) : null}
 
-            {!loading && !manualGamesLoading && !hasSearched && visibleGames.length === 0 ? (
+            {!loading && !manualGamesLoading && !query.trim() && visibleGames.length === 0 ? (
               <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-white/15 bg-slate-950/50 p-8 text-center">
                 <div>
                   <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-violet-500/15 text-2xl font-black text-violet-300">
                     {source === "STEAM" ? "ST" : "EP"}
                   </div>
                   <h2 className="text-xl font-bold text-white">
-                    {sourceLabel(source)} kataloğunda ara
+                    {sourceLabel(source)} oyunu bulunamadı
                   </h2>
                   <p className="mt-2 text-sm text-slate-400">
-                    Sonuçları görmek için oyun adını yazmaya başlayın.
+                    Bu kaynak için listelenecek oyun bulunamadı.
                   </p>
                 </div>
               </div>
             ) : null}
 
-            {!loading && !manualGamesLoading && hasSearched && visibleGames.length === 0 ? (
+            {!loading && !manualGamesLoading && Boolean(query.trim()) && visibleGames.length === 0 ? (
               <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-white/15 bg-slate-950/50 p-8 text-center">
                 <div>
                   <h2 className="text-xl font-bold text-white">Oyun bulunamadı</h2>
