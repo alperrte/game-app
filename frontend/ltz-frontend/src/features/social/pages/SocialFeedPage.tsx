@@ -4,7 +4,6 @@ import { formatSocialTime } from "../../../utils/formatSocialTime";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { useAuthStore } from "../../../store/authStore";
 import { API_BASE_URL, STORAGE_KEYS } from "../../../lib/constants";
-import GameNavbar from "../../game/components/GameNavbar";
 import { gameService } from "../../game/services/gameService";
 import type { Game } from "../../game/types/gameTypes";
 import { userProfileService } from "../../user/services/userProfileService";
@@ -1135,9 +1134,7 @@ export default function SocialFeedPage() {
   }
 
   return (
-    <>
-      <GameNavbar activeItem="Feed" />
-      <div className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_28%),#050914] px-4 py-6 text-white sm:px-6 lg:px-8">
+    <div className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_28%),#050914] px-4 py-6 text-white sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-[1860px] gap-8 xl:grid-cols-[minmax(0,1fr)_590px]">
           <main className="space-y-5">
             <SocialComposer
@@ -1199,7 +1196,6 @@ export default function SocialFeedPage() {
             />
           </div>
         </div>
-      </div>
-    </>
+    </div>
   );
 }
