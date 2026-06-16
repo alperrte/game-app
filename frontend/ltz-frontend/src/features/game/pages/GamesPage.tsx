@@ -730,24 +730,7 @@ const GamesPage = () => {
 
         <div className="relative min-h-screen">
           <main className="mx-auto max-w-[1840px] px-8 py-8">
-            <section className="mb-7 flex flex-wrap items-center justify-between gap-5">
-              <div className="flex items-center gap-5">
-                <div className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl font-black text-violet-300 shadow-2xl shadow-violet-950/40">
-                  {source === "STEAM" ? "ST" : "EP"}
-                </div>
-
-                <div>
-                  <h1 className="text-4xl font-black tracking-tight text-white">
-                    Oyunlar
-                  </h1>
-
-                  <p className="mt-3 text-base text-slate-400">
-                    {sourceLabel(source)} oyunlarını backend üzerinden ara ve
-                    manuel kayıtlarla birlikte görüntüle.
-                  </p>
-                </div>
-              </div>
-
+            <section className="mb-7 flex justify-end">
               {isAdmin ? (
                   <button
                       className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"

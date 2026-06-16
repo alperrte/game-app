@@ -602,24 +602,8 @@ const GameCategoriesPage = () => {
         <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
         <div className="relative min-h-screen">
-
           <main className="mx-auto max-w-[1840px] px-8 py-7">
-            <section className="mb-6 flex flex-wrap items-center justify-between gap-5">
-              <div className="flex items-center gap-5">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl text-violet-300">
-                  #
-                </div>
-                <div>
-                  <h1 className="text-4xl font-black tracking-tight text-white">
-                    Steam Etiketleri
-                  </h1>
-                  <p className="mt-2 text-base text-slate-400">
-                    Steam Store üzerinden gelen gerçek tag verilerini ve manuel
-                    kayıtları görüntüle.
-                  </p>
-                </div>
-              </div>
-
+            <section className="mb-6 flex justify-end">
               {isAdmin ? (
                   <button
                       className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
