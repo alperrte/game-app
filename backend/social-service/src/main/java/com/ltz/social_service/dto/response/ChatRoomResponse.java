@@ -16,4 +16,8 @@ public class ChatRoomResponse {
     private Long createdByUserId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long otherParticipantUserId;
+    private String lastMessageContent;
+    private LocalDateTime lastMessageAt;
+    private Long unreadCount;
 }

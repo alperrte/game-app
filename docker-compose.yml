@@ -195,8 +195,12 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+      SOCIAL_MEDIA_UPLOAD_DIR: /app/uploads/social-images
+      SOCIAL_MEDIA_VIDEO_UPLOAD_DIR: /app/uploads/social-videos
     ports:
       - "${SERVER_PORT_SOCIAL}:${SERVER_PORT_SOCIAL}"
+    volumes:
+      - ./backend/social-service/uploads:/app/uploads
     restart: unless-stopped
 
   # -------------------------------

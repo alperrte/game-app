@@ -18,4 +18,6 @@ public class MessageCreateRequest {
     @NotBlank(message = "Message content is required")
     @Size(max = 1000, message = "Message content can be at most 1000 characters")
     private String content;
+
+    private Long replyToMessageId;
 }
