@@ -1,3 +1,4 @@
+```gitignore
 # =========================
 # Java / Spring Boot
 # =========================
@@ -132,7 +133,9 @@ failsafe-reports/
 *.swo
 
 # =========================
-# Agentlar
+# AI Agents / Local Tools
 # =========================
-
-.agents
+.agents/
+.claude/
+.postman/
+```

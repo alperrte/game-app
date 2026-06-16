@@ -14,93 +14,103 @@ import type {
   GameRequest,
   GameSystemRequirement,
   GameSystemRequirementRequest,
+  GameSource,
 } from "../types/gameTypes";
 
+export const getGamesByFilter = (filters: GameFilters = {}) =>
+    apiClient.get<Game[]>(GAME_API_ENDPOINTS.filterGames, filters);
+
+export const createGame = (request: GameRequest) =>
+    apiClient.post<Game>(GAME_API_ENDPOINTS.games, request);
+
+export const getGameCategories = (source?: GameSource) =>
+    apiClient.get<GameCategory[]>(GAME_API_ENDPOINTS.categories, { source });
+
+export const createGameCategory = (request: GameCategoryRequest) =>
+    apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request);
+
 export const gameService = {
-  getGames: () => apiClient.get<Game[]>(GAME_API_ENDPOINTS.games),
-  filterGames: (filters: GameFilters) =>
-    apiClient.get<Game[]>(GAME_API_ENDPOINTS.filterGames, filters),
+  getGames: (options: { includeSystemRequirementOnly?: boolean } = {}) =>
+      apiClient.get<Game[]>(GAME_API_ENDPOINTS.games, options),
+  filterGames: getGamesByFilter,
   getPopularGames: () =>
-    apiClient.get<Game[]>(GAME_API_ENDPOINTS.popularGames),
+      apiClient.get<Game[]>(GAME_API_ENDPOINTS.popularGames),
   getGameById: (id: number) =>
-    apiClient.get<Game>(GAME_API_ENDPOINTS.gameById(id)),
-  createGame: (request: GameRequest) =>
-    apiClient.post<Game>(GAME_API_ENDPOINTS.games, request),
+      apiClient.get<Game>(GAME_API_ENDPOINTS.gameById(id)),
+  createGame,
   updateGame: (id: number, request: GameRequest) =>
-    apiClient.put<Game>(GAME_API_ENDPOINTS.gameById(id), request),
+      apiClient.put<Game>(GAME_API_ENDPOINTS.gameById(id), request),
   deleteGame: (id: number) =>
-    apiClient.delete(GAME_API_ENDPOINTS.gameById(id)),
+      apiClient.delete(GAME_API_ENDPOINTS.gameById(id)),
 
   getSystemRequirementByGameId: (gameId: number) =>
-    apiClient.get<GameSystemRequirement>(
-      GAME_API_ENDPOINTS.gameSystemRequirements(gameId)
-    ),
+      apiClient.get<GameSystemRequirement>(
+          GAME_API_ENDPOINTS.gameSystemRequirements(gameId)
+      ),
   createSystemRequirement: (
-    gameId: number,
-    request: GameSystemRequirementRequest
+      gameId: number,
+      request: GameSystemRequirementRequest
   ) =>
-    apiClient.post<GameSystemRequirement>(
-      GAME_API_ENDPOINTS.gameSystemRequirements(gameId),
-      request
-    ),
+      apiClient.post<GameSystemRequirement>(
+          GAME_API_ENDPOINTS.gameSystemRequirements(gameId),
+          request
+      ),
   updateSystemRequirement: (
-    gameId: number,
-    request: GameSystemRequirementRequest
+      gameId: number,
+      request: GameSystemRequirementRequest
   ) =>
-    apiClient.put<GameSystemRequirement>(
-      GAME_API_ENDPOINTS.gameSystemRequirements(gameId),
-      request
-    ),
+      apiClient.put<GameSystemRequirement>(
+          GAME_API_ENDPOINTS.gameSystemRequirements(gameId),
+          request
+      ),
   deleteSystemRequirement: (gameId: number) =>
-    apiClient.delete(GAME_API_ENDPOINTS.gameSystemRequirements(gameId)),
+      apiClient.delete(GAME_API_ENDPOINTS.gameSystemRequirements(gameId)),
 
-  getCategories: () =>
-    apiClient.get<GameCategory[]>(GAME_API_ENDPOINTS.categories),
+  getCategories: getGameCategories,
   getCategoryById: (id: number) =>
-    apiClient.get<GameCategory>(GAME_API_ENDPOINTS.categoryById(id)),
-  createCategory: (request: GameCategoryRequest) =>
-    apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request),
+      apiClient.get<GameCategory>(GAME_API_ENDPOINTS.categoryById(id)),
+  createCategory: createGameCategory,
   updateCategory: (id: number, request: GameCategoryRequest) =>
-    apiClient.put<GameCategory>(GAME_API_ENDPOINTS.categoryById(id), request),
+      apiClient.put<GameCategory>(GAME_API_ENDPOINTS.categoryById(id), request),
   deleteCategory: (id: number) =>
-    apiClient.delete(GAME_API_ENDPOINTS.categoryById(id)),
+      apiClient.delete(GAME_API_ENDPOINTS.categoryById(id)),
 
   getPlatforms: () =>
-    apiClient.get<GamePlatform[]>(GAME_API_ENDPOINTS.platforms),
+      apiClient.get<GamePlatform[]>(GAME_API_ENDPOINTS.platforms),
   getPlatformById: (id: number) =>
-    apiClient.get<GamePlatform>(GAME_API_ENDPOINTS.platformById(id)),
+      apiClient.get<GamePlatform>(GAME_API_ENDPOINTS.platformById(id)),
   createPlatform: (request: GamePlatformRequest) =>
-    apiClient.post<GamePlatform>(GAME_API_ENDPOINTS.platforms, request),
+      apiClient.post<GamePlatform>(GAME_API_ENDPOINTS.platforms, request),
   updatePlatform: (id: number, request: GamePlatformRequest) =>
-    apiClient.put<GamePlatform>(GAME_API_ENDPOINTS.platformById(id), request),
+      apiClient.put<GamePlatform>(GAME_API_ENDPOINTS.platformById(id), request),
   deletePlatform: (id: number) =>
-    apiClient.delete(GAME_API_ENDPOINTS.platformById(id)),
+      apiClient.delete(GAME_API_ENDPOINTS.platformById(id)),
 
   getDevelopers: () =>
-    apiClient.get<GameDeveloper[]>(GAME_API_ENDPOINTS.developers),
+      apiClient.get<GameDeveloper[]>(GAME_API_ENDPOINTS.developers),
   getDeveloperById: (id: number) =>
-    apiClient.get<GameDeveloper>(GAME_API_ENDPOINTS.developerById(id)),
+      apiClient.get<GameDeveloper>(GAME_API_ENDPOINTS.developerById(id)),
   createDeveloper: (request: GameDeveloperRequest) =>
-    apiClient.post<GameDeveloper>(GAME_API_ENDPOINTS.developers, request),
+      apiClient.post<GameDeveloper>(GAME_API_ENDPOINTS.developers, request),
   updateDeveloper: (id: number, request: GameDeveloperRequest) =>
-    apiClient.put<GameDeveloper>(
-      GAME_API_ENDPOINTS.developerById(id),
-      request
-    ),
+      apiClient.put<GameDeveloper>(
+          GAME_API_ENDPOINTS.developerById(id),
+          request
+      ),
   deleteDeveloper: (id: number) =>
-    apiClient.delete(GAME_API_ENDPOINTS.developerById(id)),
+      apiClient.delete(GAME_API_ENDPOINTS.developerById(id)),
 
   getPublishers: () =>
-    apiClient.get<GamePublisher[]>(GAME_API_ENDPOINTS.publishers),
+      apiClient.get<GamePublisher[]>(GAME_API_ENDPOINTS.publishers),
   getPublisherById: (id: number) =>
-    apiClient.get<GamePublisher>(GAME_API_ENDPOINTS.publisherById(id)),
+      apiClient.get<GamePublisher>(GAME_API_ENDPOINTS.publisherById(id)),
   createPublisher: (request: GamePublisherRequest) =>
-    apiClient.post<GamePublisher>(GAME_API_ENDPOINTS.publishers, request),
+      apiClient.post<GamePublisher>(GAME_API_ENDPOINTS.publishers, request),
   updatePublisher: (id: number, request: GamePublisherRequest) =>
-    apiClient.put<GamePublisher>(
-      GAME_API_ENDPOINTS.publisherById(id),
-      request
-    ),
+      apiClient.put<GamePublisher>(
+          GAME_API_ENDPOINTS.publisherById(id),
+          request
+      ),
   deletePublisher: (id: number) =>
-    apiClient.delete(GAME_API_ENDPOINTS.publisherById(id)),
+      apiClient.delete(GAME_API_ENDPOINTS.publisherById(id)),
 };

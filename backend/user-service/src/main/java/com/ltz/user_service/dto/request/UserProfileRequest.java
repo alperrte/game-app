@@ -12,13 +12,16 @@ public class UserProfileRequest {
     @Size(max = 1000, message = "Bio cannot exceed 1000 characters")
     private String bio;
 
+    @Size(max = 255, message = "Avatar URL cannot exceed 255 characters")
     private String avatarUrl;
 
+    @Size(max = 255, message = "Cover URL cannot exceed 255 characters")
     private String coverUrl;
 
     @Size(max = 50, message = "Gamer type cannot exceed 50 characters")
     private String gamerType;
 
+    @Size(max = 255, message = "Favorite categories cannot exceed 255 characters")
     private String favoriteCategories;
 
     @Size(max = 255, message = "Profile theme URL cannot exceed 255 characters")

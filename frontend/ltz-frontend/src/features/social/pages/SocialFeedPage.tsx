@@ -5,11 +5,13 @@ import { formatSocialTime } from "../../../utils/formatSocialTime";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { cacheUserIdentity } from "../../../utils/userIdentityCache";
 import { useAuthStore } from "../../../store/authStore";
+import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
 import { API_BASE_URL, ROUTES, SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
 import { gameService } from "../../game/services/gameService";
 import type { Game } from "../../game/types/gameTypes";
-import { userProfileService } from "../../user/services/userProfileService";
-import type { UserProfile } from "../../user/types/userProfile.types";
+import { userService } from "../../user/services/userService";
+import type { UserProfileResponse } from "../../user/types/user";
+import { getImageUrl, isImageValid } from "../../user/utils/profileImage";
 import { SocialComposer } from "../components/SocialComposer";
 import { SocialFeedTabs } from "../components/SocialFeedTabs";
 import { SocialPostCard } from "../components/SocialPostCard";
@@ -32,7 +34,7 @@ import type {
 } from "../types/social.types";
 
 const avatarBase =
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
+    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
 
 const currentUserFallback: SocialUser = {
   name: "Arda Demir",
@@ -51,13 +53,13 @@ const mockPosts: SocialPost[] = [
       name: "LunaWolf",
       username: "lunawolf",
       avatarUrl:
-        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80",
+          "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80",
       verified: true,
     },
     createdAt: "2 saat önce",
     visibility: "public",
     content:
-      "Cyberpunk 2077 2.12 güncellemesi gerçekten oyunu bambaşka bir seviyeye taşımış.\nGece şehirde dolaşmak apayrı bir his!",
+        "Cyberpunk 2077 2.12 güncellemesi gerçekten oyunu bambaşka bir seviyeye taşımış.\nGece şehirde dolaşmak apayrı bir his!",
     media: [
       {
         url: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1200&q=85",
@@ -97,12 +99,12 @@ const mockPosts: SocialPost[] = [
       name: "xCem",
       username: "xcem",
       avatarUrl:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
+          "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
     },
     createdAt: "5 saat önce",
     visibility: "public",
     content:
-      "Elden Ring DLC incelemem yayında! Shadow of the Erdtree dünyası muazzam olmuş.",
+        "Elden Ring DLC incelemem yayında! Shadow of the Erdtree dünyası muazzam olmuş.",
     media: [
       {
         url: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=85",
@@ -124,7 +126,7 @@ const suggestedGroups: SuggestedGroup[] = [
     members: "12.3K",
     description: "Soulslike oyunlar hakkında tartış, rehber paylaş!",
     imageUrl:
-      "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=120&q=80",
+        "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=120&q=80",
   },
   {
     id: "fps",
@@ -132,7 +134,7 @@ const suggestedGroups: SuggestedGroup[] = [
     members: "8.9K",
     description: "Rekabetçi ruhunuzu konuşturun!",
     imageUrl:
-      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=120&q=80",
+        "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=120&q=80",
   },
   {
     id: "photo",
@@ -140,7 +142,7 @@ const suggestedGroups: SuggestedGroup[] = [
     members: "5.7K",
     description: "En iyi oyun karelerini paylaş!",
     imageUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=120&q=80",
+        "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=120&q=80",
   },
 ];
 
@@ -180,8 +182,8 @@ function formatPostDate(dateValue: string): string {
   }
 
   const diffInMinutes = Math.max(
-    0,
-    Math.floor((Date.now() - date.getTime()) / 60000),
+      0,
+      Math.floor((Date.now() - date.getTime()) / 60000),
   );
 
   if (diffInMinutes < 1) return "Az önce";
@@ -203,27 +205,32 @@ function resolveMediaUrl(imageUrl: string): string {
   const normalizedImageUrl = imageUrl.trim();
 
   if (
-    normalizedImageUrl.startsWith("http://") ||
-    normalizedImageUrl.startsWith("https://")
+      normalizedImageUrl.startsWith("http://") ||
+      normalizedImageUrl.startsWith("https://")
   ) {
     return normalizedImageUrl;
   }
 
   const baseUrl = API_BASE_URL.endsWith("/")
-    ? API_BASE_URL.slice(0, -1)
-    : API_BASE_URL;
+      ? API_BASE_URL.slice(0, -1)
+      : API_BASE_URL;
 
   return normalizedImageUrl.startsWith("/")
-    ? `${baseUrl}${normalizedImageUrl}`
-    : `${baseUrl}/${normalizedImageUrl}`;
+      ? `${baseUrl}${normalizedImageUrl}`
+      : `${baseUrl}/${normalizedImageUrl}`;
+}
+
+function resolveProfileAvatar(avatarUrl?: string | null): string {
+  if (!avatarUrl?.trim()) return "";
+  return isImageValid(avatarUrl) ? getImageUrl(avatarUrl) : "";
 }
 
 function resolveAuthor(
-  authorUserId: number,
-  currentUser: SocialUser,
-  currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
-  cachedUsernames = new Map<number, string>(),
+    authorUserId: number,
+    currentUser: SocialUser,
+    currentUserId?: number,
+    userProfiles = new Map<number, UserProfileResponse>(),
+    cachedUsernames = new Map<number, string>(),
 ): SocialUser {
   if (currentUserId === authorUserId) {
     return currentUser;
@@ -238,7 +245,7 @@ function resolveAuthor(
       name: displayName,
       username: profile.username,
       userId: authorUserId,
-      avatarUrl: profile.avatarUrl?.trim() || avatarBase,
+      avatarUrl: resolveProfileAvatar(profile.avatarUrl),
       verified: false,
     };
   }
@@ -260,49 +267,49 @@ function resolveAuthor(
     username: `oyuncu-${authorUserId}`,
     userId: authorUserId,
     avatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
+        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
     verified: false,
   };
 }
 
 function mapCommentAuthor(
-  comment: SocialComment,
-  post: SocialPost,
-  currentUser: SocialUser,
-  currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
-  cachedUsernames = new Map<number, string>(),
+    comment: SocialComment,
+    post: SocialPost,
+    currentUser: SocialUser,
+    currentUserId?: number,
+    userProfiles = new Map<number, UserProfileResponse>(),
+    cachedUsernames = new Map<number, string>(),
 ): SocialComment {
   const author =
-    typeof currentUserId === "number" && comment.userId === currentUserId
-      ? { ...currentUser, userId: comment.userId }
-      : comment.userId === post.authorUserId
-        ? { ...post.author, userId: comment.userId }
-        : resolveAuthor(
-            comment.userId,
-            currentUser,
-            currentUserId,
-            userProfiles,
-            cachedUsernames,
-          );
+      typeof currentUserId === "number" && comment.userId === currentUserId
+          ? { ...currentUser, userId: comment.userId }
+          : comment.userId === post.authorUserId
+              ? { ...post.author, userId: comment.userId }
+              : resolveAuthor(
+                  comment.userId,
+                  currentUser,
+                  currentUserId,
+                  userProfiles,
+                  cachedUsernames,
+              );
 
   let replyingToName = comment.replyingToName;
 
   if (comment.replyingToUserId) {
     if (
-      typeof currentUserId === "number" &&
-      comment.replyingToUserId === currentUserId
+        typeof currentUserId === "number" &&
+        comment.replyingToUserId === currentUserId
     ) {
       replyingToName = currentUser.name;
     } else if (comment.replyingToUserId === post.authorUserId) {
       replyingToName = post.author.name;
     } else {
       replyingToName = resolveAuthor(
-        comment.replyingToUserId,
-        currentUser,
-        currentUserId,
-        userProfiles,
-        cachedUsernames,
+          comment.replyingToUserId,
+          currentUser,
+          currentUserId,
+          userProfiles,
+          cachedUsernames,
       ).name;
     }
   }
@@ -317,25 +324,25 @@ function mapCommentAuthor(
 }
 
 function structurePostComments(
-  comments: SocialComment[],
-  post: SocialPost,
-  currentUser: SocialUser,
-  currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
-  cachedUsernames = new Map<number, string>(),
+    comments: SocialComment[],
+    post: SocialPost,
+    currentUser: SocialUser,
+    currentUserId?: number,
+    userProfiles = new Map<number, UserProfileResponse>(),
+    cachedUsernames = new Map<number, string>(),
 ): SocialComment[] {
   const mappedComments = comments
-    .filter((comment) => !comment.isDeleted)
-    .map((comment) =>
-      mapCommentAuthor(
-        comment,
-        post,
-        currentUser,
-        currentUserId,
-        userProfiles,
-        cachedUsernames,
-      ),
-    );
+      .filter((comment) => !comment.isDeleted)
+      .map((comment) =>
+          mapCommentAuthor(
+              comment,
+              post,
+              currentUser,
+              currentUserId,
+              userProfiles,
+              cachedUsernames,
+          ),
+      );
 
   const repliesByParentId = new Map<number, SocialComment[]>();
 
@@ -348,24 +355,24 @@ function structurePostComments(
   }
 
   return mappedComments
-    .filter((comment) => !comment.parentCommentId)
-    .map((comment) => ({
-      ...comment,
-      replies: repliesByParentId.get(comment.id) ?? [],
-    }));
+      .filter((comment) => !comment.parentCommentId)
+      .map((comment) => ({
+        ...comment,
+        replies: repliesByParentId.get(comment.id) ?? [],
+      }));
 }
 
 function updateCommentInPost(
-  post: SocialPost,
-  commentId: number,
-  parentCommentId: number | null | undefined,
-  updater: (comment: SocialComment) => SocialComment,
+    post: SocialPost,
+    commentId: number,
+    parentCommentId: number | null | undefined,
+    updater: (comment: SocialComment) => SocialComment,
 ): SocialPost {
   if (!parentCommentId) {
     return {
       ...post,
       comments: (post.comments ?? []).map((comment) =>
-        comment.id === commentId ? updater(comment) : comment,
+          comment.id === commentId ? updater(comment) : comment,
       ),
     };
   }
@@ -373,77 +380,77 @@ function updateCommentInPost(
   return {
     ...post,
     comments: (post.comments ?? []).map((comment) =>
-      comment.id === parentCommentId
-        ? {
-            ...comment,
-            replies: (comment.replies ?? []).map((reply) =>
-              reply.id === commentId ? updater(reply) : reply,
-            ),
-          }
-        : comment,
+        comment.id === parentCommentId
+            ? {
+              ...comment,
+              replies: (comment.replies ?? []).map((reply) =>
+                  reply.id === commentId ? updater(reply) : reply,
+              ),
+            }
+            : comment,
     ),
   };
 }
 
 function mapLikeUsers(
-  likes: SocialPostLikeResponse[],
-  currentUser: SocialUser,
-  currentUserId?: number,
-  userProfiles = new Map<number, UserProfile>(),
-  cachedUsernames = new Map<number, string>(),
+    likes: SocialPostLikeResponse[],
+    currentUser: SocialUser,
+    currentUserId?: number,
+    userProfiles = new Map<number, UserProfileResponse>(),
+    cachedUsernames = new Map<number, string>(),
 ): SocialUser[] {
   return likes.map((like) =>
-    resolveAuthor(
-      like.userId,
-      currentUser,
-      currentUserId,
-      userProfiles,
-      cachedUsernames,
-    ),
+      resolveAuthor(
+          like.userId,
+          currentUser,
+          currentUserId,
+          userProfiles,
+          cachedUsernames,
+      ),
   );
 }
 
 function mapBackendPostToSocialPost(
-  post: SocialPostResponse,
-  currentUser: SocialUser,
-  currentUserId?: number,
-  followingUserIds = new Set<number>(),
-  savedPostIds = new Set<string>(),
-  userProfiles = new Map<number, UserProfile>(),
-  cachedUsernames = new Map<number, string>(),
-  friendUserIds = new Set<number>(),
-  pendingFriendRequests = new Map<number, number>(),
+    post: SocialPostResponse,
+    currentUser: SocialUser,
+    currentUserId?: number,
+    followingUserIds = new Set<number>(),
+    savedPostIds = new Set<string>(),
+    userProfiles = new Map<number, UserProfileResponse>(),
+    cachedUsernames = new Map<number, string>(),
+    friendUserIds = new Set<number>(),
+    pendingFriendRequests = new Map<number, number>(),
 ): SocialPost {
   const isCurrentUserPost = currentUserId === post.userId;
   const mediaType =
-    post.mediaType === "VIDEO" || post.imageUrl?.includes("/videos/")
-      ? ("video" as const)
-      : ("image" as const);
+      post.mediaType === "VIDEO" || post.imageUrl?.includes("/videos/")
+          ? ("video" as const)
+          : ("image" as const);
   const mediaItems = post.media?.length
-    ? post.media.map((media) => ({
+      ? post.media.map((media) => ({
         url: resolveMediaUrl(media.url),
         alt: media.mediaType === "VIDEO" ? "Gönderi videosu" : "Gönderi görseli",
         type: media.mediaType === "VIDEO" ? ("video" as const) : ("image" as const),
       }))
-    : post.imageUrl?.trim()
-      ? [
-          {
-            url: resolveMediaUrl(post.imageUrl),
-            alt: mediaType === "video" ? "Gönderi videosu" : "Gönderi görseli",
-            type: mediaType,
-          },
-        ]
-      : [];
+      : post.imageUrl?.trim()
+          ? [
+            {
+              url: resolveMediaUrl(post.imageUrl),
+              alt: mediaType === "video" ? "Gönderi videosu" : "Gönderi görseli",
+              type: mediaType,
+            },
+          ]
+          : [];
 
   return {
     id: post.id,
     authorUserId: post.userId,
     author: resolveAuthor(
-      post.userId,
-      currentUser,
-      currentUserId,
-      userProfiles,
-      cachedUsernames,
+        post.userId,
+        currentUser,
+        currentUserId,
+        userProfiles,
+        cachedUsernames,
     ),
     createdAt: formatSocialTime(post.createdAt),
     visibility: post.visibility === "PUBLIC" ? "public" : "followers",
@@ -456,16 +463,16 @@ function mapBackendPostToSocialPost(
     },
     likedByMe: Boolean(post.likedByCurrentUser),
     followedByMe:
-      typeof currentUserId === "number" &&
-      !isCurrentUserPost &&
-      followingUserIds.has(post.userId),
+        typeof currentUserId === "number" &&
+        !isCurrentUserPost &&
+        followingUserIds.has(post.userId),
     friendStatus: isCurrentUserPost
-      ? undefined
-      : friendUserIds.has(post.userId)
-        ? "friends"
-        : pendingFriendRequests.has(post.userId)
-          ? "pending"
-          : "none",
+        ? undefined
+        : friendUserIds.has(post.userId)
+            ? "friends"
+            : pendingFriendRequests.has(post.userId)
+                ? "pending"
+                : "none",
     pendingFriendRequestId: pendingFriendRequests.get(post.userId),
     savedByMe: savedPostIds.has(String(post.id)),
     source: "backend",
@@ -473,12 +480,12 @@ function mapBackendPostToSocialPost(
 }
 
 function mapLookingForPlayerToSocialPost(
-  post: LookingForPlayerPostResponse,
-  currentUser: SocialUser,
-  currentUserId?: number,
-  savedPostIds = new Set<string>(),
-  userProfiles = new Map<number, UserProfile>(),
-  cachedUsernames = new Map<number, string>(),
+    post: LookingForPlayerPostResponse,
+    currentUser: SocialUser,
+    currentUserId?: number,
+    savedPostIds = new Set<string>(),
+    userProfiles = new Map<number, UserProfileResponse>(),
+    cachedUsernames = new Map<number, string>(),
 ): SocialPost {
   const details = [
     `Platform: ${post.platform}`,
@@ -486,30 +493,30 @@ function mapLookingForPlayerToSocialPost(
     post.playerLevel ? `Seviye: ${post.playerLevel}` : null,
     post.microphoneRequired ? "Mikrofon gerekli" : null,
     post.playTime
-      ? `Oyun zamanı: ${new Intl.DateTimeFormat("tr-TR", {
+        ? `Oyun zamanı: ${new Intl.DateTimeFormat("tr-TR", {
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
           month: "long",
         }).format(new Date(post.playTime))}`
-      : null,
+        : null,
   ].filter(Boolean);
 
   return {
     id: `looking-for-player-${post.id}`,
     authorUserId: post.userId,
     author: resolveAuthor(
-      post.userId,
-      currentUser,
-      currentUserId,
-      userProfiles,
-      cachedUsernames,
+        post.userId,
+        currentUser,
+        currentUserId,
+        userProfiles,
+        cachedUsernames,
     ),
     createdAt: formatSocialTime(post.createdAt),
     visibility: "public",
     content: [`İlan: ${post.title}`, post.description, details.join(" · ")]
-      .filter(Boolean)
-      .join("\n"),
+        .filter(Boolean)
+        .join("\n"),
     media: [],
     reactions: {
       likes: 0,
@@ -540,23 +547,39 @@ function getEmptyFeedMessage(activeTab: SocialFeedTab): string {
 }
 
 async function loadUserProfiles(
-  userIds: Array<number | undefined>,
-): Promise<Map<number, UserProfile>> {
+    userIds: Array<number | undefined>,
+): Promise<Map<number, UserProfileResponse>> {
   const uniqueUserIds = Array.from(
-    new Set(userIds.filter((userId): userId is number => typeof userId === "number")),
+      new Set(
+          userIds.filter(
+              (userId): userId is number => typeof userId === "number",
+          ),
+      ),
   );
 
-  const profiles = await Promise.allSettled(
-    uniqueUserIds.map((userId) => userProfileService.getProfileById(userId)),
-  );
+  if (uniqueUserIds.length === 0) {
+    return new Map();
+  }
 
-  return profiles.reduce<Map<number, UserProfile>>((profileMap, result, index) => {
-    if (result.status === "fulfilled") {
-      profileMap.set(uniqueUserIds[index], result.value);
-    }
+  try {
+    const profiles = await userService.getProfilesBatch(
+        uniqueUserIds.map(String),
+    );
+    const profileMap = new Map<number, UserProfileResponse>();
+
+    profiles.forEach((profile) => {
+      const numericId = Number(profile.userId);
+
+      if (Number.isFinite(numericId)) {
+        profileMap.set(numericId, profile);
+      }
+    });
 
     return profileMap;
-  }, new Map());
+  } catch (error) {
+    console.error("Batch profiles load failed:", error);
+    return new Map();
+  }
 }
 
 function getSavedPostStorageKey(userId?: number): string {
@@ -569,12 +592,12 @@ function readSavedPostIds(storageKey: string): Set<string> {
     const parsedValue: unknown = rawValue ? JSON.parse(rawValue) : [];
 
     return Array.isArray(parsedValue)
-      ? new Set(
-          parsedValue.filter(
-            (value): value is string => typeof value === "string",
-          ),
+        ? new Set(
+            parsedValue.filter(
+                (value): value is string => typeof value === "string",
+            ),
         )
-      : new Set<string>();
+        : new Set<string>();
   } catch {
     return new Set<string>();
   }
@@ -582,8 +605,8 @@ function readSavedPostIds(storageKey: string): Set<string> {
 
 function writeSavedPostIds(storageKey: string, savedPostIds: Set<string>) {
   localStorage.setItem(
-    storageKey,
-    JSON.stringify(Array.from(savedPostIds)),
+      storageKey,
+      JSON.stringify(Array.from(savedPostIds)),
   );
 }
 
@@ -597,12 +620,12 @@ function readUserIdentityCache(): Map<number, string> {
     }
 
     return new Map(
-      Object.entries(parsedValue)
-        .map(([userId, username]) => [Number(userId), username] as const)
-        .filter(
-          (entry): entry is readonly [number, string] =>
-            Number.isFinite(entry[0]) && typeof entry[1] === "string",
-        ),
+        Object.entries(parsedValue)
+            .map(([userId, username]) => [Number(userId), username] as const)
+            .filter(
+                (entry): entry is readonly [number, string] =>
+                    Number.isFinite(entry[0]) && typeof entry[1] === "string",
+            ),
     );
   } catch {
     return new Map();
@@ -610,11 +633,12 @@ function readUserIdentityCache(): Map<number, string> {
 }
 
 export default function SocialFeedPage() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const { displayName, avatarUrl } = useCurrentUserProfile();
   const navigate = useNavigate();
   const savedPostStorageKey = useMemo(
-    () => getSavedPostStorageKey(user?.userId),
-    [user?.userId],
+      () => getSavedPostStorageKey(user?.userId),
+      [user?.userId],
   );
   const [activeTab, setActiveTab] = useState<SocialFeedTab>("all");
   const [posts, setPosts] = useState<SocialPost[]>([]);
@@ -630,34 +654,37 @@ export default function SocialFeedPage() {
     storageKey: savedPostStorageKey,
   }));
   const cachedUsernames = useMemo(
-    () => {
-      const cache = readUserIdentityCache();
+      () => {
+        const cache = readUserIdentityCache();
 
-      if (user?.userId && user.username) {
-        cache.set(user.userId, user.username);
-      }
+        if (user?.userId && user.username) {
+          cache.set(user.userId, user.username);
+        }
 
-      return cache;
-    },
-    [user],
+        return cache;
+      },
+      [user],
   );
   const savedPostIds = useMemo(
-    () =>
-      savedPostState.storageKey === savedPostStorageKey
-        ? savedPostState.ids
-        : readSavedPostIds(savedPostStorageKey),
-    [savedPostState, savedPostStorageKey],
+      () =>
+          savedPostState.storageKey === savedPostStorageKey
+              ? savedPostState.ids
+              : readSavedPostIds(savedPostStorageKey),
+      [savedPostState, savedPostStorageKey],
   );
   const savedPostIdsRef = useRef(savedPostIds);
 
   const currentUser = useMemo<SocialUser>(
-    () => ({
-      ...currentUserFallback,
-      name: user?.username ?? currentUserFallback.name,
-      username: user?.username ?? currentUserFallback.username,
-      userId: user?.userId,
-    }),
-    [user?.userId, user?.username],
+      () => ({
+        ...currentUserFallback,
+        name: displayName || user?.username || currentUserFallback.name,
+        username: user?.username ?? currentUserFallback.username,
+        userId: user?.userId,
+        avatarUrl: resolveProfileAvatar(avatarUrl),
+        verified: false,
+        status: "online",
+      }),
+      [avatarUrl, displayName, user?.userId, user?.username],
   );
 
   useEffect(() => {
@@ -700,16 +727,16 @@ export default function SocialFeedPage() {
       try {
         const friendships = await socialService.getFriends(user.userId);
         const friendUserIds = friendships.map((friendship) =>
-          friendship.userId === user.userId
-            ? friendship.friendUserId
-            : friendship.userId,
+            friendship.userId === user.userId
+                ? friendship.friendUserId
+                : friendship.userId,
         );
         const userProfiles = await loadUserProfiles(friendUserIds);
 
         if (!isMounted) return;
 
         const nextFriends = friendUserIds.reduce<OnlineFriend[]>(
-          (friends, friendUserId) => {
+            (friends, friendUserId) => {
               const profile = userProfiles.get(friendUserId);
 
               if (!profile) return friends;
@@ -720,13 +747,13 @@ export default function SocialFeedPage() {
                 username: profile.username,
                 userId: friendUserId,
                 statusText: "Arkadaş",
-                avatarUrl: profile.avatarUrl?.trim() || avatarBase,
+                avatarUrl: resolveProfileAvatar(profile.avatarUrl),
                 status: "online",
               });
 
               return friends;
             },
-          [],
+            [],
         );
 
         setOnlineFriendProfiles(nextFriends);
@@ -763,59 +790,59 @@ export default function SocialFeedPage() {
 
         if (activeTab === "market") {
           const lookingForPlayerPosts =
-            await socialService.getOpenLookingForPlayerPosts();
+              await socialService.getOpenLookingForPlayerPosts();
           const userProfiles = await loadUserProfiles(
-            lookingForPlayerPosts.map((post) => post.userId),
+              lookingForPlayerPosts.map((post) => post.userId),
           );
 
           if (!isMounted) return;
 
           setPosts(
-            lookingForPlayerPosts.map((post) =>
-              mapLookingForPlayerToSocialPost(
-                post,
-                currentUser,
-                user?.userId,
-                currentSavedPostIds,
-                userProfiles,
-                cachedUsernames,
+              lookingForPlayerPosts.map((post) =>
+                  mapLookingForPlayerToSocialPost(
+                      post,
+                      currentUser,
+                      user?.userId,
+                      currentSavedPostIds,
+                      userProfiles,
+                      cachedUsernames,
+                  ),
               ),
-            ),
           );
           return;
         }
 
         const [backendPosts, following, lookingForPlayerPosts, friendships, outgoingFriendRequests] =
-          await Promise.all([
-          socialService.getPublicPosts(),
-          user?.userId
-            ? socialService.getFollowing(user.userId)
-            : Promise.resolve<FollowResponse[]>([]),
-          activeTab === "saved"
-            ? socialService.getOpenLookingForPlayerPosts()
-            : Promise.resolve<LookingForPlayerPostResponse[]>([]),
-          user?.userId
-            ? socialService.getFriends(user.userId)
-            : Promise.resolve([]),
-          user?.userId
-            ? socialService.getOutgoingFriendRequests(user.userId)
-            : Promise.resolve([]),
-        ]);
+            await Promise.all([
+              socialService.getPublicPosts(),
+              user?.userId
+                  ? socialService.getFollowing(user.userId)
+                  : Promise.resolve<FollowResponse[]>([]),
+              activeTab === "saved"
+                  ? socialService.getOpenLookingForPlayerPosts()
+                  : Promise.resolve<LookingForPlayerPostResponse[]>([]),
+              user?.userId
+                  ? socialService.getFriends(user.userId)
+                  : Promise.resolve([]),
+              user?.userId
+                  ? socialService.getOutgoingFriendRequests(user.userId)
+                  : Promise.resolve([]),
+            ]);
         const followingUserIds = new Set(
-          following.map((follow) => follow.followingUserId),
+            following.map((follow) => follow.followingUserId),
         );
         const friendUserIds = new Set(
-          friendships.map((friendship) =>
-            friendship.userId === user?.userId
-              ? friendship.friendUserId
-              : friendship.userId,
-          ),
+            friendships.map((friendship) =>
+                friendship.userId === user?.userId
+                    ? friendship.friendUserId
+                    : friendship.userId,
+            ),
         );
         const pendingFriendRequests = new Map(
-          outgoingFriendRequests.map((request) => [
-            request.receiverUserId,
-            request.id,
-          ]),
+            outgoingFriendRequests.map((request) => [
+              request.receiverUserId,
+              request.id,
+            ]),
         );
         const userProfiles = await loadUserProfiles([
           ...backendPosts.map((post) => post.userId),
@@ -826,32 +853,32 @@ export default function SocialFeedPage() {
 
         let nextPosts = backendPosts.map((post) =>
             mapBackendPostToSocialPost(
-              post,
-              currentUser,
-              user?.userId,
-              followingUserIds,
-              currentSavedPostIds,
-              userProfiles,
-              cachedUsernames,
-              friendUserIds,
-              pendingFriendRequests,
+                post,
+                currentUser,
+                user?.userId,
+                followingUserIds,
+                currentSavedPostIds,
+                userProfiles,
+                cachedUsernames,
+                friendUserIds,
+                pendingFriendRequests,
             ),
-          );
+        );
 
         if (activeTab === "following" && user?.userId) {
           nextPosts = nextPosts.filter(
-            (post) =>
-              typeof post.authorUserId === "number" &&
-              followingUserIds.has(post.authorUserId),
+              (post) =>
+                  typeof post.authorUserId === "number" &&
+                  followingUserIds.has(post.authorUserId),
           );
         }
 
         if (activeTab === "popular") {
           nextPosts = [...nextPosts].sort((firstPost, secondPost) => {
             const firstScore =
-              firstPost.reactions.likes * 2 + firstPost.reactions.comments;
+                firstPost.reactions.likes * 2 + firstPost.reactions.comments;
             const secondScore =
-              secondPost.reactions.likes * 2 + secondPost.reactions.comments;
+                secondPost.reactions.likes * 2 + secondPost.reactions.comments;
 
             return secondScore - firstScore;
           });
@@ -859,21 +886,21 @@ export default function SocialFeedPage() {
 
         if (activeTab === "saved") {
           const savedLookingForPlayerPosts = lookingForPlayerPosts
-            .map((post) =>
-              mapLookingForPlayerToSocialPost(
-                post,
-                currentUser,
-                user?.userId,
-                currentSavedPostIds,
-                userProfiles,
-                cachedUsernames,
-              ),
-            )
-            .filter((post) => currentSavedPostIds.has(String(post.id)));
+              .map((post) =>
+                  mapLookingForPlayerToSocialPost(
+                      post,
+                      currentUser,
+                      user?.userId,
+                      currentSavedPostIds,
+                      userProfiles,
+                      cachedUsernames,
+                  ),
+              )
+              .filter((post) => currentSavedPostIds.has(String(post.id)));
 
           nextPosts = [
             ...nextPosts.filter((post) =>
-              currentSavedPostIds.has(String(post.id)),
+                currentSavedPostIds.has(String(post.id)),
             ),
             ...savedLookingForPlayerPosts,
           ];
@@ -884,10 +911,10 @@ export default function SocialFeedPage() {
         if (!isMounted) return;
 
         setFeedError(
-          getErrorMessage(
-            error,
-            "Akış yüklenemedi. Backend çalışmıyorsa örnek gönderiler gösteriliyor.",
-          ),
+            getErrorMessage(
+                error,
+                "Akış yüklenemedi. Backend çalışmıyorsa örnek gönderiler gösteriliyor.",
+            ),
         );
         setPosts(activeTab === "all" ? mockPosts : []);
       } finally {
@@ -916,23 +943,23 @@ export default function SocialFeedPage() {
       for (let index = 0; index < mediaFiles.length; index += 1) {
         const media = mediaFiles[index];
         const uploadResponse =
-          media.type === "video"
-            ? await socialService.uploadVideo(media.file, (event) => {
-                if (event.total) {
-                  const fileProgress = event.loaded / event.total;
-                  setUploadProgress(
-                    Math.round(((index + fileProgress) / mediaFiles.length) * 100),
-                  );
-                }
-              })
-            : await socialService.uploadImage(media.file, (event) => {
-                if (event.total) {
-                  const fileProgress = event.loaded / event.total;
-                  setUploadProgress(
-                    Math.round(((index + fileProgress) / mediaFiles.length) * 100),
-                  );
-                }
-              });
+            media.type === "video"
+                ? await socialService.uploadVideo(media.file, (event) => {
+                  if (event.total) {
+                    const fileProgress = event.loaded / event.total;
+                    setUploadProgress(
+                        Math.round(((index + fileProgress) / mediaFiles.length) * 100),
+                    );
+                  }
+                })
+                : await socialService.uploadImage(media.file, (event) => {
+                  if (event.total) {
+                    const fileProgress = event.loaded / event.total;
+                    setUploadProgress(
+                        Math.round(((index + fileProgress) / mediaFiles.length) * 100),
+                    );
+                  }
+                });
 
         uploadResponses.push(uploadResponse);
       }
@@ -958,14 +985,14 @@ export default function SocialFeedPage() {
   }
 
   async function handleCreateLookingForPlayer(
-    request: LookingForPlayerCreateRequest,
+      request: LookingForPlayerCreateRequest,
   ) {
     setIsSubmittingPost(true);
     setFeedError(null);
 
     try {
       const createdPost =
-        await socialService.createLookingForPlayerPost(request);
+          await socialService.createLookingForPlayerPost(request);
 
       setActiveTab("market");
       setPosts((currentPosts) => [
@@ -993,21 +1020,21 @@ export default function SocialFeedPage() {
       }
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                likedByMe: !likedByMe,
-                reactions: {
-                  ...post.reactions,
-                  likes: Math.max(
-                    0,
-                    post.reactions.likes + (likedByMe ? -1 : 1),
-                  ),
-                },
-              }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.id === postId
+                  ? {
+                    ...post,
+                    likedByMe: !likedByMe,
+                    reactions: {
+                      ...post.reactions,
+                      likes: Math.max(
+                          0,
+                          post.reactions.likes + (likedByMe ? -1 : 1),
+                      ),
+                    },
+                  }
+                  : post,
+          ),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Beğeni işlemi tamamlanamadı."));
@@ -1026,29 +1053,29 @@ export default function SocialFeedPage() {
       const comments = await socialService.getComments(postId);
       const currentPost = posts.find((post) => post.id === postId);
       const userProfiles = await loadUserProfiles(
-        comments.flatMap((comment) =>
-          [comment.userId, comment.replyingToUserId].filter(
-            (userId): userId is number => typeof userId === "number",
+          comments.flatMap((comment) =>
+              [comment.userId, comment.replyingToUserId].filter(
+                  (userId): userId is number => typeof userId === "number",
+              ),
           ),
-        ),
       );
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: structurePostComments(
-                  comments,
-                  currentPost ?? post,
-                  currentUser,
-                  user?.userId,
-                  userProfiles,
-                  cachedUsernames,
-                ),
-              }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.id === postId
+                  ? {
+                    ...post,
+                    comments: structurePostComments(
+                        comments,
+                        currentPost ?? post,
+                        currentUser,
+                        user?.userId,
+                        userProfiles,
+                        cachedUsernames,
+                    ),
+                  }
+                  : post,
+          ),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Yorumlar yüklenemedi."));
@@ -1067,28 +1094,28 @@ export default function SocialFeedPage() {
       const comment = await socialService.addComment(postId, { content });
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: [
-                  ...(post.comments ?? []),
-                  mapCommentAuthor(
-                    { ...comment, replies: [] },
-                    post,
-                    currentUser,
-                    user?.userId,
-                    new Map(),
-                    cachedUsernames,
-                  ),
-                ],
-                reactions: {
-                  ...post.reactions,
-                  comments: post.reactions.comments + 1,
-                },
-              }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.id === postId
+                  ? {
+                    ...post,
+                    comments: [
+                      ...(post.comments ?? []),
+                      mapCommentAuthor(
+                          { ...comment, replies: [] },
+                          post,
+                          currentUser,
+                          user?.userId,
+                          new Map(),
+                          cachedUsernames,
+                      ),
+                    ],
+                    reactions: {
+                      ...post.reactions,
+                      comments: post.reactions.comments + 1,
+                    },
+                  }
+                  : post,
+          ),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Yorum gönderilemedi."));
@@ -1098,10 +1125,10 @@ export default function SocialFeedPage() {
   }
 
   async function handleAddReply(
-    postId: number | string,
-    parentCommentId: number,
-    content: string,
-    replyingToUserId?: number,
+      postId: number | string,
+      parentCommentId: number,
+      content: string,
+      replyingToUserId?: number,
   ) {
     if (typeof postId !== "number") return;
 
@@ -1115,42 +1142,42 @@ export default function SocialFeedPage() {
         replyingToUserId,
       });
       const userProfiles = await loadUserProfiles(
-        [comment.userId, comment.replyingToUserId].filter(
-          (userId): userId is number => typeof userId === "number",
-        ),
+          [comment.userId, comment.replyingToUserId].filter(
+              (userId): userId is number => typeof userId === "number",
+          ),
       );
       const currentPost = posts.find((post) => post.id === postId);
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: (post.comments ?? []).map((parentComment) =>
-                  parentComment.id === parentCommentId
-                    ? {
-                        ...parentComment,
-                        replies: [
-                          ...(parentComment.replies ?? []),
-                          mapCommentAuthor(
-                            comment,
-                            currentPost ?? post,
-                            currentUser,
-                            user?.userId,
-                            userProfiles,
-                            cachedUsernames,
-                          ),
-                        ],
-                      }
-                    : parentComment,
-                ),
-                reactions: {
-                  ...post.reactions,
-                  comments: post.reactions.comments + 1,
-                },
-              }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.id === postId
+                  ? {
+                    ...post,
+                    comments: (post.comments ?? []).map((parentComment) =>
+                        parentComment.id === parentCommentId
+                            ? {
+                              ...parentComment,
+                              replies: [
+                                ...(parentComment.replies ?? []),
+                                mapCommentAuthor(
+                                    comment,
+                                    currentPost ?? post,
+                                    currentUser,
+                                    user?.userId,
+                                    userProfiles,
+                                    cachedUsernames,
+                                ),
+                              ],
+                            }
+                            : parentComment,
+                    ),
+                    reactions: {
+                      ...post.reactions,
+                      comments: post.reactions.comments + 1,
+                    },
+                  }
+                  : post,
+          ),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Yanıt gönderilemedi."));
@@ -1160,10 +1187,10 @@ export default function SocialFeedPage() {
   }
 
   async function handleToggleCommentLike(
-    postId: number | string,
-    commentId: number,
-    parentCommentId: number | null | undefined,
-    likedByMe: boolean,
+      postId: number | string,
+      commentId: number,
+      parentCommentId: number | null | undefined,
+      likedByMe: boolean,
   ) {
     if (typeof postId !== "number") return;
 
@@ -1177,18 +1204,18 @@ export default function SocialFeedPage() {
       }
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? updateCommentInPost(post, commentId, parentCommentId, (comment) => ({
-                ...comment,
-                likedByMe: !likedByMe,
-                likeCount: Math.max(
-                  0,
-                  (comment.likeCount ?? 0) + (likedByMe ? -1 : 1),
-                ),
-              }))
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.id === postId
+                  ? updateCommentInPost(post, commentId, parentCommentId, (comment) => ({
+                    ...comment,
+                    likedByMe: !likedByMe,
+                    likeCount: Math.max(
+                        0,
+                        (comment.likeCount ?? 0) + (likedByMe ? -1 : 1),
+                    ),
+                  }))
+                  : post,
+          ),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Yorum beğenisi güncellenemedi."));
@@ -1196,9 +1223,9 @@ export default function SocialFeedPage() {
   }
 
   async function handleDeleteComment(
-    postId: number | string,
-    commentId: number,
-    parentCommentId?: number | null,
+      postId: number | string,
+      commentId: number,
+      parentCommentId?: number | null,
   ) {
     if (typeof postId !== "number") return;
 
@@ -1209,48 +1236,48 @@ export default function SocialFeedPage() {
       await socialService.deleteComment(commentId);
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) => {
-          if (post.id !== postId) return post;
+          currentPosts.map((post) => {
+            if (post.id !== postId) return post;
 
-          if (parentCommentId) {
+            if (parentCommentId) {
+              return {
+                ...post,
+                comments: (post.comments ?? []).map((comment) =>
+                    comment.id === parentCommentId
+                        ? {
+                          ...comment,
+                          replies: (comment.replies ?? []).filter(
+                              (reply) => reply.id !== commentId,
+                          ),
+                        }
+                        : comment,
+                ),
+                reactions: {
+                  ...post.reactions,
+                  comments: Math.max(0, post.reactions.comments - 1),
+                },
+              };
+            }
+
+            const deletedComment = (post.comments ?? []).find(
+                (comment) => comment.id === commentId,
+            );
+            const removedReplyCount = deletedComment?.replies?.length ?? 0;
+
             return {
               ...post,
-              comments: (post.comments ?? []).map((comment) =>
-                comment.id === parentCommentId
-                  ? {
-                      ...comment,
-                      replies: (comment.replies ?? []).filter(
-                        (reply) => reply.id !== commentId,
-                      ),
-                    }
-                  : comment,
+              comments: (post.comments ?? []).filter(
+                  (comment) => comment.id !== commentId,
               ),
               reactions: {
                 ...post.reactions,
-                comments: Math.max(0, post.reactions.comments - 1),
+                comments: Math.max(
+                    0,
+                    post.reactions.comments - 1 - removedReplyCount,
+                ),
               },
             };
-          }
-
-          const deletedComment = (post.comments ?? []).find(
-            (comment) => comment.id === commentId,
-          );
-          const removedReplyCount = deletedComment?.replies?.length ?? 0;
-
-          return {
-            ...post,
-            comments: (post.comments ?? []).filter(
-              (comment) => comment.id !== commentId,
-            ),
-            reactions: {
-              ...post.reactions,
-              comments: Math.max(
-                0,
-                post.reactions.comments - 1 - removedReplyCount,
-              ),
-            },
-          };
-        }),
+          }),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Yorum silinemedi."));
@@ -1268,7 +1295,7 @@ export default function SocialFeedPage() {
     try {
       await socialService.deletePost(postId);
       setPosts((currentPosts) =>
-        currentPosts.filter((post) => post.id !== postId),
+          currentPosts.filter((post) => post.id !== postId),
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Gönderi silinemedi."));
@@ -1285,11 +1312,11 @@ export default function SocialFeedPage() {
       const userProfiles = await loadUserProfiles(likes.map((like) => like.userId));
 
       return mapLikeUsers(
-        likes,
-        currentUser,
-        user?.userId,
-        userProfiles,
-        cachedUsernames,
+          likes,
+          currentUser,
+          user?.userId,
+          userProfiles,
+          cachedUsernames,
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Beğenenler yüklenemedi."));
@@ -1298,8 +1325,8 @@ export default function SocialFeedPage() {
   }
 
   async function handleToggleFollowAuthor(
-    authorUserId: number,
-    followedByMe: boolean,
+      authorUserId: number,
+      followedByMe: boolean,
   ) {
     setFeedError(null);
 
@@ -1311,16 +1338,16 @@ export default function SocialFeedPage() {
       }
 
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.authorUserId === authorUserId
-            ? { ...post, followedByMe: !followedByMe }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.authorUserId === authorUserId
+                  ? { ...post, followedByMe: !followedByMe }
+                  : post,
+          ),
       );
       setFeedError(
-        followedByMe
-          ? "Kullanıcı takibi bırakıldı."
-          : "Kullanıcı takip edildi.",
+          followedByMe
+              ? "Kullanıcı takibi bırakıldı."
+              : "Kullanıcı takip edildi.",
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Takip işlemi tamamlanamadı."));
@@ -1335,47 +1362,47 @@ export default function SocialFeedPage() {
         receiverUserId: authorUserId,
       });
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.authorUserId === authorUserId
-            ? {
-                ...post,
-                friendStatus: "pending",
-                pendingFriendRequestId: request.id,
-              }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.authorUserId === authorUserId
+                  ? {
+                    ...post,
+                    friendStatus: "pending",
+                    pendingFriendRequestId: request.id,
+                  }
+                  : post,
+          ),
       );
       setFeedError("Arkadaşlık isteği gönderildi.");
     } catch (error) {
       setFeedError(
-        getErrorMessage(error, "Arkadaşlık isteği gönderilemedi."),
+          getErrorMessage(error, "Arkadaşlık isteği gönderilemedi."),
       );
     }
   }
 
   async function handleCancelFriendRequest(
-    requestId: number,
-    authorUserId: number,
+      requestId: number,
+      authorUserId: number,
   ) {
     setFeedError(null);
 
     try {
       await socialService.cancelFriendRequest(requestId);
       setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.authorUserId === authorUserId
-            ? {
-                ...post,
-                friendStatus: "none",
-                pendingFriendRequestId: undefined,
-              }
-            : post,
-        ),
+          currentPosts.map((post) =>
+              post.authorUserId === authorUserId
+                  ? {
+                    ...post,
+                    friendStatus: "none",
+                    pendingFriendRequestId: undefined,
+                  }
+                  : post,
+          ),
       );
       setFeedError("Arkadaşlık isteği iptal edildi.");
     } catch (error) {
       setFeedError(
-        getErrorMessage(error, "Arkadaşlık isteği iptal edilemedi."),
+          getErrorMessage(error, "Arkadaşlık isteği iptal edilemedi."),
       );
     }
   }
@@ -1405,7 +1432,7 @@ export default function SocialFeedPage() {
     try {
       await socialService.blockUser({ blockedUserId: authorUserId });
       setPosts((currentPosts) =>
-        currentPosts.filter((post) => post.authorUserId !== authorUserId),
+          currentPosts.filter((post) => post.authorUserId !== authorUserId),
       );
       setFeedError("Kullanıcı engellendi.");
     } catch (error) {
@@ -1449,90 +1476,90 @@ export default function SocialFeedPage() {
       storageKey: savedPostStorageKey,
     });
     setPosts((currentPosts) =>
-      currentPosts
-        .map((post) =>
-          post.id === postId
-            ? { ...post, savedByMe: nextSavedPostIds.has(normalizedPostId) }
-            : post,
-        )
-        .filter((post) =>
-          activeTab === "saved" ? nextSavedPostIds.has(String(post.id)) : true,
-        ),
+        currentPosts
+            .map((post) =>
+                post.id === postId
+                    ? { ...post, savedByMe: nextSavedPostIds.has(normalizedPostId) }
+                    : post,
+            )
+            .filter((post) =>
+                activeTab === "saved" ? nextSavedPostIds.has(String(post.id)) : true,
+            ),
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_28%),#050914] px-4 py-6 text-white sm:px-6 lg:px-8">
+      <div className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_28%),#050914] px-4 py-6 text-white sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-[1860px] gap-8 xl:grid-cols-[minmax(0,1fr)_590px]">
           <main className="space-y-5">
             <SocialComposer
-              games={games}
-              isSubmitting={isSubmittingPost}
-              onCreateLookingForPlayer={handleCreateLookingForPlayer}
-              onSubmit={handleCreatePost}
-              uploadProgress={uploadProgress}
-              user={currentUser}
+                games={games}
+                isSubmitting={isSubmittingPost}
+                onCreateLookingForPlayer={handleCreateLookingForPlayer}
+                onSubmit={handleCreatePost}
+                uploadProgress={uploadProgress}
+                user={currentUser}
             />
             <SocialFeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
             {feedError && (
-              <div className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                {feedError}
-              </div>
+                <div className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  {feedError}
+                </div>
             )}
 
             <div className="space-y-5">
               {isLoadingPosts ? (
-                <div className="rounded-lg border border-white/10 bg-[#0a101c]/88 px-5 py-8 text-center text-sm text-zinc-400">
-                  Akış yükleniyor...
-                </div>
+                  <div className="rounded-lg border border-white/10 bg-[#0a101c]/88 px-5 py-8 text-center text-sm text-zinc-400">
+                    Akış yükleniyor...
+                  </div>
               ) : posts.length > 0 ? (
-                posts.map((post) => (
-                  <SocialPostCard
-                    currentUserId={user?.userId}
-                    currentUserName={currentUser.name}
-                    isBusy={busyPostId === post.id}
-                    key={post.id}
-                    onAddComment={handleAddComment}
-                    onAddReply={handleAddReply}
-                    onBlockAuthor={handleBlockAuthor}
-                    onDeleteComment={handleDeleteComment}
-                    onDeletePost={handleDeletePost}
-                    onLoadComments={handleLoadComments}
-                    onLoadPostLikes={handleLoadPostLikes}
-                    onOpenProfile={(username) =>
-                      navigate(ROUTES.profile.replace(":username", username))
-                    }
-                    onSendFriendRequest={handleSendFriendRequest}
-                    onCancelFriendRequest={handleCancelFriendRequest}
-                    onShare={handleSharePost}
-                    onStartChat={handleStartChat}
-                    onToggleCommentLike={handleToggleCommentLike}
-                    onToggleFollowAuthor={handleToggleFollowAuthor}
-                    onToggleSave={handleToggleSave}
-                    onToggleLike={handleToggleLike}
-                    post={post}
-                  />
-                ))
+                  posts.map((post) => (
+                      <SocialPostCard
+                          currentUserId={user?.userId}
+                          currentUserName={currentUser.name}
+                          isBusy={busyPostId === post.id}
+                          key={post.id}
+                          onAddComment={handleAddComment}
+                          onAddReply={handleAddReply}
+                          onBlockAuthor={handleBlockAuthor}
+                          onDeleteComment={handleDeleteComment}
+                          onDeletePost={handleDeletePost}
+                          onLoadComments={handleLoadComments}
+                          onLoadPostLikes={handleLoadPostLikes}
+                          onOpenProfile={(username) =>
+                              navigate(ROUTES.profile.replace(":username", username))
+                          }
+                          onSendFriendRequest={handleSendFriendRequest}
+                          onCancelFriendRequest={handleCancelFriendRequest}
+                          onShare={handleSharePost}
+                          onStartChat={handleStartChat}
+                          onToggleCommentLike={handleToggleCommentLike}
+                          onToggleFollowAuthor={handleToggleFollowAuthor}
+                          onToggleSave={handleToggleSave}
+                          onToggleLike={handleToggleLike}
+                          post={post}
+                      />
+                  ))
               ) : (
-                <div className="rounded-lg border border-white/10 bg-[#0a101c]/88 px-5 py-8 text-center text-sm text-zinc-400">
-                  {getEmptyFeedMessage(activeTab)}
-                </div>
+                  <div className="rounded-lg border border-white/10 bg-[#0a101c]/88 px-5 py-8 text-center text-sm text-zinc-400">
+                    {getEmptyFeedMessage(activeTab)}
+                  </div>
               )}
             </div>
           </main>
 
           <div className="hidden xl:block">
             <SocialRightPanel
-              groups={suggestedGroups}
-              events={activeEvents}
-              friends={onlineFriendProfiles}
-              onFriendProfileClick={(username) =>
-                navigate(ROUTES.profile.replace(":username", username))
-              }
+                groups={suggestedGroups}
+                events={activeEvents}
+                friends={onlineFriendProfiles}
+                onFriendProfileClick={(username) =>
+                    navigate(ROUTES.profile.replace(":username", username))
+                }
             />
           </div>
         </div>
-    </div>
+      </div>
   );
 }

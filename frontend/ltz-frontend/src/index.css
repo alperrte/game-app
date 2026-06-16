@@ -1,4 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700;800;900&display=swap");
 @import "tailwindcss";
+
+.profile-page {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.profile-display-font {
+    font-family: "Exo 2", ui-sans-serif, system-ui, sans-serif;
+}
 
 /*
  * LTZ tasarım tokenları (Tailwind v4 @theme).
@@ -66,6 +76,15 @@
     100% {
         opacity: 0;
         transform: scale(2.25);
+    }
+}
+
+@keyframes pageFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
     }
 }
 
@@ -172,6 +191,10 @@ button:disabled {
 
 .ltz-datetime-input {
     color-scheme: dark;
+}
+
+.ltz-page-transition {
+    animation: pageFadeIn 220ms ease-out both;
 }
 
 .ltz-datetime-input::-webkit-calendar-picker-indicator {
@@ -1056,6 +1079,10 @@ button:disabled {
     .auth-logo,
     .auth-logo-shell::before,
     .auth-subtitle-pulse {
+        animation: none;
+    }
+
+    .ltz-page-transition {
         animation: none;
     }
 

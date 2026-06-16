@@ -11,10 +11,14 @@ import type { AuthResponse, AuthUser } from "../features/auth/types/auth.types";
 import { STORAGE_KEYS } from "../lib/constants";
 import {
     clearAuthStorage,
+    getAccessToken,
+    getRefreshToken,
     getStoredUser,
+    isTokenExpired,
     setStoredUser,
     setTokens,
 } from "../lib/token";
+import { authService } from "../features/auth/services/authService";
 
 interface AuthState {
     user: AuthUser | null;
@@ -23,10 +27,17 @@ interface AuthState {
 
 type Listener = () => void;
 
-let state: AuthState = {
-    user: getStoredUser(),
-    isAuthenticated: Boolean(getStoredUser()),
-};
+function readAuthState(): AuthState {
+    const token = getAccessToken();
+    const user = token ? getStoredUser() : null;
+
+    return {
+        user,
+        isAuthenticated: Boolean(token),
+    };
+}
+
+let state: AuthState = readAuthState();
 
 const listeners = new Set<Listener>();
 
@@ -92,6 +103,47 @@ export function clearAuth(): void {
     clearAuthStorage();
     state = { user: null, isAuthenticated: false };
     emit();
+}
+
+/*
+ * Uygulama açılışında bir kez çağrılır.
+ *
+ * Storage'da oturum varmış gibi görünse bile (user objesi mevcut), access token'ın
+ * JWT exp'i kontrol edilir:
+ *  - Token geçerliyse dokunulmaz.
+ *  - Token süresi dolmuşsa ve geçerli bir refresh token varsa sessizce yenilenir;
+ *    yenileme aynı depolamada (localStorage/sessionStorage) kalır.
+ *  - Yenileme yoksa/başarısızsa oturum tamamen temizlenir ve kullanıcı login'e düşer.
+ *
+ * Böylece süresi dolmuş token ile "son sayfa" açık kalmaz.
+ */
+export async function bootstrapAuth(): Promise<void> {
+    const user = getStoredUser();
+    const accessToken = getAccessToken();
+
+    if (!user || !accessToken) {
+        if (state.isAuthenticated) clearAuth();
+        return;
+    }
+
+    if (!isTokenExpired(accessToken)) {
+        return;
+    }
+
+    const refreshToken = getRefreshToken();
+
+    if (refreshToken && !isTokenExpired(refreshToken)) {
+        try {
+            const response = await authService.refreshToken({ refreshToken });
+            // remember verilmez: token'lar hâlihazırdaki depolamada kalır.
+            setTokens(response.accessToken, response.refreshToken);
+            return;
+        } catch {
+            // Yenileme başarısız: aşağıda oturumu temizle.
+        }
+    }
+
+    clearAuth();
 }
 
 /*

@@ -124,7 +124,7 @@ export function RegisterForm() {
                     ease: [0.22, 1, 0.36, 1],
                 }}
             >
-                <span className="auth-access-badge">NEW PLAYER</span>
+                <span className="auth-access-badge">YENİ OYUNCU</span>
                 <h1 className="auth-title mt-2 text-3xl font-bold tracking-tight">
                     Lobine katıl!
                 </h1>

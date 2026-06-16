@@ -3,6 +3,9 @@ package com.ltz.game_service.service;
 import com.ltz.game_service.dto.request.GameRequest;
 import com.ltz.game_service.dto.response.GameResponse;
 import com.ltz.game_service.entity.Game;
+import com.ltz.game_service.entity.GameCategory;
+import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.repository.GameCategoryRepository;
 import com.ltz.game_service.repository.GameRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
@@ -15,13 +18,22 @@ import java.util.List;
 public class GameService {
 
     private final GameRepository gameRepository;
+    private final GameCategoryRepository gameCategoryRepository;
 
-    public GameService(GameRepository gameRepository) {
+    public GameService(
+            GameRepository gameRepository,
+            GameCategoryRepository gameCategoryRepository
+    ) {
         this.gameRepository = gameRepository;
+        this.gameCategoryRepository = gameCategoryRepository;
     }
 
-    public List<GameResponse> getAllGames() {
-        return gameRepository.findAll()
+    public List<GameResponse> getAllGames(boolean includeSystemRequirementOnly) {
+        List<Game> games = includeSystemRequirementOnly
+                ? gameRepository.findAll()
+                : gameRepository.findBySystemRequirementOnlyFalse();
+
+        return games
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -64,6 +76,8 @@ public class GameService {
     }
 
     public List<GameResponse> filterGames(
+            GameSource source,
+            Long categoryId,
             String title,
             String genre,
             String platform,
@@ -73,6 +87,16 @@ public class GameService {
     ) {
         Specification<Game> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            predicates.add(criteriaBuilder.isFalse(root.get("systemRequirementOnly")));
+
+            if (source != null) {
+                predicates.add(criteriaBuilder.equal(root.get("source"), source));
+            }
+
+            if (categoryId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("category").get("id"), categoryId));
+            }
 
             if (title != null && !title.isBlank()) {
                 predicates.add(
@@ -123,13 +147,15 @@ public class GameService {
     }
 
     public List<GameResponse> getPopularGames() {
-        return gameRepository.findTop10ByOrderByPopularityScoreDesc()
+        return gameRepository.findTop10BySystemRequirementOnlyFalseOrderByPopularityScoreDesc()
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
     private void setGameFields(Game game, GameRequest request) {
+        game.setSource(request.getSource());
+        game.setCategory(getCategoryOrNull(request.getCategoryId()));
         game.setTitle(request.getTitle());
         game.setDescription(request.getDescription());
         game.setGenre(request.getGenre());
@@ -145,6 +171,16 @@ public class GameService {
         game.setOnSale(falseIfNull(request.getOnSale()));
         game.setTurkishLanguageSupport(falseIfNull(request.getTurkishLanguageSupport()));
         game.setPopularityScore(integerZeroIfNull(request.getPopularityScore()));
+        game.setSystemRequirementOnly(falseIfNull(request.getSystemRequirementOnly()));
+    }
+
+    private GameCategory getCategoryOrNull(Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+
+        return gameCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Kategori bulunamadı. ID: " + categoryId));
     }
 
     private Boolean falseIfNull(Boolean value) {
@@ -156,8 +192,13 @@ public class GameService {
     }
 
     private GameResponse mapToResponse(Game game) {
+        GameCategory category = game.getCategory();
+
         return new GameResponse(
                 game.getId(),
+                game.getSource(),
+                category != null ? category.getId() : null,
+                category != null ? category.getName() : null,
                 game.getTitle(),
                 game.getDescription(),
                 game.getGenre(),
@@ -173,6 +214,7 @@ public class GameService {
                 game.getOnSale(),
                 game.getTurkishLanguageSupport(),
                 game.getPopularityScore(),
+                game.getSystemRequirementOnly(),
                 game.getCreatedAt(),
                 game.getUpdatedAt()
         );

@@ -13,7 +13,9 @@ import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.exception.ResourceNotFoundException;
 import com.ltz.user_service.repository.ConnectedAccountRepository;
 import com.ltz.user_service.repository.PrivacySettingsRepository;
+import com.ltz.user_service.repository.UserAssignedBadgeRepository;
 import com.ltz.user_service.repository.UserProfileRepository;
+import com.ltz.user_service.util.ClientRequestContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +31,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceTest {
 
+    private static final ClientRequestContext TEST_CONTEXT =
+            new ClientRequestContext("127.0.0.1", "JUnit", "Desktop");
+
     @Mock
     private UserProfileRepository userProfileRepository;
 
@@ -37,6 +42,9 @@ class UserProfileServiceTest {
 
     @Mock
     private ConnectedAccountRepository connectedAccountRepository;
+
+    @Mock
+    private UserAssignedBadgeRepository userAssignedBadgeRepository;
 
     @Mock
     private AuditLogService auditLogService;
@@ -110,12 +118,12 @@ class UserProfileServiceTest {
         request.setDisplayName("Gamer One");
         request.setBio("Just a simple gamer");
 
-        UserProfileResponse response = userProfileService.createOrUpdateProfile("user123", "gamer123", "gamer123@example.com", request, "127.0.0.1");
+        UserProfileResponse response = userProfileService.createOrUpdateProfile("user123", "gamer123", "gamer123@example.com", request, TEST_CONTEXT);
 
         assertNotNull(response);
         verify(userProfileRepository, times(1)).save(any(UserProfile.class));
         verify(privacySettingsRepository, times(1)).save(any(PrivacySettings.class));
-        verify(auditLogService, times(1)).log(eq("user123"), eq("CREATE_PROFILE"), anyString(), eq("127.0.0.1"));
+        verify(auditLogService, times(1)).log(eq("user123"), eq("CREATE_PROFILE"), anyString(), eq(TEST_CONTEXT));
     }
 
     @Test
@@ -126,11 +134,11 @@ class UserProfileServiceTest {
         PrivacySettingsRequest request = new PrivacySettingsRequest();
         request.setProfileVisibility("PRIVATE");
 
-        PrivacySettingsResponse response = userProfileService.updatePrivacySettings("user123", request, "127.0.0.1");
+        PrivacySettingsResponse response = userProfileService.updatePrivacySettings("user123", request, TEST_CONTEXT);
 
         assertNotNull(response);
         verify(privacySettingsRepository, times(1)).save(any(PrivacySettings.class));
-        verify(auditLogService, times(1)).log(eq("user123"), eq("UPDATE_PRIVACY"), anyString(), eq("127.0.0.1"));
+        verify(auditLogService, times(1)).log(eq("user123"), eq("UPDATE_PRIVACY"), anyString(), eq(TEST_CONTEXT));
     }
 
     @Test
@@ -143,29 +151,29 @@ class UserProfileServiceTest {
         request.setPlatformUserId("steamId123");
         request.setPlatformUsername("steamUser");
 
-        ConnectedAccountResponse response = userProfileService.connectAccount("user123", request, "127.0.0.1");
+        ConnectedAccountResponse response = userProfileService.connectAccount("user123", request, TEST_CONTEXT);
 
         assertNotNull(response);
         assertEquals("STEAM", response.getPlatformName());
         verify(connectedAccountRepository, times(1)).save(any(ConnectedAccount.class));
-        verify(auditLogService, times(1)).log(eq("user123"), eq("CONNECT_ACCOUNT"), anyString(), eq("127.0.0.1"));
+        verify(auditLogService, times(1)).log(eq("user123"), eq("CONNECT_ACCOUNT"), anyString(), eq(TEST_CONTEXT));
     }
 
     @Test
     void testDisconnectAccount_Success() {
         when(connectedAccountRepository.findById(1L)).thenReturn(Optional.of(connectedAccount));
 
-        userProfileService.disconnectAccount("user123", 1L, "127.0.0.1");
+        userProfileService.disconnectAccount("user123", 1L, TEST_CONTEXT);
 
         verify(connectedAccountRepository, times(1)).delete(connectedAccount);
-        verify(auditLogService, times(1)).log(eq("user123"), eq("DISCONNECT_ACCOUNT"), anyString(), eq("127.0.0.1"));
+        verify(auditLogService, times(1)).log(eq("user123"), eq("DISCONNECT_ACCOUNT"), anyString(), eq(TEST_CONTEXT));
     }
 
     @Test
     void testDisconnectAccount_Unauthorized() {
         when(connectedAccountRepository.findById(1L)).thenReturn(Optional.of(connectedAccount));
 
-        assertThrows(BadRequestException.class, () -> userProfileService.disconnectAccount("other_user", 1L, "127.0.0.1"));
+        assertThrows(BadRequestException.class, () -> userProfileService.disconnectAccount("other_user", 1L, TEST_CONTEXT));
         verify(connectedAccountRepository, never()).delete(any(ConnectedAccount.class));
     }
 }

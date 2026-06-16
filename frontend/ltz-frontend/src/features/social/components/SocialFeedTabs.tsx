@@ -9,7 +9,6 @@ const tabs: Array<{ id: SocialFeedTab; label: string }> = [
   { id: "popular", label: "Popüler" },
   { id: "news", label: "Oyun Haberleri" },
   { id: "market", label: "İlanlar" },
-  { id: "saved", label: "Kaydedilenler" },
 ];
 
 interface SocialFeedTabsProps {

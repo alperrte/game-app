@@ -1,3 +1,4 @@
+```ts
 import type { LucideIcon } from "lucide-react";
 
 export type SocialFeedTab =
@@ -47,13 +48,19 @@ export interface SocialPost {
 }
 
 export type PostVisibility = "PUBLIC" | "FRIENDS" | "PRIVATE";
+
 export type FriendRequestStatus =
   | "PENDING"
   | "ACCEPTED"
   | "REJECTED"
   | "CANCELLED";
+
 export type ChatRoomType = "DIRECT" | "GROUP";
-export type LookingForPlayerStatus = "OPEN" | "CLOSED" | "CANCELLED";
+
+export type LookingForPlayerStatus =
+  | "OPEN"
+  | "CLOSED"
+  | "CANCELLED";
 
 export interface SocialPostResponse {
   id: number;
@@ -296,3 +303,4 @@ export interface OnlineFriend {
   avatarUrl: string;
   status: "online" | "playing";
 }
+```

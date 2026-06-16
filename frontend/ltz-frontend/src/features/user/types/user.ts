@@ -1,3 +1,23 @@
+export type ProfileSectionVisibility = {
+  showHardware: boolean;
+  showFriendList: boolean;
+  showFollowerList: boolean;
+  showLastSeen: boolean;
+  showGameLibrary: boolean;
+};
+
+export type AssignedBadgeResponse = {
+  badgeKey: string;
+  label: string;
+  assignedBy: string;
+  assignedAt: string;
+};
+
+export type BadgeCatalogItem = {
+  badgeKey: string;
+  label: string;
+};
+
 export type UserProfileResponse = {
   userId: string;
   username: string;
@@ -16,6 +36,10 @@ export type UserProfileResponse = {
   hardwareRam: string | null;
   hardwareOs: string | null;
   connectedAccounts?: ConnectedAccountResponse[];
+  role?: string | null;
+  lastSeenAt?: string | null;
+  sectionVisibility?: ProfileSectionVisibility | null;
+  assignedBadges?: AssignedBadgeResponse[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -44,6 +68,8 @@ export type PrivacySettingsResponse = {
   gameLibraryVisibility: VisibilityLevel;
   hardwareVisibility: VisibilityLevel;
   friendListVisibility: VisibilityLevel;
+  followerListVisibility: VisibilityLevel;
+  lastSeenVisibility: VisibilityLevel;
 };
 
 export type PrivacySettingsRequest = {
@@ -51,6 +77,8 @@ export type PrivacySettingsRequest = {
   gameLibraryVisibility?: VisibilityLevel;
   hardwareVisibility?: VisibilityLevel;
   friendListVisibility?: VisibilityLevel;
+  followerListVisibility?: VisibilityLevel;
+  lastSeenVisibility?: VisibilityLevel;
 };
 
 export type ConnectedAccountResponse = {
@@ -68,11 +96,10 @@ export type ConnectedAccountRequest = {
   platformUsername?: string | null;
 };
 
-export type UserAuditLog = {
-  id: number;
-  userId: string;
-  action: string;
-  details: string | null;
-  ipAddress: string | null;
-  createdAt: string;
+export type AssignBadgeRequest = {
+  badgeKey: string;
+  label: string;
 };
+
+export { BIO_MAX_LENGTH } from "./audit";
+export type { UserAuditLog } from "./audit";

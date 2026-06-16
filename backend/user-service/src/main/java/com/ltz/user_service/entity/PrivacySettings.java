@@ -41,6 +41,14 @@ public class PrivacySettings {
     @Builder.Default
     private String friendListVisibility = "PUBLIC";
 
+    @Column(name = "follower_list_visibility", nullable = false, length = 50)
+    @Builder.Default
+    private String followerListVisibility = "PUBLIC";
+
+    @Column(name = "last_seen_visibility", nullable = false, length = 50)
+    @Builder.Default
+    private String lastSeenVisibility = "PUBLIC";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

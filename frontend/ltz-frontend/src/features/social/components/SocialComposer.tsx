@@ -13,11 +13,12 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../../../components/ui/Button";
+import { UserAvatar } from "../../user/components/UserAvatar";
 import { ConfirmModal } from "../../../components/modal/ConfirmModal";
 import {
   DEFAULT_EMOJIS,
@@ -68,20 +69,20 @@ interface SocialComposerProps {
   user: SocialUser;
   isSubmitting?: boolean;
   onCreateLookingForPlayer: (
-    request: LookingForPlayerCreateRequest,
+      request: LookingForPlayerCreateRequest,
   ) => Promise<void>;
   onSubmit: (payload: ComposerSubmitPayload) => Promise<void>;
   uploadProgress?: number | null;
 }
 
 export function SocialComposer({
-  games,
-  user,
-  isSubmitting = false,
-  onCreateLookingForPlayer,
-  onSubmit,
-  uploadProgress = null,
-}: SocialComposerProps) {
+                                 games,
+                                 user,
+                                 isSubmitting = false,
+                                 onCreateLookingForPlayer,
+                                 onSubmit,
+                                 uploadProgress = null,
+                               }: SocialComposerProps) {
   const [content, setContent] = useState("");
   const [mode, setMode] = useState<ComposerMode>("post");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
@@ -112,7 +113,23 @@ export function SocialComposer({
   const hasSelectedImage = selectedMedia.some((media) => media.type === "image");
   const hasSelectedVideo = selectedMedia.some((media) => media.type === "video");
   const previewMedia =
-    previewModalIndex === null ? null : selectedMedia[previewModalIndex] ?? null;
+      previewModalIndex === null ? null : selectedMedia[previewModalIndex] ?? null;
+
+  const changePreviewMedia = useCallback(
+      (direction: number) => {
+        setPreviewModalIndex((currentIndex) => {
+          if (currentIndex === null || selectedMedia.length === 0) {
+            return currentIndex;
+          }
+
+          return (
+              (currentIndex + direction + selectedMedia.length) %
+              selectedMedia.length
+          );
+        });
+      },
+      [selectedMedia.length],
+  );
 
   useEffect(() => {
     selectedMediaRef.current = selectedMedia;
@@ -121,7 +138,7 @@ export function SocialComposer({
   useEffect(() => {
     return () => {
       selectedMediaRef.current.forEach((media) =>
-        URL.revokeObjectURL(media.previewUrl),
+          URL.revokeObjectURL(media.previewUrl),
       );
     };
   }, []);
@@ -163,7 +180,7 @@ export function SocialComposer({
     return () => {
       window.removeEventListener("keydown", handlePreviewKeydown);
     };
-  }, [previewModalIndex, selectedMedia.length]);
+  }, [previewModalIndex, changePreviewMedia]);
 
   function chooseFile(type: ComposerMediaType) {
     const nextAccept = type === "video" ? VIDEO_FILE_ACCEPT : "image/*";
@@ -215,8 +232,8 @@ export function SocialComposer({
 
   function setMediaFiles(files: File[], type: ComposerMediaType) {
     const validationError = files
-      .map((file) => validateMediaFile(file, type))
-      .find((error): error is string => Boolean(error));
+        .map((file) => validateMediaFile(file, type))
+        .find((error): error is string => Boolean(error));
 
     if (validationError) {
       setMediaError(validationError);
@@ -261,11 +278,11 @@ export function SocialComposer({
       ];
     });
     setMediaError(
-      selectedMedia.filter((media) => media.type === "image").length +
+        selectedMedia.filter((media) => media.type === "image").length +
         files.length >
         MAX_IMAGE_COUNT
-        ? `En fazla ${MAX_IMAGE_COUNT} görsel ekleyebilirsin.`
-        : null,
+            ? `En fazla ${MAX_IMAGE_COUNT} görsel ekleyebilirsin.`
+            : null,
     );
   }
 
@@ -277,7 +294,7 @@ export function SocialComposer({
 
   function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     const imageItem = Array.from(event.clipboardData.items).find((item) =>
-      item.type.startsWith("image/"),
+        item.type.startsWith("image/"),
     );
     const file = imageItem?.getAsFile();
 
@@ -292,26 +309,27 @@ export function SocialComposer({
       currentMedia.forEach((media) => URL.revokeObjectURL(media.previewUrl));
       return [];
     });
+    setPreviewModalIndex(null);
   }
 
   function removeSelectedMedia(previewUrl: string) {
-    setSelectedMedia((currentMedia) =>
-      currentMedia.filter((media) => {
+    setSelectedMedia((currentMedia) => {
+      const filteredMedia = currentMedia.filter((media) => {
         if (media.previewUrl !== previewUrl) return true;
 
         URL.revokeObjectURL(media.previewUrl);
         return false;
-      }),
-    );
-  }
+      });
 
-  function changePreviewMedia(direction: number) {
-    setPreviewModalIndex((currentIndex) => {
-      if (currentIndex === null || selectedMedia.length === 0) return currentIndex;
+      setPreviewModalIndex((currentIndex) => {
+        if (currentIndex === null || filteredMedia.length === 0) return null;
+        if (currentIndex >= filteredMedia.length) {
+          return filteredMedia.length - 1;
+        }
+        return currentIndex;
+      });
 
-      return (
-        (currentIndex + direction + selectedMedia.length) % selectedMedia.length
-      );
+      return filteredMedia;
     });
   }
 
@@ -346,8 +364,8 @@ export function SocialComposer({
 
     if (mode === "poll") {
       const options = pollOptions
-        .map((option) => option.value.trim())
-        .filter(Boolean);
+          .map((option) => option.value.trim())
+          .filter(Boolean);
       if (!pollQuestion.trim() || options.length < 2) return "";
 
       return [
@@ -355,13 +373,13 @@ export function SocialComposer({
         trimmedContent,
         ...options.map((option, index) => `${index + 1}. ${option}`),
       ]
-        .filter(Boolean)
-        .join("\n");
+          .filter(Boolean)
+          .join("\n");
     }
 
     if (mode === "game") {
       const selectedGame = games.find(
-        (game) => String(game.id) === selectedGameId,
+          (game) => String(game.id) === selectedGameId,
       );
       if (!selectedGame || !trimmedContent) return "";
       return [`Oyun: ${selectedGame.title}`, trimmedContent].join("\n");
@@ -372,11 +390,11 @@ export function SocialComposer({
 
   function addEmojiToPollOption(optionId: string, emoji: string) {
     setPollOptions((currentOptions) =>
-      currentOptions.map((currentOption) =>
-        currentOption.id === optionId
-          ? { ...currentOption, value: `${currentOption.value}${emoji}` }
-          : currentOption,
-      ),
+        currentOptions.map((currentOption) =>
+            currentOption.id === optionId
+                ? { ...currentOption, value: `${currentOption.value}${emoji}` }
+                : currentOption,
+        ),
     );
   }
 
@@ -457,289 +475,289 @@ export function SocialComposer({
   }
 
   return (
-    <section className="rounded-lg border border-white/10 bg-[#0a101c]/88 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
-      <div className="flex items-start gap-4">
-        <img
-          src={user.avatarUrl}
-          alt={user.name}
-          className="h-12 w-12 rounded-full border border-white/20 object-cover"
-        />
-
-        <div className="flex-1 border-l border-white/10 pl-4">
-          {mode !== "listing" && (
-            <div className="relative">
-              <textarea
-                className="min-h-16 w-full resize-none rounded-md border border-transparent bg-transparent px-3 py-2 pr-11 text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.03] focus:border-violet-400/40 focus:bg-white/[0.04]"
-                maxLength={2000}
-                onChange={(event) => {
-                  setContent(event.target.value);
-                  setEmojiOpen(false);
-                }}
-                onPaste={handlePaste}
-                placeholder={`Ne düşünüyorsun, ${user.name.split(" ")[0]}?`}
-                value={content}
-              />
-              <button
-                aria-label="Emoji ekle"
-                className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
-                onClick={() => setEmojiOpen((isOpen) => !isOpen)}
-                type="button"
-              >
-                <Smile size={16} />
-              </button>
-              {emojiOpen && (
-                <EmojiPickerPopover
-                  emojis={DEFAULT_EMOJIS}
-                  onClose={() => setEmojiOpen(false)}
-                  onSelect={addEmojiToContent}
-                />
-              )}
-            </div>
-          )}
-
-          <input
-            accept={fileAccept}
-            className="hidden"
-            onChange={handleFileChange}
-            ref={fileInputRef}
-            type="file"
+      <section className="rounded-lg border border-white/10 bg-[#0a101c]/88 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="flex items-start gap-4">
+          <UserAvatar
+              avatarUrl={user.avatarUrl}
+              className="h-12 w-12 border border-white/20"
+              name={user.name}
           />
 
-          {mode === "poll" && (
-            <div className="mt-3 grid gap-2">
-              <input
-                className="h-10 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
-                maxLength={160}
-                onChange={(event) => setPollQuestion(event.target.value)}
-                placeholder="Anket sorusu"
-                value={pollQuestion}
-              />
-              {pollOptions.map((option, index) => (
-                <div
-                  className="relative flex gap-2"
-                  key={option.id}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-
-                    if (draggedPollOptionId && draggedPollOptionId !== option.id) {
-                      reorderPollOptions(draggedPollOptionId, option.id);
-                    }
-
-                    setDraggedPollOptionId(null);
+          <div className="flex-1 border-l border-white/10 pl-4">
+            {mode !== "listing" && (
+                <div className="relative">
+              <textarea
+                  className="min-h-16 w-full resize-none rounded-md border border-transparent bg-transparent px-3 py-2 pr-11 text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.03] focus:border-violet-400/40 focus:bg-white/[0.04]"
+                  maxLength={2000}
+                  onChange={(event) => {
+                    setContent(event.target.value);
+                    setEmojiOpen(false);
                   }}
-                >
+                  onPaste={handlePaste}
+                  placeholder={`Ne düşünüyorsun, ${user.name.split(" ")[0]}?`}
+                  value={content}
+              />
                   <button
-                    aria-label={`Seçenek ${index + 1} sırasını değiştir`}
-                    className="grid h-10 w-10 shrink-0 cursor-grab place-items-center rounded-lg border border-white/10 text-zinc-400 transition hover:bg-white/[0.06] hover:text-white active:cursor-grabbing"
-                    draggable
-                    onDragEnd={() => setDraggedPollOptionId(null)}
-                    onDragStart={() => setDraggedPollOptionId(option.id)}
-                    type="button"
-                  >
-                    <GripVertical size={16} />
-                  </button>
-                  <input
-                    className="h-10 flex-1 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
-                    maxLength={120}
-                    onChange={(event) => {
-                      setPollOptions((currentOptions) =>
-                        currentOptions.map((currentOption) =>
-                          currentOption.id === option.id
-                            ? { ...currentOption, value: event.target.value }
-                            : currentOption,
-                        ),
-                      );
-                    }}
-                    placeholder={`Seçenek ${index + 1}`}
-                    value={option.value}
-                  />
-                  <button
-                    aria-label="Seçeneğe emoji ekle"
-                    className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
-                    onClick={() =>
-                      setPollOptionEmojiOpenId((currentId) =>
-                        currentId === option.id ? null : option.id,
-                      )
-                    }
-                    type="button"
+                      aria-label="Emoji ekle"
+                      className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                      onClick={() => setEmojiOpen((isOpen) => !isOpen)}
+                      type="button"
                   >
                     <Smile size={16} />
                   </button>
-                  {pollOptionEmojiOpenId === option.id && (
-                    <EmojiPickerPopover
-                      className="absolute right-12 top-11 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
-                      emojis={DEFAULT_EMOJIS}
-                      onClose={() => setPollOptionEmojiOpenId(null)}
-                      onSelect={(emoji) => addEmojiToPollOption(option.id, emoji)}
-                    />
+                  {emojiOpen && (
+                      <EmojiPickerPopover
+                          emojis={DEFAULT_EMOJIS}
+                          onClose={() => setEmojiOpen(false)}
+                          onSelect={addEmojiToContent}
+                      />
                   )}
-                  <button
-                    aria-label="Seçeneği sil"
-                    className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={pollOptions.length <= 2}
-                    onClick={() => {
-                      setPollOptions((currentOptions) =>
-                        currentOptions.filter(
-                          (currentOption) => currentOption.id !== option.id,
-                        ),
-                      );
+                </div>
+            )}
 
-                      if (pollOptionEmojiOpenId === option.id) {
-                        setPollOptionEmojiOpenId(null);
+            <input
+                accept={fileAccept}
+                className="hidden"
+                onChange={handleFileChange}
+                ref={fileInputRef}
+                type="file"
+            />
+
+            {mode === "poll" && (
+                <div className="mt-3 grid gap-2">
+                  <input
+                      className="h-10 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+                      maxLength={160}
+                      onChange={(event) => setPollQuestion(event.target.value)}
+                      placeholder="Anket sorusu"
+                      value={pollQuestion}
+                  />
+                  {pollOptions.map((option, index) => (
+                      <div
+                          className="relative flex gap-2"
+                          key={option.id}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={(event) => {
+                            event.preventDefault();
+
+                            if (draggedPollOptionId && draggedPollOptionId !== option.id) {
+                              reorderPollOptions(draggedPollOptionId, option.id);
+                            }
+
+                            setDraggedPollOptionId(null);
+                          }}
+                      >
+                        <button
+                            aria-label={`Seçenek ${index + 1} sırasını değiştir`}
+                            className="grid h-10 w-10 shrink-0 cursor-grab place-items-center rounded-lg border border-white/10 text-zinc-400 transition hover:bg-white/[0.06] hover:text-white active:cursor-grabbing"
+                            draggable
+                            onDragEnd={() => setDraggedPollOptionId(null)}
+                            onDragStart={() => setDraggedPollOptionId(option.id)}
+                            type="button"
+                        >
+                          <GripVertical size={16} />
+                        </button>
+                        <input
+                            className="h-10 flex-1 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+                            maxLength={120}
+                            onChange={(event) => {
+                              setPollOptions((currentOptions) =>
+                                  currentOptions.map((currentOption) =>
+                                      currentOption.id === option.id
+                                          ? { ...currentOption, value: event.target.value }
+                                          : currentOption,
+                                  ),
+                              );
+                            }}
+                            placeholder={`Seçenek ${index + 1}`}
+                            value={option.value}
+                        />
+                        <button
+                            aria-label="Seçeneğe emoji ekle"
+                            className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                            onClick={() =>
+                                setPollOptionEmojiOpenId((currentId) =>
+                                    currentId === option.id ? null : option.id,
+                                )
+                            }
+                            type="button"
+                        >
+                          <Smile size={16} />
+                        </button>
+                        {pollOptionEmojiOpenId === option.id && (
+                            <EmojiPickerPopover
+                                className="absolute right-12 top-11 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                                emojis={DEFAULT_EMOJIS}
+                                onClose={() => setPollOptionEmojiOpenId(null)}
+                                onSelect={(emoji) => addEmojiToPollOption(option.id, emoji)}
+                            />
+                        )}
+                        <button
+                            aria-label="Seçeneği sil"
+                            className="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border border-white/10 text-zinc-300 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={pollOptions.length <= 2}
+                            onClick={() => {
+                              setPollOptions((currentOptions) =>
+                                  currentOptions.filter(
+                                      (currentOption) => currentOption.id !== option.id,
+                                  ),
+                              );
+
+                              if (pollOptionEmojiOpenId === option.id) {
+                                setPollOptionEmojiOpenId(null);
+                              }
+                            }}
+                            type="button"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                  ))}
+                  <button
+                      className="w-fit cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-white/[0.06]"
+                      onClick={() =>
+                          setPollOptions((currentOptions) => [
+                            ...currentOptions,
+                            createPollOption(),
+                          ])
                       }
-                    }}
-                    type="button"
+                      type="button"
                   >
-                    <X size={16} />
+                    Seçenek ekle
                   </button>
                 </div>
-              ))}
-              <button
-                className="w-fit cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-white/[0.06]"
-                onClick={() =>
-                  setPollOptions((currentOptions) => [
-                    ...currentOptions,
-                    createPollOption(),
-                  ])
-                }
-                type="button"
-              >
-                Seçenek ekle
-              </button>
-            </div>
-          )}
+            )}
 
-          {mode === "game" && (
-            <select
-              className="mt-3 h-10 w-full rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none focus:border-violet-400/60"
-              onChange={(event) => setSelectedGameId(event.target.value)}
-              value={selectedGameId}
-            >
-              <option value="">Oyun seç</option>
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.title}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {mode === "listing" && (
-            <div className="mt-1 rounded-lg border border-white/10 bg-slate-950/45 p-4">
-              <div className="mb-4 border-b border-white/10 pb-3">
-                <div className="flex items-center gap-2 text-sm font-bold text-white">
-                  <Tag size={17} className="text-violet-200" />
-                  Takım ilanı detayları
-                </div>
-                <p className="mt-1 text-xs leading-5 text-zinc-400">
-                  Oyuncuların hızlı karar verebilmesi için oyun, platform, rol ve zaman bilgisini net gir.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-              <select
-                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition focus:border-violet-400/60"
-                onChange={(event) => {
-                  const selectedGame = games.find(
-                    (game) => String(game.id) === event.target.value,
-                  );
-
-                  setListingForm((form) => ({
-                    ...form,
-                    gameId: event.target.value,
-                    platform: selectedGame?.platform ?? form.platform,
-                  }));
-                }}
-                value={listingForm.gameId}
-              >
-                <option value="">Oyun seç</option>
-                {games.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {game.title}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
-                maxLength={50}
-                onChange={(event) =>
-                  setListingForm((form) => ({
-                    ...form,
-                    platform: event.target.value,
-                  }))
-                }
-                placeholder="Platform"
-                value={listingForm.platform}
-              />
-              <input
-                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
-                maxLength={150}
-                onChange={(event) =>
-                  setListingForm((form) => ({
-                    ...form,
-                    title: event.target.value,
-                  }))
-                }
-                placeholder="İlan başlığı"
-                value={listingForm.title}
-              />
-              <input
-                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
-                maxLength={100}
-                onChange={(event) =>
-                  setListingForm((form) => ({
-                    ...form,
-                    preferredRole: event.target.value,
-                  }))
-                }
-                placeholder="Tercih edilen rol"
-                value={listingForm.preferredRole}
-              />
-              <input
-                className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
-                maxLength={50}
-                onChange={(event) =>
-                  setListingForm((form) => ({
-                    ...form,
-                    playerLevel: event.target.value,
-                  }))
-                }
-                placeholder="Oyuncu seviyesi"
-                value={listingForm.playerLevel}
-              />
-              <label className="grid min-h-14 gap-1.5 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-violet-300/35 focus-within:border-violet-400/60">
-                <div
-                  className="flex cursor-pointer items-center gap-3"
-                  onClick={openPlayTimePicker}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openPlayTimePicker();
-                    }
-                  }}
+            {mode === "game" && (
+                <select
+                    className="mt-3 h-10 w-full rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none focus:border-violet-400/60"
+                    onChange={(event) => setSelectedGameId(event.target.value)}
+                    value={selectedGameId}
                 >
+                  <option value="">Oyun seç</option>
+                  {games.map((game) => (
+                      <option key={game.id} value={game.id}>
+                        {game.title}
+                      </option>
+                  ))}
+                </select>
+            )}
+
+            {mode === "listing" && (
+                <div className="mt-1 rounded-lg border border-white/10 bg-slate-950/45 p-4">
+                  <div className="mb-4 border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-white">
+                      <Tag size={17} className="text-violet-200" />
+                      Takım ilanı detayları
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      Oyuncuların hızlı karar verebilmesi için oyun, platform, rol ve zaman bilgisini net gir.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <select
+                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition focus:border-violet-400/60"
+                        onChange={(event) => {
+                          const selectedGame = games.find(
+                              (game) => String(game.id) === event.target.value,
+                          );
+
+                          setListingForm((form) => ({
+                            ...form,
+                            gameId: event.target.value,
+                            platform: selectedGame?.platform ?? form.platform,
+                          }));
+                        }}
+                        value={listingForm.gameId}
+                    >
+                      <option value="">Oyun seç</option>
+                      {games.map((game) => (
+                          <option key={game.id} value={game.id}>
+                            {game.title}
+                          </option>
+                      ))}
+                    </select>
+                    <input
+                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
+                        maxLength={50}
+                        onChange={(event) =>
+                            setListingForm((form) => ({
+                              ...form,
+                              platform: event.target.value,
+                            }))
+                        }
+                        placeholder="Platform"
+                        value={listingForm.platform}
+                    />
+                    <input
+                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
+                        maxLength={150}
+                        onChange={(event) =>
+                            setListingForm((form) => ({
+                              ...form,
+                              title: event.target.value,
+                            }))
+                        }
+                        placeholder="İlan başlığı"
+                        value={listingForm.title}
+                    />
+                    <input
+                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
+                        maxLength={100}
+                        onChange={(event) =>
+                            setListingForm((form) => ({
+                              ...form,
+                              preferredRole: event.target.value,
+                            }))
+                        }
+                        placeholder="Tercih edilen rol"
+                        value={listingForm.preferredRole}
+                    />
+                    <input
+                        className="h-11 rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60"
+                        maxLength={50}
+                        onChange={(event) =>
+                            setListingForm((form) => ({
+                              ...form,
+                              playerLevel: event.target.value,
+                            }))
+                        }
+                        placeholder="Oyuncu seviyesi"
+                        value={listingForm.playerLevel}
+                    />
+                    <label className="grid min-h-14 gap-1.5 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-violet-300/35 focus-within:border-violet-400/60">
+                      <div
+                          className="flex cursor-pointer items-center gap-3"
+                          onClick={openPlayTimePicker}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openPlayTimePicker();
+                            }
+                          }}
+                      >
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-500/15 text-violet-100">
                     <CalendarClock size={16} />
                   </span>
-                  <span className="min-w-0 flex-1">
+                        <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-white">
                       Oynama zamanı
                     </span>
                     <input
-                      className="ltz-datetime-input mt-0.5 h-5 w-full min-w-0 bg-transparent text-sm font-semibold text-white outline-none"
-                      max="9999-12-31T23:59"
-                      onChange={(event) => setPlayTime(event.target.value)}
-                      onClick={(event) => event.stopPropagation()}
-                      ref={playTimeInputRef}
-                      type="datetime-local"
-                      value={listingForm.playTime}
+                        className="ltz-datetime-input mt-0.5 h-5 w-full min-w-0 bg-transparent text-sm font-semibold text-white outline-none"
+                        max="9999-12-31T23:59"
+                        onChange={(event) => setPlayTime(event.target.value)}
+                        onClick={(event) => event.stopPropagation()}
+                        ref={playTimeInputRef}
+                        type="datetime-local"
+                        value={listingForm.playTime}
                     />
                   </span>
-                </div>
-              </label>
-              <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-violet-300/35 hover:bg-white/[0.04]">
+                      </div>
+                    </label>
+                    <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-violet-300/35 hover:bg-white/[0.04]">
                 <span className="flex items-center gap-2">
                   <span className="grid h-8 w-8 place-items-center rounded-lg bg-violet-500/15 text-violet-100">
                     <Mic size={16} />
@@ -753,236 +771,236 @@ export function SocialComposer({
                     </span>
                   </span>
                 </span>
-                <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
+                      <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
                   <input
-                    checked={listingForm.microphoneRequired}
-                    className="peer sr-only"
-                    onChange={(event) =>
-                      setListingForm((form) => ({
-                        ...form,
-                        microphoneRequired: event.target.checked,
-                      }))
-                    }
-                    type="checkbox"
+                      checked={listingForm.microphoneRequired}
+                      className="peer sr-only"
+                      onChange={(event) =>
+                          setListingForm((form) => ({
+                            ...form,
+                            microphoneRequired: event.target.checked,
+                          }))
+                      }
+                      type="checkbox"
                   />
                   <span className="absolute inset-0 rounded-full border border-white/10 bg-white/10 transition peer-checked:border-violet-300/50 peer-checked:bg-violet-500/80" />
                   <span className="absolute left-1 h-5 w-5 rounded-full bg-white shadow-lg shadow-black/30 transition peer-checked:translate-x-5" />
                 </span>
-              </label>
-              <textarea
-                className="min-h-24 resize-none rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
-                maxLength={1000}
-                onChange={(event) =>
-                  setListingForm((form) => ({
-                    ...form,
-                    description: event.target.value,
-                  }))
-                }
-                placeholder="Açıklama"
-                value={listingForm.description}
-              />
-              </div>
-            </div>
-          )}
+                    </label>
+                    <textarea
+                        className="min-h-24 resize-none rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400/60 md:col-span-2"
+                        maxLength={1000}
+                        onChange={(event) =>
+                            setListingForm((form) => ({
+                              ...form,
+                              description: event.target.value,
+                            }))
+                        }
+                        placeholder="Açıklama"
+                        value={listingForm.description}
+                    />
+                  </div>
+                </div>
+            )}
 
-          {selectedMedia.length > 0 && (
-            <div
-              className={
-                selectedMedia.length === 1
-                  ? "relative mt-3 overflow-hidden rounded-lg border border-white/10"
-                  : "mt-3 grid gap-2 sm:grid-cols-3"
-              }
-            >
-              {selectedMedia.map((media, index) => (
+            {selectedMedia.length > 0 && (
                 <div
-                  className="relative cursor-zoom-in overflow-hidden rounded-lg border border-white/10"
-                  key={media.previewUrl}
-                  onClick={() => setPreviewModalIndex(index)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setPreviewModalIndex(index);
+                    className={
+                      selectedMedia.length === 1
+                          ? "relative mt-3 overflow-hidden rounded-lg border border-white/10"
+                          : "mt-3 grid gap-2 sm:grid-cols-3"
                     }
-                  }}
-                  role="button"
-                  tabIndex={0}
                 >
-                  {media.type === "video" ? (
-                    <video
-                      className="max-h-48 w-full bg-black object-cover"
-                      controls
-                      src={media.previewUrl}
-                    />
-                  ) : (
-                    <img
-                      alt={`Seçilen gönderi görseli ${index + 1}`}
-                      className={
-                        selectedMedia.length === 1
-                          ? "max-h-48 w-full bg-black object-cover"
-                          : "h-24 w-full bg-black object-cover"
-                      }
-                      src={media.previewUrl}
-                    />
-                  )}
-                  <button
-                    aria-label="Medyayı kaldır"
-                    className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-black"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeSelectedMedia(media.previewUrl);
-                    }}
-                    type="button"
-                  >
-                    <X size={17} />
-                  </button>
-                  {selectedMedia.length > 1 && (
-                    <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-white">
+                  {selectedMedia.map((media, index) => (
+                      <div
+                          className="relative cursor-zoom-in overflow-hidden rounded-lg border border-white/10"
+                          key={media.previewUrl}
+                          onClick={() => setPreviewModalIndex(index)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setPreviewModalIndex(index);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                      >
+                        {media.type === "video" ? (
+                            <video
+                                className="max-h-48 w-full bg-black object-cover"
+                                controls
+                                src={media.previewUrl}
+                            />
+                        ) : (
+                            <img
+                                alt={`Seçilen gönderi görseli ${index + 1}`}
+                                className={
+                                  selectedMedia.length === 1
+                                      ? "max-h-48 w-full bg-black object-cover"
+                                      : "h-24 w-full bg-black object-cover"
+                                }
+                                src={media.previewUrl}
+                            />
+                        )}
+                        <button
+                            aria-label="Medyayı kaldır"
+                            className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              removeSelectedMedia(media.previewUrl);
+                            }}
+                            type="button"
+                        >
+                          <X size={17} />
+                        </button>
+                        {selectedMedia.length > 1 && (
+                            <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-white">
                       {index + 1}/{selectedMedia.length}
                     </span>
-                  )}
+                        )}
+                      </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {mediaError && <p className="mt-2 text-xs text-red-300">{mediaError}</p>}
-          {uploadProgress !== null && (
-            <div className="mt-3">
-              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-violet-400 transition-[width]"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              <p className="mt-1 text-xs text-zinc-400">
-                Medya yükleniyor: %{uploadProgress}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {previewMedia &&
-        createPortal(
-          <div
-            aria-modal="true"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-            onClick={() => setPreviewModalIndex(null)}
-            role="dialog"
-          >
-          <div
-            className="relative grid h-[90vh] w-[min(96vw,1100px)] place-items-center overflow-hidden rounded-lg border border-white/10 bg-black"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              aria-label="Önizlemeyi kapat"
-              className="absolute right-3 top-3 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
-              onClick={() => setPreviewModalIndex(null)}
-              type="button"
-            >
-              <X size={18} />
-            </button>
-
-            {selectedMedia.length > 1 && (
-              <>
-                <button
-                  aria-label="Önceki görsel"
-                  className="absolute left-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
-                  onClick={() => changePreviewMedia(-1)}
-                  type="button"
-                >
-                  <ChevronLeft size={22} />
-                </button>
-                <button
-                  aria-label="Sonraki görsel"
-                  className="absolute right-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
-                  onClick={() => changePreviewMedia(1)}
-                  type="button"
-                >
-                  <ChevronRight size={22} />
-                </button>
-                <span className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">
-                  {(previewModalIndex ?? 0) + 1}/{selectedMedia.length}
-                </span>
-              </>
             )}
 
-            {previewMedia.type === "video" ? (
-              <video
-                className="max-h-full max-w-full object-contain"
-                controls
-                src={previewMedia.previewUrl}
-              />
-            ) : (
-              <img
-                alt="Seçilen görsel önizlemesi"
-                className="max-h-full max-w-full object-contain"
-                src={previewMedia.previewUrl}
-              />
+            {mediaError && <p className="mt-2 text-xs text-red-300">{mediaError}</p>}
+            {uploadProgress !== null && (
+                <div className="mt-3">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div
+                        className="h-full rounded-full bg-violet-400 transition-[width]"
+                        style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Medya yükleniyor: %{uploadProgress}
+                  </p>
+                </div>
             )}
           </div>
-          </div>,
-          document.body,
-        )}
-
-      <div className="mt-5 flex flex-col gap-4 border-t border-white/[0.06] pt-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-          <ComposerButton
-            active={hasSelectedImage}
-            icon={<ImageIcon size={17} />}
-            label="Görsel"
-            onClick={() => chooseFile("image")}
-          />
-          <ComposerButton
-            active={hasSelectedVideo}
-            icon={<Video size={17} />}
-            label="Video"
-            onClick={() => chooseFile("video")}
-          />
-          <ComposerButton
-            active={mode === "poll"}
-            icon={<ListFilter size={17} />}
-            label="Anket"
-            onClick={() => setMode(mode === "poll" ? "post" : "poll")}
-          />
-          <ComposerButton
-            active={mode === "game"}
-            icon={<Gamepad2 size={17} />}
-            label="Oyun"
-            onClick={() => setMode(mode === "game" ? "post" : "game")}
-          />
-          <ComposerButton
-            active={mode === "listing"}
-            icon={<Tag size={17} />}
-            label="İlan"
-            onClick={() => setMode(mode === "listing" ? "post" : "listing")}
-          />
         </div>
 
-        <Button
-          type="button"
-          className="h-11 rounded-lg px-5"
-          isLoading={isSubmitting}
-          leftIcon={<Plus size={19} />}
-          onClick={() => void requestSubmit()}
-        >
-          {mode === "listing" ? "İlan Ver" : "Paylaş"}
-        </Button>
-      </div>
+        {previewMedia &&
+            createPortal(
+                <div
+                    aria-modal="true"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+                    onClick={() => setPreviewModalIndex(null)}
+                    role="dialog"
+                >
+                  <div
+                      className="relative grid h-[90vh] w-[min(96vw,1100px)] place-items-center overflow-hidden rounded-lg border border-white/10 bg-black"
+                      onClick={(event) => event.stopPropagation()}
+                  >
+                    <button
+                        aria-label="Önizlemeyi kapat"
+                        className="absolute right-3 top-3 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
+                        onClick={() => setPreviewModalIndex(null)}
+                        type="button"
+                    >
+                      <X size={18} />
+                    </button>
 
-      <ConfirmModal
-        cancelLabel="Vazgeç"
-        confirmLabel="Evet, paylaş"
-        message="Bu gönderiyi akışta paylaşmak istediğine emin misin?"
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => {
-          setConfirmOpen(false);
-          void handleSubmit();
-        }}
-        open={confirmOpen}
-        title="Gönderiyi paylaş"
-      />
-    </section>
+                    {selectedMedia.length > 1 && (
+                        <>
+                          <button
+                              aria-label="Önceki görsel"
+                              className="absolute left-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
+                              onClick={() => changePreviewMedia(-1)}
+                              type="button"
+                          >
+                            <ChevronLeft size={22} />
+                          </button>
+                          <button
+                              aria-label="Sonraki görsel"
+                              className="absolute right-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/70 text-white transition hover:bg-white/15"
+                              onClick={() => changePreviewMedia(1)}
+                              type="button"
+                          >
+                            <ChevronRight size={22} />
+                          </button>
+                          <span className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">
+                  {(previewModalIndex ?? 0) + 1}/{selectedMedia.length}
+                </span>
+                        </>
+                    )}
+
+                    {previewMedia.type === "video" ? (
+                        <video
+                            className="max-h-full max-w-full object-contain"
+                            controls
+                            src={previewMedia.previewUrl}
+                        />
+                    ) : (
+                        <img
+                            alt="Seçilen görsel önizlemesi"
+                            className="max-h-full max-w-full object-contain"
+                            src={previewMedia.previewUrl}
+                        />
+                    )}
+                  </div>
+                </div>,
+                document.body,
+            )}
+
+        <div className="mt-5 flex flex-col gap-4 border-t border-white/[0.06] pt-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+            <ComposerButton
+                active={hasSelectedImage}
+                icon={<ImageIcon size={17} />}
+                label="Görsel"
+                onClick={() => chooseFile("image")}
+            />
+            <ComposerButton
+                active={hasSelectedVideo}
+                icon={<Video size={17} />}
+                label="Video"
+                onClick={() => chooseFile("video")}
+            />
+            <ComposerButton
+                active={mode === "poll"}
+                icon={<ListFilter size={17} />}
+                label="Anket"
+                onClick={() => setMode(mode === "poll" ? "post" : "poll")}
+            />
+            <ComposerButton
+                active={mode === "game"}
+                icon={<Gamepad2 size={17} />}
+                label="Oyun"
+                onClick={() => setMode(mode === "game" ? "post" : "game")}
+            />
+            <ComposerButton
+                active={mode === "listing"}
+                icon={<Tag size={17} />}
+                label="İlan"
+                onClick={() => setMode(mode === "listing" ? "post" : "listing")}
+            />
+          </div>
+
+          <Button
+              type="button"
+              className="h-11 rounded-lg px-5"
+              isLoading={isSubmitting}
+              leftIcon={<Plus size={19} />}
+              onClick={() => void requestSubmit()}
+          >
+            {mode === "listing" ? "İlan Ver" : "Paylaş"}
+          </Button>
+        </div>
+
+        <ConfirmModal
+            cancelLabel="Vazgeç"
+            confirmLabel="Evet, paylaş"
+            message="Bu gönderiyi akışta paylaşmak istediğine emin misin?"
+            onCancel={() => setConfirmOpen(false)}
+            onConfirm={() => {
+              setConfirmOpen(false);
+              void handleSubmit();
+            }}
+            open={confirmOpen}
+            title="Gönderiyi paylaş"
+        />
+      </section>
   );
 }
 
@@ -995,17 +1013,17 @@ interface ComposerButtonProps {
 
 function ComposerButton({ active, icon, label, onClick }: ComposerButtonProps) {
   return (
-    <button
-      className={
-        active
-          ? "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-violet-600/20 px-3 text-sm text-violet-100 transition hover:-translate-y-0.5 hover:bg-violet-600/30"
-          : "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm text-zinc-300 transition hover:-translate-y-0.5 hover:bg-white/[0.05] hover:text-white"
-      }
-      onClick={onClick}
-      type="button"
-    >
-      {icon}
-      {label}
-    </button>
+      <button
+          className={
+            active
+                ? "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-violet-600/20 px-3 text-sm text-violet-100 transition hover:-translate-y-0.5 hover:bg-violet-600/30"
+                : "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm text-zinc-300 transition hover:-translate-y-0.5 hover:bg-white/[0.05] hover:text-white"
+          }
+          onClick={onClick}
+          type="button"
+      >
+        {icon}
+        {label}
+      </button>
   );
 }

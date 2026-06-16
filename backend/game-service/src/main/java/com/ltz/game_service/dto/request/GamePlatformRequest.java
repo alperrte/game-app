@@ -12,6 +12,9 @@ public class GamePlatformRequest {
     @Size(max = 500, message = "Platform açıklaması en fazla 500 karakter olabilir.")
     private String description;
 
+    @Size(max = 500, message = "Logo URL en fazla 500 karakter olabilir.")
+    private String logoUrl;
+
     public GamePlatformRequest() {
     }
 
@@ -29,5 +32,13 @@ public class GamePlatformRequest {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public void setLogoUrl(String logoUrl) {
+        this.logoUrl = logoUrl;
     }
 }

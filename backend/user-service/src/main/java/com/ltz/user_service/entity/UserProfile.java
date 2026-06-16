@@ -70,6 +70,13 @@ public class UserProfile {
     @Column(name = "hardware_os", length = 100)
     private String hardwareOs;
 
+    @Column(nullable = false, length = 50)
+    @Builder.Default
+    private String role = "USER";
+
+    @Column(name = "last_seen_at")
+    private java.time.LocalDateTime lastSeenAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

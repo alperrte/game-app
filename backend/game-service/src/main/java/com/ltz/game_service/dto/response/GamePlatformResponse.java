@@ -7,6 +7,7 @@ public class GamePlatformResponse {
     private Long id;
     private String name;
     private String description;
+    private String logoUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -17,12 +18,14 @@ public class GamePlatformResponse {
             Long id,
             String name,
             String description,
+            String logoUrl,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
         this.id = id;
         this.name = name;
         this.description = description;
+        this.logoUrl = logoUrl;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -37,6 +40,10 @@ public class GamePlatformResponse {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getLogoUrl() {
+        return logoUrl;
     }
 
     public LocalDateTime getCreatedAt() {

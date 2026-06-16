@@ -17,4 +17,10 @@ public class PrivacySettingsRequest {
 
     @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
     private String friendListVisibility;
+
+    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
+    private String followerListVisibility;
+
+    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
+    private String lastSeenVisibility;
 }

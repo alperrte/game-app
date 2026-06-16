@@ -1,145 +1,217 @@
-import { useEffect, useMemo, useState } from "react";
-import GameNavbar from "../components/GameNavbar";
-import { gameService } from "../services/gameService";
+import { isAxiosError } from "axios";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { createGameCategory, getGameCategories } from "../services/gameService";
+import { getExternalGameTags } from "../services/externalGameService";
 import type { GameCategory, GameCategoryRequest } from "../types/gameTypes";
+import type {
+  ExternalGameTag,
+  GameSource,
+} from "../types/externalGame.types";
+import { useAuthStore } from "../../../store/authStore";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
+import { ADMIN_ACTION_MESSAGE, isAdminRole } from "../utils/gameAdmin";
 
-type CategoryStatus = "active" | "inactive";
+type CategoryStatusFilter = "all" | "ACTIVE" | "INACTIVE";
 type CategoryViewMode = "grid" | "table";
+type SortOption =
+    | "featured"
+    | "name-asc"
+    | "name-desc"
+    | "games-asc"
+    | "games-desc";
+type CategoryOrigin = "external" | "manual";
 
-type CategoryRow = GameCategory & {
-  iconUrl: string;
-  status: CategoryStatus;
-  totalGames: number;
-};
+const DEFAULT_PAGE_SIZE = 12;
+const PAGINATION_WINDOW_SIZE = 30;
 
-type CategoryForm = {
+type CategoryListItem = {
+  dataSource: string;
   description: string;
-  iconUrl: string;
+  externalId?: string;
+  gameCount: number | null;
+  id?: number;
+  imageUrl?: string | null;
   name: string;
-  status: CategoryStatus;
+  origin: CategoryOrigin;
+  source: GameSource;
+  status: string;
 };
 
-const mockCategories: CategoryRow[] = [
-  {
-    id: 501,
-    name: "Cybernetica",
-    description: "Cyberpunk and futuristic games set in high-tech worlds.",
-    totalGames: 284,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-06-02T10:42:00",
-    updatedAt: "2024-06-02T10:42:00",
-  },
-  {
-    id: 502,
-    name: "Action RPG",
-    description: "Action role-playing games with character progression and story.",
-    totalGames: 412,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-05-24T10:42:00",
-    updatedAt: "2024-05-24T10:42:00",
-  },
-  {
-    id: 503,
-    name: "Adventure",
-    description: "Story-driven games focused on exploration and puzzle solving.",
-    totalGames: 356,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-04-10T10:42:00",
-    updatedAt: "2024-04-10T10:42:00",
-  },
-  {
-    id: 504,
-    name: "Survival",
-    description: "Games focused on survival, crafting, and resource management.",
-    totalGames: 298,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-03-18T10:42:00",
-    updatedAt: "2024-03-18T10:42:00",
-  },
-  {
-    id: 505,
-    name: "Racing",
-    description: "High-speed racing games and driving simulations.",
-    totalGames: 189,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-05-05T10:42:00",
-    updatedAt: "2024-05-05T10:42:00",
-  },
-  {
-    id: 506,
-    name: "Strategy",
-    description: "Strategic thinking and tactical gameplay experiences.",
-    totalGames: 267,
-    status: "inactive",
-    iconUrl:
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-02-14T10:42:00",
-    updatedAt: "2024-02-14T10:42:00",
-  },
-  {
-    id: 507,
-    name: "Fantasy",
-    description: "Fantasy-themed games with magical elements and mythical worlds.",
-    totalGames: 324,
-    status: "active",
-    iconUrl:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=160&q=80",
-    createdAt: "2024-01-30T10:42:00",
-    updatedAt: "2024-01-30T10:42:00",
-  },
-];
-
-const initialForm: CategoryForm = {
+const initialForm: GameCategoryRequest = {
+  source: "STEAM",
   name: "",
   description: "",
-  iconUrl: "",
-  status: "active",
 };
 
-const formatDate = (value: string) => {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
+const statusBadgeClass = (status: string) => {
+  return status.toUpperCase() === "ACTIVE"
+      ? "border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
+      : "border-red-400/20 bg-red-500/15 text-red-200";
 };
 
-const mapBackendCategory = (
-  category: GameCategory,
-  index: number
-): CategoryRow => {
-  return {
-    ...category,
-    description: category.description ?? "No description provided.",
-    totalGames: 80 + ((category.id * 37 + index * 23) % 420),
-    status: index % 6 === 0 ? "inactive" : "active",
-    iconUrl: mockCategories[index % mockCategories.length].iconUrl,
-  };
+const sourceLabel = (source: GameSource) => {
+  return source === "STEAM" ? "Steam" : "Epic";
 };
 
-const statusBadgeClass = (status: CategoryStatus) => {
-  return status === "active"
-    ? "border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
-    : "border-red-400/20 bg-red-500/15 text-red-200";
+const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
+  const startPage =
+      Math.floor((currentPage - 1) / PAGINATION_WINDOW_SIZE) *
+      PAGINATION_WINDOW_SIZE +
+      1;
+  const endPage = Math.min(
+      totalPages,
+      startPage + PAGINATION_WINDOW_SIZE - 1
+  );
+
+  return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, index) => startPage + index
+  );
+};
+
+const normalizeStatus = (status: string) => status.trim().toUpperCase();
+
+const getStatusLabel = (status: string) => {
+  const normalizedStatus = normalizeStatus(status);
+
+  if (normalizedStatus === "ACTIVE") {
+    return "Aktif";
+  }
+
+  if (normalizedStatus === "INACTIVE") {
+    return "Pasif";
+  }
+
+  if (normalizedStatus === "AVAILABLE") {
+    return "Mevcut";
+  }
+
+  if (normalizedStatus === "UNAVAILABLE") {
+    return "Mevcut Değil";
+  }
+
+  return "Bilinmiyor";
+};
+
+const getCreateErrorMessage = (error: unknown) => {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+
+    if (status === 403) {
+      return ADMIN_ACTION_MESSAGE;
+    }
+
+    if (status === 401) {
+      return "Bu işlem için yetkiniz yok veya oturumunuz sona ermiş olabilir.";
+    }
+
+    if (status === 409) {
+      return "Bu kayıt bu platform için zaten mevcut.";
+    }
+  }
+
+  return "Kategori eklenirken bir hata oluştu.";
+};
+
+const normalizeGameCount = (gameCount: number | null | undefined) => {
+  return gameCount !== null && gameCount !== undefined && gameCount > 0
+      ? gameCount
+      : null;
+};
+
+const formatGameCount = (gameCount: number | null) => {
+  if (gameCount === null || gameCount <= 0) {
+    return "Oyun sayısı alınamadı";
+  }
+
+  return `${gameCount.toLocaleString("en")} oyun`;
+};
+
+const formatGameCountValue = (gameCount: number | null) => {
+  if (gameCount === null || gameCount <= 0) {
+    return "Oyun sayısı alınamadı";
+  }
+
+  return gameCount.toLocaleString("en");
+};
+
+const getGameCountSortValue = (
+    gameCount: number | null,
+    direction: "asc" | "desc"
+) => {
+  if (gameCount === null || gameCount <= 0) {
+    return direction === "asc" ? Number.MAX_SAFE_INTEGER : -1;
+  }
+
+  return gameCount;
+};
+
+const hasCategoryImage = (category: CategoryListItem) => {
+  return Boolean(category.imageUrl?.trim());
+};
+
+const hasCategoryGameCount = (category: CategoryListItem) => {
+  return category.gameCount !== null && category.gameCount > 0;
+};
+
+const getFeaturedSortScore = (category: CategoryListItem) => {
+  let score = 0;
+
+  if (hasCategoryImage(category)) {
+    score += 1000;
+  }
+
+  if (hasCategoryGameCount(category)) {
+    score += 500;
+    score += Math.min(category.gameCount ?? 0, 200000) / 1000;
+  }
+
+  if (category.origin === "external") {
+    score += 50;
+  }
+
+  return score;
+};
+
+const toExternalCategoryItem = (
+    category: ExternalGameTag
+): CategoryListItem => ({
+  dataSource: category.sourceProvider,
+  description: category.description ?? "",
+  externalId: category.externalId,
+  gameCount: normalizeGameCount(category.gameCount),
+  imageUrl: category.imageUrl,
+  name: category.name,
+  origin: "external",
+  source: category.source,
+  status: category.status,
+});
+
+const toManualCategoryItem = (category: GameCategory): CategoryListItem => ({
+  dataSource: "Manuel",
+  description: category.description ?? "",
+  gameCount: null,
+  id: category.id,
+  name: category.name,
+  origin: "manual",
+  source: category.source,
+  status: "ACTIVE",
+});
+
+const getCategoryKey = (category: CategoryListItem) => {
+  return category.origin === "external"
+      ? `${category.source}-external-${category.externalId}`
+      : `${category.source}-manual-${category.id}`;
 };
 
 const StatCard = ({
-  accent,
-  helper,
-  icon,
-  label,
-  value,
-}: {
+                    accent,
+                    helper,
+                    icon,
+                    label,
+                    value,
+                  }: {
   accent: string;
   helper: string;
   icon: string;
@@ -147,557 +219,910 @@ const StatCard = ({
   value: string;
 }) => {
   return (
-    <article className="rounded-2xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-      <div className="flex items-center gap-4">
-        <div
-          className={`grid h-16 w-16 place-items-center rounded-2xl text-4xl ${accent}`}
-        >
-          {icon}
+      <article className="rounded-2xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_18px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        <div className="flex items-center gap-4">
+          <div
+              className={`grid h-16 w-16 place-items-center rounded-2xl text-3xl ${accent}`}
+          >
+            {icon}
+          </div>
+          <div>
+            <p className="text-sm text-slate-400">{label}</p>
+            <p className="mt-1 text-3xl font-black text-white">{value}</p>
+            <p className="mt-1 text-xs text-slate-500">{helper}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm text-slate-400">{label}</p>
-          <p className="mt-1 text-3xl font-black text-white">{value}</p>
-          <p className="mt-1 text-xs text-slate-500">{helper}</p>
-        </div>
+      </article>
+  );
+};
+
+const CategoryCardImage = ({ category }: { category: CategoryListItem }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = category.imageUrl?.trim();
+  const shouldShowImage = Boolean(imageUrl) && !imageFailed;
+
+  return (
+      <div className="h-32 w-full overflow-hidden rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-950/80 via-slate-950 to-cyan-950/70">
+        {shouldShowImage ? (
+            <img
+                alt={category.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                onError={() => setImageFailed(true)}
+                src={imageUrl}
+            />
+        ) : (
+            <div className="flex h-full w-full flex-col justify-between p-4">
+          <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-violet-100">
+            {category.source}
+          </span>
+              <div>
+                <p className="text-lg font-black text-white">{category.name}</p>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  {category.origin === "external"
+                      ? "Steam etiketi"
+                      : "Manuel kategori"}
+                </p>
+              </div>
+            </div>
+        )}
       </div>
-    </article>
+  );
+};
+
+const CategoryListImage = ({ category }: { category: CategoryListItem }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = category.imageUrl?.trim();
+  const shouldShowImage = Boolean(imageUrl) && !imageFailed;
+
+  return (
+      <div className="h-12 w-20 overflow-hidden rounded-lg border border-violet-400/20 bg-violet-950/40">
+        {shouldShowImage ? (
+            <img
+                alt={category.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                onError={() => setImageFailed(true)}
+                src={imageUrl}
+            />
+        ) : (
+            <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs font-bold text-violet-100">
+              {category.source}
+            </div>
+        )}
+      </div>
   );
 };
 
 const GameCategoriesPage = () => {
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
+
+  const [categories, setCategories] = useState<ExternalGameTag[]>([]);
+  const [manualCategories, setManualCategories] = useState<GameCategory[]>([]);
+  const [source, setSource] = useState<GameSource>("STEAM");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | CategoryStatus>("all");
+  const [status, setStatus] = useState<CategoryStatusFilter>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("featured");
   const [minGames, setMinGames] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [viewMode, setViewMode] = useState<CategoryViewMode>("table");
-  const [formValue, setFormValue] = useState<CategoryForm>(initialForm);
+  const [formValue, setFormValue] = useState<GameCategoryRequest>(initialForm);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [manualLoading, setManualLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+
+  const requestIdRef = useRef(0);
+
+  const fetchCategories = async (nextSource: GameSource) => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const results = await getExternalGameTags(nextSource);
+
+      if (requestIdRef.current === requestId) {
+        setCategories(results);
+      }
+    } catch (categoryError) {
+      if (requestIdRef.current === requestId) {
+        console.error("Steam tag verileri yüklenemedi.", categoryError);
+        setCategories([]);
+        setError(
+            getErrorMessage(
+                categoryError,
+                "Seçili kaynak için Steam tag verileri yüklenemedi."
+            )
+        );
+      }
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchManualCategories = async (nextSource: GameSource) => {
+    setManualLoading(true);
+    setManualError(null);
+
+    try {
+      const results = await getGameCategories(nextSource);
+      setManualCategories(results);
+    } catch (manualCategoryError) {
+      setManualCategories([]);
+      setManualError(
+          getErrorMessage(
+              manualCategoryError,
+              "Manuel kategoriler yüklenirken bir hata oluştu."
+          )
+      );
+    } finally {
+      setManualLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-
-    gameService
-      .getCategories()
-      .then((backendCategories) => {
-        if (!active) {
-          return;
-        }
-
-        if (backendCategories.length === 0) {
-          setCategories(mockCategories);
-          setNotice("Backend returned no categories, showing mock data.");
-          return;
-        }
-
-        setCategories(backendCategories.map(mapBackendCategory));
-      })
-      .catch(() => {
-        if (active) {
-          setCategories(mockCategories);
-          setNotice("Backend is unavailable, showing mock category data.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    const initialLoadTimeout = window.setTimeout(() => {
+      void fetchCategories("STEAM");
+      void fetchManualCategories("STEAM");
+    }, 0);
 
     return () => {
-      active = false;
+      window.clearTimeout(initialLoadTimeout);
+      requestIdRef.current += 1;
     };
   }, []);
 
+  const combinedCategories = useMemo(
+      () => [
+        ...categories.map(toExternalCategoryItem),
+        ...manualCategories.map(toManualCategoryItem),
+      ],
+      [categories, manualCategories]
+  );
+
   const stats = useMemo(() => {
-    const activeCount = categories.filter(
-      (category) => category.status === "active"
-    ).length;
-    const totalGames = categories.reduce(
-      (total, category) => total + category.totalGames,
-      0
+    const categoriesWithGameCount = combinedCategories.filter(
+        (category) => category.gameCount !== null && category.gameCount > 0
     );
-    const average =
-      categories.length > 0 ? Math.round(totalGames / categories.length) : 0;
+
+    const totalGames = categoriesWithGameCount.reduce(
+        (total, category) => total + (category.gameCount ?? 0),
+        0
+    );
 
     return {
-      activeCount,
-      average,
-      totalCategories: categories.length,
+      activeCount: combinedCategories.filter(
+          (category) => normalizeStatus(category.status) === "ACTIVE"
+      ).length,
+      average:
+          categoriesWithGameCount.length > 0
+              ? Math.round(totalGames / categoriesWithGameCount.length)
+              : 0,
+      totalCategories: combinedCategories.length,
       totalGames,
     };
-  }, [categories]);
+  }, [combinedCategories]);
 
   const filteredCategories = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = search.trim().toLocaleLowerCase("tr");
 
-    return categories
-      .filter((category) => {
-        const matchesSearch =
-          !normalizedSearch ||
-          `${category.name} ${category.description}`
-            .toLowerCase()
-            .includes(normalizedSearch);
-        const matchesStatus = status === "all" || category.status === status;
-        const matchesMinGames = category.totalGames >= minGames;
+    const filtered = combinedCategories.filter((category) => {
+      const searchableText = [
+        category.name,
+        category.description,
+        category.dataSource,
+        category.source,
+      ]
+          .join(" ")
+          .toLocaleLowerCase("tr");
 
-        return matchesSearch && matchesStatus && matchesMinGames;
-      })
-      .sort((leftCategory, rightCategory) =>
-        leftCategory.name.localeCompare(rightCategory.name)
-      );
-  }, [categories, minGames, search, status]);
+      const matchesSearch =
+          !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesStatus =
+          status === "all" || normalizeStatus(category.status) === status;
+      const matchesMinGames =
+          minGames === 0 ||
+          (category.gameCount !== null && category.gameCount >= minGames);
+
+      return matchesSearch && matchesStatus && matchesMinGames;
+    });
+
+    return [...filtered].sort((leftCategory, rightCategory) => {
+      if (sortBy === "featured") {
+        const scoreDifference =
+            getFeaturedSortScore(rightCategory) -
+            getFeaturedSortScore(leftCategory);
+
+        if (scoreDifference !== 0) {
+          return scoreDifference;
+        }
+
+        return leftCategory.name.localeCompare(rightCategory.name, "tr");
+      }
+
+      if (sortBy === "name-desc") {
+        return rightCategory.name.localeCompare(leftCategory.name, "tr");
+      }
+
+      if (sortBy === "games-asc") {
+        return (
+            getGameCountSortValue(leftCategory.gameCount, "asc") -
+            getGameCountSortValue(rightCategory.gameCount, "asc")
+        );
+      }
+
+      if (sortBy === "games-desc") {
+        return (
+            getGameCountSortValue(rightCategory.gameCount, "desc") -
+            getGameCountSortValue(leftCategory.gameCount, "desc")
+        );
+      }
+
+      return leftCategory.name.localeCompare(rightCategory.name, "tr");
+    });
+  }, [combinedCategories, minGames, search, sortBy, status]);
+
+  const totalPages = Math.max(
+      1,
+      Math.ceil(filteredCategories.length / pageSize)
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const visiblePageNumbers = getVisiblePageNumbers(
+      safeCurrentPage,
+      totalPages
+  );
+  const paginatedCategories = useMemo(
+      () =>
+          filteredCategories.slice(
+              (safeCurrentPage - 1) * pageSize,
+              safeCurrentPage * pageSize
+          ),
+      [filteredCategories, pageSize, safeCurrentPage]
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const resetFilters = () => {
     setSearch("");
     setStatus("all");
+    setSortBy("featured");
     setMinGames(0);
+    setCurrentPage(1);
+    void fetchCategories(source);
   };
 
-  const createCategory = async () => {
-    const request: GameCategoryRequest = {
-      name: formValue.name.trim(),
-      description: formValue.description.trim() || null,
-    };
+  const handleSourceChange = (nextSource: GameSource) => {
+    setSource(nextSource);
+    setStatus("all");
+    setMinGames(0);
+    setSearch("");
+    setSortBy("featured");
+    setCurrentPage(1);
 
-    if (!request.name) {
-      setError("Category name is required.");
+    void fetchCategories(nextSource);
+    void fetchManualCategories(nextSource);
+  };
+
+  const handleSearchChange = (nextSearch: string) => {
+    setSearch(nextSearch);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextSort: SortOption) => {
+    setSortBy(nextSort);
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (nextStatus: CategoryStatusFilter) => {
+    setStatus(nextStatus);
+    setCurrentPage(1);
+  };
+
+  const handleMinGamesChange = (nextMinGames: number) => {
+    setMinGames(nextMinGames);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    setCurrentPage(1);
+  };
+
+  const openModal = () => {
+    if (!isAdmin) {
+      setFormNotice(ADMIN_ACTION_MESSAGE);
       return;
     }
 
-    setSubmitting(true);
-    setError(null);
+    setFormNotice(null);
+    setFormValue({ ...initialForm, source });
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormNotice(null);
+    setFormValue(initialForm);
+    setCreatingCategory(false);
+  };
+
+  const handleCreateCategory = async () => {
+    if (!isAdmin) {
+      setFormNotice(ADMIN_ACTION_MESSAGE);
+      return;
+    }
+
+    const request: GameCategoryRequest = {
+      source: formValue.source,
+      name: formValue.name.trim(),
+      description: formValue.description?.trim() || null,
+    };
+
+    if (!request.name) {
+      setFormNotice("Kategori adı zorunludur.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    setFormNotice(null);
 
     try {
-      const createdCategory = await gameService.createCategory(request);
-      setCategories((currentCategories) => [
-        {
-          ...createdCategory,
-          description: createdCategory.description ?? request.description ?? null,
-          iconUrl: formValue.iconUrl || mockCategories[0].iconUrl,
-          status: formValue.status,
-          totalGames: 0,
-        },
-        ...currentCategories,
+      await createGameCategory(request);
+      closeModal();
+      setFormNotice("Kategori başarıyla eklendi.");
+      setSource(request.source);
+
+      await Promise.allSettled([
+        fetchCategories(request.source),
+        fetchManualCategories(request.source),
       ]);
-      setFormValue(initialForm);
-      setNotice("Category created successfully.");
-    } catch {
-      const mockCreatedCategory: CategoryRow = {
-        id: Date.now(),
-        name: request.name,
-        description: request.description ?? null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        iconUrl: formValue.iconUrl || mockCategories[0].iconUrl,
-        status: formValue.status,
-        totalGames: 0,
-      };
-      setCategories((currentCategories) => [
-        mockCreatedCategory,
-        ...currentCategories,
-      ]);
-      setFormValue(initialForm);
-      setNotice("Backend create failed, category added locally as mock data.");
+    } catch (createError) {
+      setFormNotice(getCreateErrorMessage(createError));
     } finally {
-      setSubmitting(false);
+      setCreatingCategory(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-auto bg-[#020817] text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
+      <div className="relative bg-[#020817] text-white">
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(88,28,255,0.18),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
-      <div className="relative min-h-screen">
-        <GameNavbar activeItem="Categories" />
+        <div className="relative min-h-screen">
 
-        <main className="mx-auto max-w-[1840px] px-8 py-7">
-          <section className="mb-6 flex flex-wrap items-center justify-between gap-5">
-            <div className="flex items-center gap-5">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl text-violet-300">
-                ▦
+          <main className="mx-auto max-w-[1840px] px-8 py-7">
+            <section className="mb-6 flex flex-wrap items-center justify-between gap-5">
+              <div className="flex items-center gap-5">
+                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-violet-400/30 bg-violet-500/15 text-3xl text-violet-300">
+                  #
+                </div>
+                <div>
+                  <h1 className="text-4xl font-black tracking-tight text-white">
+                    Steam Etiketleri
+                  </h1>
+                  <p className="mt-2 text-base text-slate-400">
+                    Steam Store üzerinden gelen gerçek tag verilerini ve manuel
+                    kayıtları görüntüle.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-4xl font-black tracking-tight text-white">
-                  Game Categories
-                </h1>
-                <p className="mt-2 text-base text-slate-400">
-                  Manage and organize game categories to help users discover
-                  games.
-                </p>
-              </div>
-            </div>
 
-            <button
-              className="inline-flex h-14 items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
-              onClick={() => {
-                document.getElementById("category-name")?.focus();
-              }}
-              type="button"
-            >
-              <span className="text-3xl font-light leading-none">+</span>
-              Add New Category
-            </button>
-          </section>
+              {isAdmin ? (
+                  <button
+                      className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                      onClick={openModal}
+                      type="button"
+                  >
+                    <span className="text-3xl font-light leading-none">+</span>
+                    Kategori Ekle
+                  </button>
+              ) : null}
+            </section>
 
-          <div className="grid gap-5 xl:grid-cols-[1fr_440px]">
             <div className="space-y-5">
               <div className="grid gap-4 lg:grid-cols-4">
                 <StatCard
-                  accent="bg-violet-500/15 text-violet-300"
-                  helper="All categories in the system"
-                  icon="▦"
-                  label="Total Categories"
-                  value={String(stats.totalCategories)}
+                    accent="bg-violet-500/15 text-violet-300"
+                    helper="Seçili kaynaktan yüklendi"
+                    icon="#"
+                    label="Toplam Etiket"
+                    value={String(stats.totalCategories)}
                 />
                 <StatCard
-                  accent="bg-cyan-500/15 text-cyan-300"
-                  helper="Currently active categories"
-                  icon="♘"
-                  label="Active Categories"
-                  value={String(stats.activeCount)}
+                    accent="bg-cyan-500/15 text-cyan-300"
+                    helper="Durumu aktif olanlar"
+                    icon="A"
+                    label="Aktif Etiket"
+                    value={String(stats.activeCount)}
                 />
                 <StatCard
-                  accent="bg-emerald-500/15 text-emerald-300"
-                  helper="Games across all categories"
-                  icon="◎"
-                  label="Total Games"
-                  value={stats.totalGames.toLocaleString("en")}
+                    accent="bg-emerald-500/15 text-emerald-300"
+                    helper="Oyun sayısı alınabilen etiketlerde"
+                    icon="G"
+                    label="Toplam Oyun"
+                    value={stats.totalGames.toLocaleString("en")}
                 />
                 <StatCard
-                  accent="bg-amber-500/15 text-amber-300"
-                  helper="Average distribution"
-                  icon="↗"
-                  label="Avg. Games per Category"
-                  value={String(stats.average)}
+                    accent="bg-amber-500/15 text-amber-300"
+                    helper="Sadece veri gelen etiketlere göre"
+                    icon="/"
+                    label="Etiket Başına Ort. Oyun"
+                    value={String(stats.average)}
                 />
               </div>
 
               <section className="rounded-2xl border border-white/10 bg-slate-950/55 p-3 backdrop-blur-xl">
-                <div className="grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.7fr_0.8fr_auto_1fr_auto]">
-                  <label className="relative">
-                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
-                      ⌕
-                    </span>
+                <div className="grid gap-3 xl:grid-cols-[0.8fr_1.4fr_0.8fr_0.7fr_0.8fr_auto_1fr_auto]">
+                  <label className="space-y-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Kaynak
+                  </span>
+                    <select
+                        className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                        onChange={(event) =>
+                            handleSourceChange(event.target.value as GameSource)
+                        }
+                        value={source}
+                    >
+                      <option value="STEAM">Steam</option>
+                      <option value="EPIC">Epic</option>
+                    </select>
+                  </label>
+
+                  <label className="relative self-end">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-500">
+                    ?
+                  </span>
                     <input
-                      className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search categories..."
-                      value={search}
+                        className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                        onChange={(event) => handleSearchChange(event.target.value)}
+                        placeholder="Steam etiketi ara..."
+                        type="search"
+                        value={search}
                     />
                   </label>
 
-                  <select className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none">
-                    <option>Sort by: Name (A-Z)</option>
+                  <select
+                      className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                      onChange={(event) =>
+                          handleSortChange(event.target.value as SortOption)
+                      }
+                      value={sortBy}
+                  >
+                    <option value="featured">Sırala: Öne Çıkanlar</option>
+                    <option value="name-asc">Sırala: Ad (A-Z)</option>
+                    <option value="name-desc">Sırala: Ad (Z-A)</option>
+                    <option value="games-asc">Oyun: Düşükten Yükseğe</option>
+                    <option value="games-desc">Oyun: Yüksekten Düşüğe</option>
                   </select>
 
                   <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                    onChange={(event) =>
-                      setStatus(event.target.value as "all" | CategoryStatus)
-                    }
-                    value={status}
+                      className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                      onChange={(event) =>
+                          handleStatusChange(
+                              event.target.value as CategoryStatusFilter
+                          )
+                      }
+                      value={status}
                   >
-                    <option value="all">Status: All</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="all">Durum: Tümü</option>
+                    <option value="ACTIVE">Aktif</option>
+                    <option value="INACTIVE">Pasif</option>
                   </select>
 
                   <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                    onChange={(event) => setMinGames(Number(event.target.value))}
-                    value={minGames}
+                      className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
+                      onChange={(event) =>
+                          handleMinGamesChange(Number(event.target.value))
+                      }
+                      value={minGames}
                   >
-                    <option value={0}>Min. Games: Any</option>
+                    <option value={0}>Min. Oyun: Tümü</option>
                     <option value={100}>100+</option>
                     <option value={250}>250+</option>
                     <option value={300}>300+</option>
                   </select>
 
                   <button
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-5 text-sm font-semibold text-slate-300"
-                    onClick={resetFilters}
-                    type="button"
+                      className="h-12 self-end rounded-xl border border-white/10 bg-slate-950/60 px-5 text-sm font-semibold text-slate-300"
+                      onClick={resetFilters}
+                      type="button"
                   >
-                    Reset
+                    Sıfırla
                   </button>
 
-                  <div className="flex items-center justify-end text-sm text-slate-400">
-                    {filteredCategories.length} results
+                  <div className="flex items-end justify-end pb-3 text-sm text-slate-400">
+                    {filteredCategories.length} {sourceLabel(source)} sonucu
                   </div>
 
-                  <div className="flex h-12 overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
+                  <div className="flex h-12 self-end overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 p-1">
                     <button
-                      className={`grid w-12 place-items-center rounded-lg ${
-                        viewMode === "grid" ? "bg-violet-600" : "text-slate-400"
-                      }`}
-                      onClick={() => setViewMode("grid")}
-                      type="button"
+                        className={`grid w-16 place-items-center rounded-lg text-xs font-semibold ${
+                            viewMode === "grid" ? "bg-violet-600" : "text-slate-400"
+                        }`}
+                        onClick={() => setViewMode("grid")}
+                        type="button"
                     >
-                      ▦
+                      Izgara
                     </button>
                     <button
-                      className={`grid w-12 place-items-center rounded-lg ${
-                        viewMode === "table" ? "bg-violet-600" : "text-slate-400"
-                      }`}
-                      onClick={() => setViewMode("table")}
-                      type="button"
+                        className={`grid w-16 place-items-center rounded-lg text-xs font-semibold ${
+                            viewMode === "table" ? "bg-violet-600" : "text-slate-400"
+                        }`}
+                        onClick={() => setViewMode("table")}
+                        type="button"
                     >
-                      ☰
+                      Liste
                     </button>
                   </div>
                 </div>
               </section>
 
-              {notice ? (
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
-                  {notice}
-                </div>
+              {!isModalOpen && formNotice ? (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-100">
+                    {formNotice}
+                  </div>
               ) : null}
 
               {error ? (
-                <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
-                  {error}
-                </div>
+                  <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                    {error}
+                  </div>
+              ) : null}
+
+              {manualError ? (
+                  <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                    {manualError}
+                  </div>
+              ) : null}
+
+              {loading && !manualLoading ? (
+                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm text-cyan-100">
+                    Steam tag verileri yükleniyor...
+                  </div>
               ) : null}
 
               <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur-xl">
-                {loading ? (
-                  <div className="h-96 animate-pulse bg-slate-900/70" />
+                {(loading || manualLoading) && filteredCategories.length === 0 ? (
+                    <div className="grid h-96 place-items-center text-sm font-semibold text-slate-300">
+                      Etiketler yükleniyor...
+                    </div>
                 ) : null}
 
-                {!loading && viewMode === "table" ? (
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
+                {!loading && !manualLoading && filteredCategories.length === 0 ? (
+                    <div className="grid min-h-96 place-items-center border border-dashed border-white/10 bg-slate-950/45 p-8 text-center">
+                      <div>
+                        <h2 className="text-xl font-bold text-white">
+                          Seçili kaynak için etiket bulunamadı.
+                        </h2>
+                        <p className="mt-2 text-sm text-slate-400">
+                          {error
+                              ? "Sağlayıcı tag listesi döndürmedi."
+                              : "Farklı bir kaynak veya arama sorgusu deneyin."}
+                        </p>
+                      </div>
+                    </div>
+                ) : null}
+
+                {!manualLoading &&
+                filteredCategories.length > 0 &&
+                viewMode === "table" ? (
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-white/10 text-xs uppercase tracking-wide text-slate-400">
                       <tr>
-                        <th className="px-5 py-4">Category</th>
-                        <th className="px-5 py-4">Description</th>
-                        <th className="px-5 py-4">Total Games</th>
-                        <th className="px-5 py-4">Status</th>
-                        <th className="px-5 py-4">Created At</th>
-                        <th className="px-5 py-4 text-right">Actions</th>
+                        <th className="px-5 py-4">Etiket</th>
+                        <th className="px-5 py-4">Açıklama</th>
+                        <th className="px-5 py-4">Toplam Oyun</th>
+                        <th className="px-5 py-4">Durum</th>
+                        <th className="px-5 py-4">Veri Kaynağı</th>
+                        <th className="px-5 py-4 text-right">İşlemler</th>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCategories.map((category, index) => (
-                        <tr
-                          className={`border-b border-white/10 ${
-                            index === 0 ? "outline outline-1 outline-violet-500" : ""
-                          }`}
-                          key={category.id}
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-4">
-                              <img
-                                alt={category.name}
-                                className="h-14 w-16 rounded-lg object-cover"
-                                src={category.iconUrl}
-                              />
-                              <span className="font-bold text-white">
-                                {category.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="max-w-md px-5 py-4 text-slate-300">
-                            {category.description}
-                          </td>
-                          <td className="px-5 py-4 text-slate-200">
-                            {category.totalGames}
-                          </td>
-                          <td className="px-5 py-4">
-                            <span
-                              className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
-                                category.status
-                              )}`}
-                            >
-                              {category.status}
+                      </thead>
+                      <tbody>
+                      {paginatedCategories.map((category) => (
+                          <tr
+                              className="border-b border-white/10"
+                              key={getCategoryKey(category)}
+                          >
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-4">
+                                <CategoryListImage category={category} />
+                                <span className="font-bold text-white">
+                              {category.name}
                             </span>
-                          </td>
-                          <td className="px-5 py-4 text-slate-300">
-                            {formatDate(category.createdAt)}
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <button
-                              className="rounded-lg px-3 py-1 text-2xl text-slate-300 hover:bg-white/5"
-                              type="button"
-                            >
-                              ⋮
-                            </button>
-                          </td>
-                        </tr>
+                              </div>
+                            </td>
+                            <td className="max-w-md px-5 py-4 text-slate-300">
+                              {category.description || "Açıklama yok."}
+                            </td>
+                            <td className="px-5 py-4 text-slate-200">
+                              {formatGameCountValue(category.gameCount)}
+                            </td>
+                            <td className="px-5 py-4">
+                          <span
+                              className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
+                                  category.status
+                              )}`}
+                          >
+                            {getStatusLabel(category.status)}
+                          </span>
+                            </td>
+                            <td className="px-5 py-4 text-slate-300">
+                              <div className="flex flex-wrap gap-2">
+                                <span>{category.dataSource}</span>
+                                <span
+                                    className={`rounded-lg border px-2 py-0.5 text-xs font-bold ${
+                                        category.origin === "external"
+                                            ? "border-violet-300/30 bg-violet-500/15 text-violet-100"
+                                            : "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
+                                    }`}
+                                >
+                              {category.origin === "external"
+                                  ? "Steam Tag"
+                                  : "Manuel"}
+                            </span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <button
+                                  className="rounded-lg px-3 py-1 text-2xl text-slate-300 hover:bg-white/5"
+                                  type="button"
+                              >
+                                ...
+                              </button>
+                            </td>
+                          </tr>
                       ))}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
                 ) : null}
 
-                {!loading && viewMode === "grid" ? (
-                  <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredCategories.map((category) => (
-                      <article
-                        className="rounded-2xl border border-white/10 bg-slate-950/70 p-4"
-                        key={category.id}
-                      >
-                        <img
-                          alt={category.name}
-                          className="h-32 w-full rounded-xl object-cover"
-                          src={category.iconUrl}
-                        />
-                        <div className="mt-4 flex items-start justify-between gap-4">
-                          <div>
-                            <h2 className="font-bold text-white">{category.name}</h2>
-                            <p className="mt-2 text-sm text-slate-400">
-                              {category.description}
-                            </p>
-                          </div>
-                          <span
-                            className={`rounded-lg border px-3 py-1 text-xs font-bold capitalize ${statusBadgeClass(
-                              category.status
-                            )}`}
+                {!manualLoading &&
+                filteredCategories.length > 0 &&
+                viewMode === "grid" ? (
+                    <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+                      {paginatedCategories.map((category) => (
+                          <article
+                              className="rounded-2xl border border-white/10 bg-slate-950/70 p-4"
+                              key={getCategoryKey(category)}
                           >
-                            {category.status}
+                            <CategoryCardImage category={category} />
+                            <div className="mt-4 flex items-start justify-between gap-4">
+                              <div>
+                                <h2 className="font-bold text-white">
+                                  {category.name}
+                                </h2>
+                                <p className="mt-2 text-sm text-slate-400">
+                                  {category.description || "Açıklama yok."}
+                                </p>
+                                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                  {formatGameCount(category.gameCount)} -{" "}
+                                  {category.dataSource}
+                                </p>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                          <span
+                              className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase ${statusBadgeClass(
+                                  category.status
+                              )}`}
+                          >
+                            {getStatusLabel(category.status)}
                           </span>
+                                <span
+                                    className={`rounded-lg border px-3 py-1 text-xs font-bold ${
+                                        category.origin === "external"
+                                            ? "border-violet-300/30 bg-violet-500/15 text-violet-100"
+                                            : "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
+                                    }`}
+                                >
+                            {category.origin === "external"
+                                ? "Steam Tag"
+                                : "Manuel"}
+                          </span>
+                              </div>
+                            </div>
+                          </article>
+                      ))}
+                    </div>
+                ) : null}
+
+                {filteredCategories.length > 0 ? (
+                    <footer className="flex max-w-full flex-wrap items-center justify-between gap-4 overflow-hidden border-t border-white/10 px-4 py-4">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <button
+                            className="grid h-10 shrink-0 place-items-center rounded-xl bg-slate-900/80 px-3 text-sm text-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={safeCurrentPage === 1}
+                            onClick={() =>
+                                setCurrentPage((page) => Math.max(1, page - 1))
+                            }
+                            type="button"
+                        >
+                          Önceki
+                        </button>
+                        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2 overflow-x-auto py-1">
+                          {visiblePageNumbers.map((pageNumber) => {
+                            return (
+                                <button
+                                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-semibold ${
+                                        safeCurrentPage === pageNumber
+                                            ? "bg-violet-600 text-white"
+                                            : "text-slate-300 hover:bg-white/5"
+                                    }`}
+                                    key={pageNumber}
+                                    onClick={() => setCurrentPage(pageNumber)}
+                                    type="button"
+                                >
+                                  {pageNumber}
+                                </button>
+                            );
+                          })}
                         </div>
-                      </article>
-                    ))}
-                  </div>
+                        <button
+                            className="grid h-10 shrink-0 place-items-center rounded-xl bg-slate-900/80 px-3 text-sm text-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={safeCurrentPage === totalPages}
+                            onClick={() =>
+                                setCurrentPage((page) =>
+                                    Math.min(totalPages, page + 1)
+                                )
+                            }
+                            type="button"
+                        >
+                          Sonraki
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="text-sm text-slate-400">
+                          Sayfa {safeCurrentPage} / {totalPages}
+                        </div>
+
+                        <label className="rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
+                          <select
+                              className="bg-transparent text-sm text-slate-200 outline-none"
+                              onChange={(event) =>
+                                  handlePageSizeChange(Number(event.target.value))
+                              }
+                              value={pageSize}
+                          >
+                            <option className="bg-slate-950 text-white" value={6}>
+                              Sayfa başına 6
+                            </option>
+                            <option className="bg-slate-950 text-white" value={12}>
+                              Sayfa başına 12
+                            </option>
+                            <option className="bg-slate-950 text-white" value={24}>
+                              Sayfa başına 24
+                            </option>
+                          </select>
+                        </label>
+                      </div>
+                    </footer>
                 ) : null}
               </section>
             </div>
+          </main>
+        </div>
 
-            <aside className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">
-                    Add New Category
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Create a new game category to organize games and help users
-                    discover content.
-                  </p>
-                </div>
-                <button
-                  className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl text-slate-400"
-                  onClick={() => setFormValue(initialForm)}
-                  type="button"
-                >
-                  ×
-                </button>
-              </div>
-
-              <form
-                className="space-y-5"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void createCategory();
-                }}
-              >
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">
-                    Category Name
-                  </span>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    id="category-name"
-                    maxLength={100}
-                    onChange={(event) =>
-                      setFormValue({ ...formValue, name: event.target.value })
-                    }
-                    placeholder="Enter category name..."
-                    value={formValue.name}
-                  />
-                  <span className="text-xs text-slate-500">
-                    Choose a clear, descriptive name for the category.
-                  </span>
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Description</span>
-                  <textarea
-                    className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    maxLength={500}
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        description: event.target.value,
-                      })
-                    }
-                    placeholder="Describe this category..."
-                    value={formValue.description}
-                  />
-                  <span className="text-xs text-slate-500">
-                    Explain what types of games belong in this category.
-                  </span>
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">
-                    Category Icon
-                  </span>
-                  <div className="grid min-h-32 place-items-center rounded-xl border border-dashed border-violet-400/50 bg-violet-500/5 p-5 text-center">
-                    <div>
-                      <div className="text-4xl text-violet-300">↥</div>
-                      <div className="mt-2 font-bold text-violet-100">
-                        Upload Icon
-                      </div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        PNG, JPG or SVG (512x512)
-                      </div>
-                    </div>
+        {isModalOpen ? (
+            <div className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-4 py-8 backdrop-blur-sm">
+              <section className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      Kategori Ekle
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Steam veya Epic için manuel kategori kaydı oluştur.
+                    </p>
                   </div>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    onChange={(event) =>
-                      setFormValue({ ...formValue, iconUrl: event.target.value })
-                    }
-                    placeholder="Optional icon URL"
-                    value={formValue.iconUrl}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-bold text-white">Status</span>
-                  <select
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                    onChange={(event) =>
-                      setFormValue({
-                        ...formValue,
-                        status: event.target.value as CategoryStatus,
-                      })
-                    }
-                    value={formValue.status}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                  <span className="text-xs text-slate-500">
-                    Set the initial status for this category.
-                  </span>
-                </label>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
-                    className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
-                    disabled={submitting}
-                    type="submit"
+                      aria-label="Modalı kapat"
+                      className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-white/5 text-xl text-slate-400 hover:bg-white/10"
+                      onClick={closeModal}
+                      type="button"
                   >
-                    {submitting ? "Creating..." : "Create Category"}
-                  </button>
-                  <button
-                    className="rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
-                    onClick={() => setFormValue(initialForm)}
-                    type="button"
-                  >
-                    Cancel
+                    x
                   </button>
                 </div>
-              </form>
-            </aside>
-          </div>
-        </main>
+
+                <form
+                    className="space-y-5"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleCreateCategory();
+                    }}
+                >
+                  <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">
+                  Platform / Sağlayıcı
+                </span>
+                    <select
+                        className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
+                        onChange={(event) =>
+                            setFormValue({
+                              ...formValue,
+                              source: event.target.value as GameSource,
+                            })
+                        }
+                        value={formValue.source}
+                    >
+                      <option value="STEAM">STEAM</option>
+                      <option value="EPIC">EPIC</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2">
+                <span className="text-sm font-bold text-white">
+                  Kategori adı
+                </span>
+                    <input
+                        className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                        maxLength={100}
+                        onChange={(event) =>
+                            setFormValue({ ...formValue, name: event.target.value })
+                        }
+                        placeholder="Kategori adını girin"
+                        required
+                        value={formValue.name}
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-bold text-white">Açıklama</span>
+                    <textarea
+                        className="min-h-28 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
+                        maxLength={500}
+                        onChange={(event) =>
+                            setFormValue({
+                              ...formValue,
+                              description: event.target.value,
+                            })
+                        }
+                        placeholder="Kategori açıklamasını girin"
+                        value={formValue.description ?? ""}
+                    />
+                  </label>
+
+                  {formNotice ? (
+                      <div className="rounded-2xl border border-red-400/20 bg-red-950/30 px-5 py-3 text-sm text-red-100">
+                        {formNotice}
+                      </div>
+                  ) : null}
+
+                  <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                    <button
+                        className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={creatingCategory || !formValue.name.trim()}
+                        type="submit"
+                    >
+                      {creatingCategory ? "Kaydediliyor..." : "Kategori Ekle"}
+                    </button>
+                    <button
+                        className="cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-5 py-4 text-sm font-bold text-white"
+                        onClick={closeModal}
+                        type="button"
+                    >
+                      Vazgeç
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+        ) : null}
       </div>
-    </div>
   );
 };
 
