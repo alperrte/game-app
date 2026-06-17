@@ -22,6 +22,11 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
   const { showToast } = useToast();
   useBodyScrollLock(true);
 
+  const isUploadedUrl = (url: string) => {
+    if (!url) return false;
+    return url.startsWith("/api/") || url.startsWith("api/") || (!url.startsWith("http") && !url.startsWith("data:image"));
+  };
+
   // Form states
   const [displayName, setDisplayName] = useState(profile.displayName || "");
   const [bio, setBio] = useState(profile.bio || "");
@@ -366,13 +371,23 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
               {/* Avatar Row */}
               <div className="flex gap-2">
                 <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">Avatar</span>
-                <input
-                  type="text"
-                  placeholder="https://... görsel linki"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
-                />
+                {isUploadedUrl(avatarUrl) ? (
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value="Bilgisayardan Yüklendi"
+                    className="flex-1 rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-3 py-1.5 text-xs text-emerald-400 focus:outline-none select-none font-semibold cursor-not-allowed"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="https://... görsel linki"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+                  />
+                )}
                 {avatarUrl && (
                   <button
                     type="button"
@@ -394,13 +409,23 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
               {/* Kapak Row */}
               <div className="flex gap-2">
                 <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">Kapak</span>
-                <input
-                  type="text"
-                  placeholder="https://... görsel linki"
-                  value={coverUrl}
-                  onChange={(e) => setCoverUrl(e.target.value)}
-                  className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
-                />
+                {isUploadedUrl(coverUrl) ? (
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value="Bilgisayardan Yüklendi"
+                    className="flex-1 rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-3 py-1.5 text-xs text-emerald-400 focus:outline-none select-none font-semibold cursor-not-allowed"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="https://... görsel linki"
+                    value={coverUrl}
+                    onChange={(e) => setCoverUrl(e.target.value)}
+                    className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+                  />
+                )}
                 {coverUrl && (
                   <button
                     type="button"
@@ -422,13 +447,23 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
               {/* Arka Plan Row */}
               <div className="flex gap-2">
                 <span className="w-16 shrink-0 pt-2 text-[10px] font-bold text-zinc-500 uppercase">Arka Plan</span>
-                <input
-                  type="text"
-                  placeholder="https://... görsel linki"
-                  value={profileBackgroundUrl}
-                  onChange={(e) => setProfileBackgroundUrl(e.target.value)}
-                  className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
-                />
+                {isUploadedUrl(profileBackgroundUrl) ? (
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value="Bilgisayardan Yüklendi"
+                    className="flex-1 rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-3 py-1.5 text-xs text-emerald-400 focus:outline-none select-none font-semibold cursor-not-allowed"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="https://... görsel linki"
+                    value={profileBackgroundUrl}
+                    onChange={(e) => setProfileBackgroundUrl(e.target.value)}
+                    className="flex-1 rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-1.5 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+                  />
+                )}
                 {profileBackgroundUrl && (
                   <button
                     type="button"

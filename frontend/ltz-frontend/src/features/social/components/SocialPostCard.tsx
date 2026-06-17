@@ -31,6 +31,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 
 import { formatSocialTime } from "../../../utils/formatSocialTime";
 import { UserAvatar } from "../../user/components/UserAvatar";
+import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
 import {
   DEFAULT_EMOJIS,
   EmojiPickerPopover,
@@ -211,6 +212,7 @@ export function SocialPostCard({
                                  onToggleLike,
                                }: SocialPostCardProps) {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const { avatarUrl: loggedInUserAvatarUrl } = useCurrentUserProfile();
   const activeMedia = post.media[activeMediaIndex] ?? post.media[0];
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -516,10 +518,12 @@ export function SocialPostCard({
 
     return (
         <div className="mt-3 flex items-center gap-2">
-          <img
-              alt={currentUserName ?? "Sen"}
-              className="h-8 w-8 rounded-full border border-white/15 object-cover"
-              src={currentUserAvatarUrl}
+          <UserAvatar
+              name={currentUserName ?? "Sen"}
+              avatarUrl={currentUserAvatarUrl}
+              className="h-8 w-8"
+              imageClassName="h-8 w-8 rounded-full border border-white/15 object-cover"
+              fallbackClassName="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-violet-700 text-[10px] font-bold text-white"
           />
           <div className="relative flex flex-1 items-center">
             <input
@@ -614,10 +618,7 @@ export function SocialPostCard({
     return "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80";
   }
 
-  const currentUserAvatarUrl =
-      currentUserId === post.authorUserId
-          ? post.author.avatarUrl
-          : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
+  const currentUserAvatarUrl = loggedInUserAvatarUrl;
 
   function openUserProfile(username?: string) {
     if (!username) return;
@@ -1187,10 +1188,12 @@ export function SocialPostCard({
                               onClick={() => openUserProfile(comment.author?.username)}
                               type="button"
                           >
-                            <img
-                                alt={comment.author?.name ?? getCommentAuthorName(comment.userId)}
-                                className="h-9 w-9 rounded-full border border-white/15 object-cover"
-                                src={comment.author?.avatarUrl ?? getCommentAvatar(comment.userId)}
+                            <UserAvatar
+                                name={comment.author?.name ?? getCommentAuthorName(comment.userId)}
+                                avatarUrl={comment.author?.avatarUrl ?? getCommentAvatar(comment.userId)}
+                                className="h-9 w-9"
+                                imageClassName="h-9 w-9 rounded-full border border-white/15 object-cover"
+                                fallbackClassName="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-violet-700 text-xs font-bold text-white"
                             />
                           </button>
                           <div className="min-w-0 flex-1">
@@ -1313,16 +1316,12 @@ export function SocialPostCard({
                                           onClick={() => openUserProfile(reply.author?.username)}
                                           type="button"
                                       >
-                                        <img
-                                            alt={
-                                                reply.author?.name ??
-                                                getCommentAuthorName(reply.userId)
-                                            }
-                                            className="h-7 w-7 rounded-full border border-white/15 object-cover"
-                                            src={
-                                                reply.author?.avatarUrl ??
-                                                getCommentAvatar(reply.userId)
-                                            }
+                                        <UserAvatar
+                                            name={reply.author?.name ?? getCommentAuthorName(reply.userId)}
+                                            avatarUrl={reply.author?.avatarUrl ?? getCommentAvatar(reply.userId)}
+                                            className="h-7 w-7"
+                                            imageClassName="h-7 w-7 rounded-full border border-white/15 object-cover"
+                                            fallbackClassName="grid h-7 w-7 place-items-center rounded-full border border-white/15 bg-violet-700 text-[10px] font-bold text-white"
                                         />
                                       </button>
                                       <div className="min-w-0 flex-1">
@@ -1443,10 +1442,12 @@ export function SocialPostCard({
               </div>
 
               <div className="mt-3 flex items-center gap-3">
-                <img
-                    alt={currentUserName ?? "Sen"}
-                    className="h-9 w-9 rounded-full border border-white/15 object-cover"
-                    src={currentUserAvatarUrl}
+                <UserAvatar
+                    name={currentUserName ?? "Sen"}
+                    avatarUrl={currentUserAvatarUrl}
+                    className="h-9 w-9"
+                    imageClassName="h-9 w-9 rounded-full border border-white/15 object-cover"
+                    fallbackClassName="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-violet-700 text-xs font-bold text-white"
                 />
                 <div className="relative flex flex-1 items-center">
                   <input
