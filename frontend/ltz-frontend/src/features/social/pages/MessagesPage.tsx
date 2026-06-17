@@ -13,7 +13,7 @@ import {
 import { useAuthStore } from "../../../store/authStore";
 import { getImageUrl } from "../../user/utils/profileImage";
 import { userProfileService } from "../../user/services/userProfileService";
-import type { UserProfile } from "../../user/types/userProfile.types";
+import type { UserProfileResponse } from "../../user/types/user";
 import { socialService } from "../services/socialService";
 import type {
   ChatRoomResponse,
@@ -33,7 +33,7 @@ const DEFAULT_AVATAR_URL =
 
 function resolveUsername(
   userId: number,
-  profiles = new Map<number, UserProfile>(),
+  profiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = readUserIdentityCache(),
 ): string | undefined {
   return profiles.get(userId)?.username ?? cachedUsernames.get(userId);
@@ -41,7 +41,7 @@ function resolveUsername(
 
 function resolveAvatarUrl(
   userId: number,
-  profiles = new Map<number, UserProfile>(),
+  profiles = new Map<number, UserProfileResponse>(),
 ): string {
   const avatarUrl = profiles.get(userId)?.avatarUrl;
 
@@ -56,7 +56,7 @@ function getRoomTitle(
   room: ChatRoomResponse,
   currentUserId?: number,
   currentUsername?: string,
-  profiles = new Map<number, UserProfile>(),
+  profiles = new Map<number, UserProfileResponse>(),
   cachedUsernames = readUserIdentityCache(),
 ): string {
   if (room.roomName?.trim()) {
@@ -82,7 +82,7 @@ function getRoomTitle(
 
 async function loadUserProfiles(
   userIds: Array<number | null | undefined>,
-): Promise<Map<number, UserProfile>> {
+): Promise<Map<number, UserProfileResponse>> {
   const uniqueUserIds = Array.from(
     new Set(userIds.filter((userId): userId is number => typeof userId === "number")),
   );
@@ -91,7 +91,7 @@ async function loadUserProfiles(
     uniqueUserIds.map((userId) => userProfileService.getProfileById(userId)),
   );
 
-  return profiles.reduce<Map<number, UserProfile>>((profileMap, result, index) => {
+  return profiles.reduce<Map<number, UserProfileResponse>>((profileMap, result, index) => {
     if (result.status === "fulfilled") {
       const profile = result.value;
       profileMap.set(uniqueUserIds[index], profile);
@@ -131,7 +131,7 @@ export default function MessagesPage() {
   const [rooms, setRooms] = useState<ChatRoomResponse[]>([]);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [participantProfiles, setParticipantProfiles] = useState<
-    Map<number, UserProfile>
+    Map<number, UserProfileResponse>
   >(() => new Map());
   const [draft, setDraft] = useState("");
   const [loadingRooms, setLoadingRooms] = useState(true);
@@ -147,7 +147,7 @@ export default function MessagesPage() {
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<
     number | null
   >(null);
-  const cachedUsernames = useMemo(() => readUserIdentityCache(), [rooms, participantProfiles]);
+  const cachedUsernames = useMemo(() => readUserIdentityCache(), []);
 
   const activeRoomId = useMemo(() => {
     const parsedRoomId = Number(roomId);
@@ -252,9 +252,11 @@ export default function MessagesPage() {
   }, [activeRoomId, refreshRooms]);
 
   useEffect(() => {
-    setReplyingToMessage(null);
-    setReactionPickerMessageId(null);
-    setEmojiOpen(false);
+    Promise.resolve().then(() => {
+      setReplyingToMessage(null);
+      setReactionPickerMessageId(null);
+      setEmojiOpen(false);
+    });
   }, [activeRoomId]);
 
   useEffect(() => {

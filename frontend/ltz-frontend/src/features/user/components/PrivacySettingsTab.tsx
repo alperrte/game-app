@@ -150,15 +150,15 @@ export const PrivacySettingsTab: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-xl border border-violet-500/10 bg-slate-950/60 mt-3">
                   {VISIBILITY_OPTIONS.map((opt) => {
                     const isActive = settings[section.key] === opt.value;
                     return (
                       <button
-                        className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-xs font-bold tracking-wide transition-colors ${
+                        className={`cursor-pointer rounded-lg px-2 py-2.5 text-center text-[10px] font-bold tracking-wider uppercase transition-all duration-200 ${
                           isActive
-                            ? "border-violet-500 bg-violet-500/15 text-violet-200"
-                            : "border-zinc-800 bg-slate-900 text-zinc-500 hover:border-violet-500/40 hover:text-zinc-200"
+                            ? "bg-gradient-to-r from-violet-600/35 to-fuchsia-600/35 text-violet-200 border border-violet-500/40 shadow-[0_0_15px_rgba(139,92,246,0.25)]"
+                            : "text-zinc-500 hover:text-zinc-300 bg-transparent border border-transparent"
                         }`}
                         key={opt.value}
                         onClick={() => void handleUpdate(section.key, opt.value)}

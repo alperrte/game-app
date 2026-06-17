@@ -14,7 +14,7 @@ import { formatProfileDate, getYouTubeVideoId } from "../utils/profileHelpers";
 import { buildProfileBadges, mergeAssignedBadges } from "../utils/badges";
 import { normalizeRole } from "../utils/roleStyles";
 import { useProfileIdentities } from "../hooks/useProfileIdentities";
-import { SOCIAL_ROUTES } from "../../../lib/constants";
+import { SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
 import { socialService } from "../../social/services/socialService";
 import { socialProfileService, type RelationshipSnapshot } from "../../social/services/socialProfileService";
 import { gameService } from "../../game/services/gameService";
@@ -27,6 +27,7 @@ import {
   ProfileSettingsPanel,
   type SettingsPanelTab,
 } from "../components/profile/ProfileSettingsPanel";
+import { useCurrentUserProfile } from "../context/CurrentUserProfileContext";
 import { ProfileWallSection } from "../components/profile/ProfileWallSection";
 import { ProfileAboutSection } from "../components/profile/ProfileAboutSection";
 import { ProfileHardwareSection } from "../components/profile/ProfileHardwareSection";
@@ -88,6 +89,7 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const { showToast } = useToast();
+  const { displayName: loggedInDisplayName, avatarUrl: loggedInAvatarUrl, refresh: refreshCurrentUserProfile } = useCurrentUserProfile();
 
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,6 +155,50 @@ export const ProfilePage: React.FC = () => {
   const currentUserId = currentUser?.userId;
   const { resolveIdentities } = useProfileIdentities();
 
+  const savedPostStorageKey = `${STORAGE_KEYS.savedSocialPosts}:${currentUserId ?? "guest"}`;
+
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(() => {
+    try {
+      const key = `${STORAGE_KEYS.savedSocialPosts}:${currentUser?.userId ?? "guest"}`;
+      const rawValue = localStorage.getItem(key);
+      const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+      if (Array.isArray(parsedValue)) {
+        return new Set(parsedValue.filter((v) => typeof v === "string"));
+      }
+    } catch {
+      // ignore
+    }
+    return new Set<string>();
+  });
+  const savedPostIdsRef = useRef<Set<string>>(savedPostIds);
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      try {
+        const rawValue = localStorage.getItem(savedPostStorageKey);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+        const nextSet = new Set<string>(
+          Array.isArray(parsedValue)
+            ? parsedValue.filter((v) => typeof v === "string")
+            : []
+        );
+        setSavedPostIds((prev) => {
+          const isSame = prev.size === nextSet.size && Array.from(prev).every((id) => nextSet.has(id));
+          if (isSame) return prev;
+          return nextSet;
+        });
+        savedPostIdsRef.current = nextSet;
+      } catch {
+        setSavedPostIds(new Set<string>());
+        savedPostIdsRef.current = new Set<string>();
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [savedPostStorageKey]);
+
   const musicVideoId = profile ? getYouTubeVideoId(profile.profileMusicUrl) : null;
   const {
     isPlaying,
@@ -167,6 +213,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleProfileUpdated = (updated: UserProfileResponse) => {
     setProfile(updated);
+    void refreshCurrentUserProfile();
   };
 
   const editModal =
@@ -330,9 +377,12 @@ export const ProfilePage: React.FC = () => {
       setPostsLoading(true);
       setPostsError(null);
       try {
-        const [backendPosts, lfp] = await Promise.all([
+        const [backendPosts, lfp, outgoingRequests] = await Promise.all([
           socialService.getPostsByUser(profileUserId),
           socialService.getLookingForPlayerPostsByUser(profileUserId),
+          currentUserId && !isOwnProfile
+            ? socialService.getOutgoingFriendRequests(currentUserId)
+            : Promise.resolve([]),
         ]);
         if (!active) return;
         const ids = [
@@ -340,15 +390,29 @@ export const ProfilePage: React.FC = () => {
           ...lfp.map((item) => item.userId),
         ];
         const identityMap = await resolveIdentities(ids);
+
+        const pendingRequest = outgoingRequests.find((r) => r.receiverUserId === profileUserId);
+        const pendingFriendRequestId = pendingRequest?.id;
+
         const convertedPosts: SocialPost[] = backendPosts.map((item) => {
-          const author = identityMap.get(item.userId);
+          const isOwnerPost = item.userId === profileUserId;
+          const authorName = isOwnerPost
+            ? (profile.displayName?.trim() || profile.username)
+            : (identityMap.get(item.userId)?.displayName || `Oyuncu #${item.userId}`);
+          const authorUsername = isOwnerPost
+            ? profile.username
+            : (identityMap.get(item.userId)?.username || `oyuncu-${item.userId}`);
+          const authorAvatar = isOwnerPost
+            ? profile.avatarUrl
+            : identityMap.get(item.userId)?.avatarUrl;
+
           return {
             id: item.id,
             authorUserId: item.userId,
             author: {
-              name: author?.displayName || `Oyuncu #${item.userId}`,
-              username: author?.username || `oyuncu-${item.userId}`,
-              avatarUrl: author?.avatarUrl ? getImageUrl(author.avatarUrl) : "",
+              name: authorName,
+              username: authorUsername,
+              avatarUrl: authorAvatar ? getImageUrl(authorAvatar) : "",
             },
             createdAt: formatProfileDate(item.createdAt),
             visibility: "public",
@@ -362,20 +426,38 @@ export const ProfilePage: React.FC = () => {
               shares: 0,
             },
             likedByMe: item.likedByCurrentUser,
+            followedByMe: isOwnProfile ? false : (relationship?.isFollowing ?? false),
+            friendStatus: isOwnProfile
+              ? undefined
+              : (relationship?.isFriend
+                  ? "friends"
+                  : (pendingRequest ? "pending" : "none")),
+            pendingFriendRequestId,
+            savedByMe: savedPostIdsRef.current.has(String(item.id)),
             source: "backend",
           };
         });
         const lfpPosts: SocialPost[] = lfp
             .filter((item) => item.status === "OPEN")
             .map((item) => {
-              const author = identityMap.get(item.userId);
+              const isOwnerPost = item.userId === profileUserId;
+              const authorName = isOwnerPost
+                ? (profile.displayName?.trim() || profile.username)
+                : (identityMap.get(item.userId)?.displayName || `Oyuncu #${item.userId}`);
+              const authorUsername = isOwnerPost
+                ? profile.username
+                : (identityMap.get(item.userId)?.username || `oyuncu-${item.userId}`);
+              const authorAvatar = isOwnerPost
+                ? profile.avatarUrl
+                : identityMap.get(item.userId)?.avatarUrl;
+
               return {
                 id: `lfp-${item.id}`,
                 authorUserId: item.userId,
                 author: {
-                  name: author?.displayName || `Oyuncu #${item.userId}`,
-                  username: author?.username || `oyuncu-${item.userId}`,
-                  avatarUrl: author?.avatarUrl ? getImageUrl(author.avatarUrl) : "",
+                  name: authorName,
+                  username: authorUsername,
+                  avatarUrl: authorAvatar ? getImageUrl(authorAvatar) : "",
                 },
                 createdAt: formatProfileDate(item.createdAt),
                 visibility: "public",
@@ -386,6 +468,15 @@ export const ProfilePage: React.FC = () => {
                   comments: 0,
                   shares: 0,
                 },
+                likedByMe: false,
+                followedByMe: isOwnProfile ? false : (relationship?.isFollowing ?? false),
+                friendStatus: isOwnProfile
+                  ? undefined
+                  : (relationship?.isFriend
+                      ? "friends"
+                      : (pendingRequest ? "pending" : "none")),
+                pendingFriendRequestId,
+                savedByMe: savedPostIdsRef.current.has(`lfp-${item.id}`),
                 source: "lookingForPlayer",
               };
             });
@@ -399,7 +490,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [profileUserId, profile, resolveIdentities, postsRefreshKey]);
+  }, [profileUserId, profile, resolveIdentities, postsRefreshKey, relationship, isOwnProfile, currentUserId]);
 
   useEffect(() => {
     if (!profile || !visibility.showGameLibrary) return;
@@ -499,43 +590,62 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const buildCommentAuthor = (comment: SocialComment, post: SocialPost): SocialUser => {
-    if (comment.userId === post.authorUserId) {
-      return post.author;
-    }
-    const identity = socialIdentityGroups.followers.get(comment.userId)
-        ?? socialIdentityGroups.following.get(comment.userId)
-        ?? socialIdentityGroups.friends.get(comment.userId);
-    if (identity) {
-      return {
-        name: identity.displayName,
-        username: identity.username,
-        avatarUrl: identity.avatarUrl ? getImageUrl(identity.avatarUrl) : "",
-      };
-    }
-    return {
-      name: `Oyuncu #${comment.userId}`,
-      username: `oyuncu-${comment.userId}`,
-      avatarUrl: "",
-    };
-  };
+  const attachCommentAuthors = async (comments: SocialComment[]) => {
+    const identityMap = await resolveIdentities(
+      comments.flatMap((comment) =>
+        [comment.userId, comment.replyingToUserId].filter(
+          (userId): userId is number => typeof userId === "number",
+        ),
+      ),
+    );
+    return comments.map((comment) => {
+      const isOwnerComment = comment.userId === profileUserId;
+      const isMyComment = comment.userId === currentUserId;
 
-  const attachCommentAuthors = async (postId: number, comments: SocialComment[]) => {
-    const identityMap = await resolveIdentities(comments.map((comment) => comment.userId));
-    const currentPost = posts.find((post) => post.id === postId);
-    return comments.map((comment) => ({
-      ...comment,
-      author:
-          comment.userId === currentPost?.authorUserId
-              ? currentPost.author
-              : {
-                name: identityMap.get(comment.userId)?.displayName || `Oyuncu #${comment.userId}`,
-                username: identityMap.get(comment.userId)?.username || `oyuncu-${comment.userId}`,
-                avatarUrl: identityMap.get(comment.userId)?.avatarUrl
-                    ? getImageUrl(identityMap.get(comment.userId)!.avatarUrl!)
-                    : "",
-              },
-    }));
+      let name = `Oyuncu #${comment.userId}`;
+      let username = `oyuncu-${comment.userId}`;
+      let avatarUrl = "";
+
+      if (isMyComment) {
+        name = loggedInDisplayName || currentUser?.username || "Sen";
+        username = currentUser?.username || "sen";
+        avatarUrl = loggedInAvatarUrl ? getImageUrl(loggedInAvatarUrl) : "";
+      } else if (isOwnerComment && profile) {
+        name = profile.displayName?.trim() || profile.username;
+        username = profile.username;
+        avatarUrl = profile.avatarUrl ? getImageUrl(profile.avatarUrl) : "";
+      } else {
+        const identity = identityMap.get(comment.userId);
+        if (identity) {
+          name = identity.displayName;
+          username = identity.username;
+          avatarUrl = identity.avatarUrl ? getImageUrl(identity.avatarUrl) : "";
+        }
+      }
+
+      let replyingToName = comment.replyingToName;
+      if (comment.replyingToUserId) {
+        if (comment.replyingToUserId === currentUserId) {
+          replyingToName = loggedInDisplayName || currentUser?.username || "Sen";
+        } else if (comment.replyingToUserId === profileUserId && profile) {
+          replyingToName = profile.displayName?.trim() || profile.username;
+        } else {
+          replyingToName = identityMap.get(comment.replyingToUserId)?.displayName || `Oyuncu #${comment.replyingToUserId}`;
+        }
+      }
+
+      return {
+        ...comment,
+        author: {
+          name,
+          username,
+          avatarUrl,
+        },
+        likedByMe: comment.likedByMe ?? comment.likedByCurrentUser ?? false,
+        likeCount: comment.likeCount ?? 0,
+        replyingToName,
+      };
+    });
   };
 
   const handleLoadComments = async (postId: number | string) => {
@@ -543,9 +653,25 @@ export const ProfilePage: React.FC = () => {
     setBusyPostId(postId);
     try {
       const comments = await socialService.getComments(postId);
-      const withAuthors = await attachCommentAuthors(postId, comments);
+      const withAuthors = await attachCommentAuthors(comments);
+
+      const repliesByParentId = new Map<number, SocialComment[]>();
+      for (const comment of withAuthors) {
+        if (!comment.parentCommentId) continue;
+        const replies = repliesByParentId.get(comment.parentCommentId) ?? [];
+        replies.push(comment);
+        repliesByParentId.set(comment.parentCommentId, replies);
+      }
+
+      const structured = withAuthors
+        .filter((comment) => !comment.parentCommentId)
+        .map((comment) => ({
+          ...comment,
+          replies: repliesByParentId.get(comment.id) ?? [],
+        }));
+
       setPosts((current) =>
-          current.map((post) => (post.id === postId ? { ...post, comments: withAuthors } : post)),
+        current.map((post) => (post.id === postId ? { ...post, comments: structured } : post)),
       );
     } catch (error) {
       setPostsError(getErrorMessage(error, "Yorumlar yüklenemedi."));
@@ -559,25 +685,17 @@ export const ProfilePage: React.FC = () => {
     setBusyPostId(postId);
     try {
       const comment = await socialService.addComment(postId, { content });
-      const currentPost = posts.find((post) => post.id === postId);
-      const [mappedComment] = await attachCommentAuthors(postId, [comment]);
-      const author = currentPost
-          ? buildCommentAuthor(comment, currentPost)
-          : mappedComment.author ?? {
-        name: `Oyuncu #${comment.userId}`,
-        username: `oyuncu-${comment.userId}`,
-        avatarUrl: "",
-      };
+      const [mappedComment] = await attachCommentAuthors([comment]);
       setPosts((current) =>
-          current.map((post) =>
-              post.id === postId
-                  ? {
-                    ...post,
-                    comments: [...(post.comments ?? []), { ...comment, author }],
-                    reactions: { ...post.reactions, comments: post.reactions.comments + 1 },
-                  }
-                  : post,
-          ),
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: [...(post.comments ?? []), { ...mappedComment, replies: [] }],
+                reactions: { ...post.reactions, comments: post.reactions.comments + 1 },
+              }
+            : post,
+        ),
       );
     } catch (error) {
       setPostsError(getErrorMessage(error, "Yorum gönderilemedi."));
@@ -586,24 +704,152 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleDeleteComment = async (postId: number | string, commentId: number) => {
+  const handleAddReply = async (
+    postId: number | string,
+    parentCommentId: number,
+    content: string,
+    replyingToUserId?: number,
+  ) => {
+    if (typeof postId !== "number") return;
+    setBusyPostId(postId);
+    try {
+      const comment = await socialService.addComment(postId, {
+        content,
+        parentCommentId,
+        replyingToUserId,
+      });
+      const [mappedComment] = await attachCommentAuthors([comment]);
+
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: (post.comments ?? []).map((parentComment) =>
+                  parentComment.id === parentCommentId
+                    ? {
+                        ...parentComment,
+                        replies: [...(parentComment.replies ?? []), mappedComment],
+                      }
+                    : parentComment,
+                ),
+                reactions: {
+                  ...post.reactions,
+                  comments: post.reactions.comments + 1,
+                },
+              }
+            : post,
+        ),
+      );
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Yanıt gönderilemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  };
+
+  const handleToggleCommentLike = async (
+    postId: number | string,
+    commentId: number,
+    parentCommentId: number | null | undefined,
+    likedByMe: boolean,
+  ) => {
+    if (typeof postId !== "number") return;
+    try {
+      if (likedByMe) {
+        await socialService.unlikeComment(commentId);
+      } else {
+        await socialService.likeComment(commentId);
+      }
+
+      const updateCommentInPost = (
+        post: SocialPost,
+        commentId: number,
+        parentCommentId: number | null | undefined,
+        updater: (comment: SocialComment) => SocialComment,
+      ): SocialPost => {
+        if (!parentCommentId) {
+          return {
+            ...post,
+            comments: (post.comments ?? []).map((comment) =>
+              comment.id === commentId ? updater(comment) : comment,
+            ),
+          };
+        }
+        return {
+          ...post,
+          comments: (post.comments ?? []).map((comment) =>
+            comment.id === parentCommentId
+              ? {
+                  ...comment,
+                  replies: (comment.replies ?? []).map((reply) =>
+                    reply.id === commentId ? updater(reply) : reply,
+                  ),
+                }
+              : comment,
+          ),
+        };
+      };
+
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? updateCommentInPost(post, commentId, parentCommentId, (comment) => ({
+                ...comment,
+                likedByMe: !likedByMe,
+                likeCount: Math.max(0, (comment.likeCount ?? 0) + (likedByMe ? -1 : 1)),
+              }))
+            : post,
+        ),
+      );
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Yorum beğenisi güncellenemedi."));
+    }
+  };
+
+  const handleDeleteComment = async (
+    postId: number | string,
+    commentId: number,
+    parentCommentId?: number | null,
+  ) => {
     if (typeof postId !== "number") return;
     setBusyPostId(postId);
     try {
       await socialService.deleteComment(commentId);
       setPosts((current) =>
-          current.map((post) =>
-              post.id === postId
+        current.map((post) => {
+          if (post.id !== postId) return post;
+
+          if (parentCommentId) {
+            return {
+              ...post,
+              comments: (post.comments ?? []).map((comment) =>
+                comment.id === parentCommentId
                   ? {
-                    ...post,
-                    comments: (post.comments ?? []).filter((comment) => comment.id !== commentId),
-                    reactions: {
-                      ...post.reactions,
-                      comments: Math.max(0, post.reactions.comments - 1),
-                    },
-                  }
-                  : post,
-          ),
+                      ...comment,
+                      replies: (comment.replies ?? []).filter((reply) => reply.id !== commentId),
+                    }
+                  : comment,
+              ),
+              reactions: {
+                ...post.reactions,
+                comments: Math.max(0, post.reactions.comments - 1),
+              },
+            };
+          }
+
+          const deletedComment = (post.comments ?? []).find((comment) => comment.id === commentId);
+          const removedReplyCount = deletedComment?.replies?.length ?? 0;
+
+          return {
+            ...post,
+            comments: (post.comments ?? []).filter((comment) => comment.id !== commentId),
+            reactions: {
+              ...post.reactions,
+              comments: Math.max(0, post.reactions.comments - 1 - removedReplyCount),
+            },
+          };
+        }),
       );
     } catch (error) {
       setPostsError(getErrorMessage(error, "Yorum silinemedi."));
@@ -619,18 +865,7 @@ export const ProfilePage: React.FC = () => {
       if (likedByMe) await socialService.unlikePost(postId);
       else await socialService.likePost(postId);
       setPosts((current) =>
-          current.map((post) =>
-              post.id === postId
-                  ? {
-                    ...post,
-                    likedByMe: !likedByMe,
-                    reactions: {
-                      ...post.reactions,
-                      likes: Math.max(0, post.reactions.likes + (likedByMe ? -1 : 1)),
-                    },
-                  }
-                  : post,
-          ),
+          current.map((post) => (post.id === postId ? { ...post, likedByMe: !likedByMe, reactions: { ...post.reactions, likes: Math.max(0, post.reactions.likes + (likedByMe ? -1 : 1)) } } : post)),
       );
     } catch (error) {
       setPostsError(getErrorMessage(error, "Beğeni işlemi tamamlanamadı."));
@@ -658,13 +893,169 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleCreatePost = useCallback(
-      async (content: string) => {
-        await socialService.createPost({ content });
-        setPostsRefreshKey((value) => value + 1);
-        showToast("Duvar gönderin paylaşıldı.", "success");
-      },
-      [showToast],
+    async (content: string) => {
+      await socialService.createPost({ content });
+      setPostsRefreshKey((value) => value + 1);
+      showToast("Duvar gönderin paylaşıldı.", "success");
+    },
+    [showToast],
   );
+
+  const handleDeletePost = async (postId: number | string) => {
+    if (typeof postId !== "number") return;
+    setBusyPostId(postId);
+    try {
+      await socialService.deletePost(postId);
+      setPosts((current) => current.filter((post) => post.id !== postId));
+      showToast("Gönderi silindi.", "success");
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Gönderi silinemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  };
+
+  const handleToggleFollowAuthor = async (
+    authorUserId: number,
+    followedByMe: boolean,
+  ) => {
+    try {
+      if (followedByMe) {
+        await socialService.unfollowUser(authorUserId);
+      } else {
+        await socialService.followUser({ followingUserId: authorUserId });
+      }
+      setPosts((current) =>
+        current.map((post) =>
+          post.authorUserId === authorUserId
+            ? { ...post, followedByMe: !followedByMe }
+            : post,
+        ),
+      );
+      if (authorUserId === profileUserId) {
+        setRelationship((prev) => (prev ? { ...prev, isFollowing: !followedByMe } : prev));
+      }
+      showToast(
+        followedByMe ? "Takip bırakıldı." : "Takip edildi.",
+        "success",
+      );
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Takip işlemi tamamlanamadı."));
+    }
+  };
+
+  const handleSendFriendRequest = async (authorUserId: number) => {
+    try {
+      const request = await socialService.sendFriendRequest({
+        receiverUserId: authorUserId,
+      });
+      setPosts((current) =>
+        current.map((post) =>
+          post.authorUserId === authorUserId
+            ? { ...post, friendStatus: "pending", pendingFriendRequestId: request.id }
+            : post,
+        ),
+      );
+      if (authorUserId === profileUserId) {
+        setRelationship((prev) => (prev ? { ...prev, hasOutgoingRequestToTarget: true } : prev));
+      }
+      showToast("Arkadaşlık isteği gönderildi.", "success");
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Arkadaşlık isteği gönderilemedi."));
+    }
+  };
+
+  const handleCancelFriendRequest = async (
+    requestId: number,
+    authorUserId: number,
+  ) => {
+    try {
+      await socialService.cancelFriendRequest(requestId);
+      setPosts((current) =>
+        current.map((post) =>
+          post.authorUserId === authorUserId
+            ? { ...post, friendStatus: "none", pendingFriendRequestId: undefined }
+            : post,
+        ),
+      );
+      if (authorUserId === profileUserId) {
+        setRelationship((prev) => (prev ? { ...prev, hasOutgoingRequestToTarget: false } : prev));
+      }
+      showToast("Arkadaşlık isteği iptal edildi.", "success");
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Arkadaşlık isteği iptal edilemedi."));
+    }
+  };
+
+  const handleStartChat = async (post: SocialPost) => {
+    if (typeof post.authorUserId !== "number") return;
+    try {
+      cacheUserIdentity(post.authorUserId, post.author.username);
+      const room = await socialService.findOrCreateDirectChatRoom({
+        targetUserId: post.authorUserId,
+        targetUsername: post.author.username,
+      });
+      navigate(SOCIAL_ROUTES.chatRoom(room.id));
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Sohbet başlatılamadı."));
+    }
+  };
+
+  const handleBlockAuthor = async (authorUserId: number) => {
+    try {
+      await socialService.blockUser({ blockedUserId: authorUserId });
+      setPosts((current) => current.filter((post) => post.authorUserId !== authorUserId));
+      if (authorUserId === profileUserId) {
+        setRelationship((prev) => (prev ? { ...prev, isBlockedByMe: true } : prev));
+      }
+      showToast("Kullanıcı engellendi.", "success");
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Engelleme işlemi tamamlanamadı."));
+    }
+  };
+
+  const handleSharePost = async (post: SocialPost) => {
+    const shareText = post.content.slice(0, 180);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "LobbyTwoZero gönderisi",
+          text: shareText,
+          url: window.location.href,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+      showToast("Gönderi bağlantısı panoya kopyalandı.", "success");
+    } catch {
+      showToast("Paylaşım tamamlanamadı.", "error");
+    }
+  };
+
+  const handleToggleSave = (postId: number | string) => {
+    const normalizedPostId = String(postId);
+    const nextSavedPostIds = new Set(savedPostIds);
+    if (nextSavedPostIds.has(normalizedPostId)) {
+      nextSavedPostIds.delete(normalizedPostId);
+    } else {
+      nextSavedPostIds.add(normalizedPostId);
+    }
+
+    try {
+      localStorage.setItem(savedPostStorageKey, JSON.stringify(Array.from(nextSavedPostIds)));
+    } catch (e) {
+      console.error(e);
+    }
+    setSavedPostIds(nextSavedPostIds);
+
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === postId
+          ? { ...post, savedByMe: nextSavedPostIds.has(normalizedPostId) }
+          : post,
+      ),
+    );
+  };
 
   const hasHardware = visibility.showHardware;
   const hasHardwareData = Boolean(
@@ -908,13 +1299,24 @@ export const ProfilePage: React.FC = () => {
                     busyPostId={busyPostId}
                     currentUserId={currentUserId}
                     currentUserName={currentUsername}
+                    currentUserAvatarUrl={loggedInAvatarUrl}
                     isOwnProfile={isOwnProfile}
                     onAddComment={handleAddComment}
+                    onAddReply={handleAddReply}
+                    onBlockAuthor={handleBlockAuthor}
                     onCreatePost={handleCreatePost}
                     onDeleteComment={handleDeleteComment}
+                    onDeletePost={handleDeletePost}
                     onLoadComments={handleLoadComments}
                     onLoadPostLikes={handleLoadPostLikes}
+                    onSendFriendRequest={handleSendFriendRequest}
+                    onCancelFriendRequest={handleCancelFriendRequest}
+                    onShare={handleSharePost}
+                    onStartChat={handleStartChat}
+                    onToggleCommentLike={handleToggleCommentLike}
+                    onToggleFollowAuthor={handleToggleFollowAuthor}
                     onToggleLike={handleToggleLike}
+                    onToggleSave={handleToggleSave}
                     posts={posts}
                     postsError={postsError}
                     postsLoading={postsLoading}

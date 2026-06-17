@@ -415,7 +415,9 @@ const GamePlatformsPage = () => {
   };
 
   useEffect(() => {
-    void loadPlatforms();
+    Promise.resolve().then(() => {
+      void loadPlatforms();
+    });
 
     return () => {
       requestIdRef.current += 1;

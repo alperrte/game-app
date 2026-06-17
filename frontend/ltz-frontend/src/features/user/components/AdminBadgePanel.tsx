@@ -69,18 +69,18 @@ export function AdminBadgePanel() {
         <p className="text-sm text-zinc-500">Kullanıcılara manuel rozet atayın veya kaldırın.</p>
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+      <div className="flex gap-3">
+        <div className="flex flex-1 items-center gap-2 rounded-xl border border-violet-500/25 bg-slate-950/70 px-4 py-2.5 transition-all duration-200 focus-within:border-violet-500/50 focus-within:bg-slate-950/90 focus-within:ring-1 focus-within:ring-violet-500/50 focus-within:shadow-[0_0_15px_rgba(139,92,246,0.2)]">
           <Search className="h-4 w-4 text-zinc-500" />
           <input
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+            className="flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
             onChange={(event) => setTargetUsername(event.target.value)}
             placeholder="Kullanıcı adı..."
             value={targetUsername}
           />
         </div>
         <button
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50"
+          className="flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-xs font-bold text-white shadow-[0_0_20px_rgba(139,92,246,0.35)] hover:shadow-[0_0_30px_rgba(217,70,239,0.5)] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:shadow-none"
           disabled={loading || !targetUsername.trim()}
           onClick={() => void resolveUser()}
           type="button"

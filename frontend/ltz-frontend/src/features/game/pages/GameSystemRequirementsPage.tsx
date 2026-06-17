@@ -722,26 +722,28 @@ const GameSystemRequirementsPage = () => {
   }, [externalGameQuery]);
 
   useEffect(() => {
-    setRequirement(null);
-    setAllRequirementRows([]);
-    setFormError(null);
+    Promise.resolve().then(() => {
+      setRequirement(null);
+      setAllRequirementRows([]);
+      setFormError(null);
 
-    if (isAllGamesSelected) {
-      if (games.length === 0) {
+      if (isAllGamesSelected) {
+        if (games.length === 0) {
+          setLoadingRequirement(false);
+          return;
+        }
+
+        void loadAllSystemRequirements(games);
+        return;
+      }
+
+      if (selectedGameId === null) {
         setLoadingRequirement(false);
         return;
       }
 
-      void loadAllSystemRequirements(games);
-      return;
-    }
-
-    if (selectedGameId === null) {
-      setLoadingRequirement(false);
-      return;
-    }
-
-    void loadSystemRequirements(selectedGameId);
+      void loadSystemRequirements(selectedGameId);
+    });
   }, [games, isAllGamesSelected, selectedGameId]);
 
   const setField = <TKey extends keyof SystemRequirementRequest>(

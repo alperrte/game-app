@@ -61,6 +61,8 @@ import {
     getUserInitials,
     getUserRoleLabel,
 } from "../../utils/authUserDisplay";
+import { useCurrentUserProfile } from "../../features/user/context/CurrentUserProfileContext";
+import { getImageUrl, isImageValid } from "../../features/user/utils/profileImage";
 
 type NavItem = {
     label: string;
@@ -224,6 +226,7 @@ export function Navbar() {
     const location = useLocation();
 
     const { user } = useAuthStore();
+    const { avatarUrl } = useCurrentUserProfile();
 
     const gameMenuRef = useRef<HTMLDivElement | null>(null);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -281,14 +284,16 @@ export function Navbar() {
             } catch {
                 setPendingRequestCount(0);
             }
-        }, [user?.userId]);
+        }, [user]);
 
     /*
      * İlk yüklemede ve kullanıcı değiştiğinde
      * arkadaşlık isteği sayısını günceller.
      */
     useEffect(() => {
-        void refreshPendingRequestCount();
+        Promise.resolve().then(() => {
+            void refreshPendingRequestCount();
+        });
     }, [refreshPendingRequestCount]);
 
     /*
@@ -352,8 +357,10 @@ export function Navbar() {
      * Route değiştiğinde açık dropdownlar kapatılır.
      */
     useEffect(() => {
-        setIsGameMenuOpen(false);
-        setProfileMenuOpen(false);
+        Promise.resolve().then(() => {
+            setIsGameMenuOpen(false);
+            setProfileMenuOpen(false);
+        });
     }, [location.pathname]);
 
     async function handleLogout() {
@@ -767,26 +774,45 @@ export function Navbar() {
                                     `}
                                 >
                                     <div className="relative">
-                                        <div
-                                            className={`
-                                                grid h-9 w-9
-                                                place-items-center
-                                                rounded-full
-                                                bg-gradient-to-br
-                                                from-violet-300
-                                                to-fuchsia-600
-                                                text-xs font-bold
-                                                text-slate-950
-                                                transition
-                                                ${
-                                                profileMenuOpen
-                                                    ? "scale-105"
-                                                    : ""
-                                            }
-                                            `}
-                                        >
-                                            {initials}
-                                        </div>
+                                        {avatarUrl && isImageValid(avatarUrl) ? (
+                                            <img
+                                                src={getImageUrl(avatarUrl)}
+                                                alt={displayName}
+                                                className={`
+                                                    h-9 w-9
+                                                    rounded-full
+                                                    object-cover
+                                                    border border-white/20
+                                                    transition
+                                                    ${
+                                                    profileMenuOpen
+                                                        ? "scale-105"
+                                                        : ""
+                                                }
+                                                `}
+                                            />
+                                        ) : (
+                                            <div
+                                                className={`
+                                                    grid h-9 w-9
+                                                    place-items-center
+                                                    rounded-full
+                                                    bg-gradient-to-br
+                                                    from-violet-300
+                                                    to-fuchsia-600
+                                                    text-xs font-bold
+                                                    text-slate-950
+                                                    transition
+                                                    ${
+                                                    profileMenuOpen
+                                                        ? "scale-105"
+                                                        : ""
+                                                }
+                                                `}
+                                            >
+                                                {initials}
+                                            </div>
+                                        )}
 
                                         {pendingRequestCount >
                                         0 ? (
