@@ -29,7 +29,6 @@ services:
       retries: 20
       start_period: 30s
 
-
   # -------------------------------
   # 🗃️ DATABASE INITIALIZER
   # -------------------------------
@@ -60,7 +59,6 @@ services:
     env_file:
       - .env
     restart: "no"
-
 
   # -------------------------------
   # 🔐 AUTH SERVICE
@@ -146,7 +144,7 @@ services:
   user-service:
     build: ./backend/user-service
     container_name: ltz-user-service
-    env_file: 
+    env_file:
       - .env
     depends_on:
       mssql:
@@ -197,6 +195,7 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+
       SOCIAL_MEDIA_UPLOAD_DIR: /app/uploads/social-images
       SOCIAL_MEDIA_VIDEO_UPLOAD_DIR: /app/uploads/social-videos
     ports:
@@ -306,7 +305,6 @@ services:
     ports:
       - "${SERVER_PORT_GATEWAY}:${SERVER_PORT_GATEWAY}"
     restart: unless-stopped
-
 
 # -------------------------------
 # 💾 VOLUMES
