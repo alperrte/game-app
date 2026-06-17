@@ -55,6 +55,7 @@ services:
       IF DB_ID('$USER_DB_NAME') IS NULL CREATE DATABASE [$USER_DB_NAME];
       IF DB_ID('$SOCIAL_DB_NAME') IS NULL CREATE DATABASE [$SOCIAL_DB_NAME];
       IF DB_ID('$CONTENT_DB_NAME') IS NULL CREATE DATABASE [$CONTENT_DB_NAME];
+      IF DB_ID('$REVIEW_DB_NAME') IS NULL CREATE DATABASE [$REVIEW_DB_NAME];
       \""
     env_file:
       - .env
@@ -107,7 +108,7 @@ services:
     restart: unless-stopped
 
   # -------------------------------
-  # 🔐 GAME SERVICE
+  # 🎮 GAME SERVICE
   # -------------------------------
 
   game-service:
@@ -134,12 +135,12 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION}
 
       STEAM_API_KEY: ${STEAM_API_KEY}
-
     ports:
       - "${SERVER_PORT_GAME}:${SERVER_PORT_GAME}"
     restart: unless-stopped
-    
-  # 🔐 USER SERVICE
+
+  # -------------------------------
+  # 👤 USER SERVICE
   # -------------------------------
 
   user-service:
@@ -205,6 +206,36 @@ services:
     restart: unless-stopped
 
   # -------------------------------
+  # ⭐ REVIEW SERVICE
+  # -------------------------------
+  review-service:
+    build: ./backend/review-service
+    container_name: ltz-review-service
+    env_file:
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_APPLICATION_NAME: review-service
+      SERVER_PORT: ${SERVER_PORT_REVIEW}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${REVIEW_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+    ports:
+      - "${SERVER_PORT_REVIEW}:${SERVER_PORT_REVIEW}"
+    restart: unless-stopped
+
+  # -------------------------------
   # 👥 CONTENT SERVICE
   # -------------------------------
   content-service:
@@ -254,6 +285,8 @@ services:
         condition: service_started
       social-service:
         condition: service_started
+      review-service:
+        condition: service_started
       content-service:
         condition: service_started
     environment:
@@ -264,6 +297,7 @@ services:
       GAME_SERVICE_URL: ${GAME_SERVICE_URL}
       USER_SERVICE_URL: ${USER_SERVICE_URL}
       SOCIAL_SERVICE_URL: ${SOCIAL_SERVICE_URL}
+      REVIEW_SERVICE_URL: ${REVIEW_SERVICE_URL}
       CONTENT_SERVICE_URL: ${CONTENT_SERVICE_URL}
 
       JWT_SECRET: ${JWT_SECRET}
@@ -272,6 +306,7 @@ services:
     ports:
       - "${SERVER_PORT_GATEWAY}:${SERVER_PORT_GATEWAY}"
     restart: unless-stopped
+
 
 # -------------------------------
 # 💾 VOLUMES
