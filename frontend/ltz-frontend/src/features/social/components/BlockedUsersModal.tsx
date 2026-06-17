@@ -69,11 +69,13 @@ export function BlockedUsersModal({ open, onClose }: BlockedUsersModalProps) {
     } finally {
       setLoading(false);
     }
-  }, [user?.userId]);
+  }, [user]);
 
   useEffect(() => {
     if (!open) return;
-    void loadBlockedUsers();
+    Promise.resolve().then(() => {
+      void loadBlockedUsers();
+    });
   }, [loadBlockedUsers, open]);
 
   async function handleUnblock() {

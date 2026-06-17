@@ -12,7 +12,7 @@ import {
 import { useAuthStore } from "../../../store/authStore";
 import { getImageUrl } from "../../user/utils/profileImage";
 import { userProfileService } from "../../user/services/userProfileService";
-import type { UserProfile } from "../../user/types/userProfile.types";
+import type { UserProfileResponse } from "../../user/types/user";
 import { socialService } from "../services/socialService";
 import type { FriendRequestResponse } from "../types/social.types";
 
@@ -33,7 +33,7 @@ export function FriendRequestsModal({
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [requests, setRequests] = useState<FriendRequestResponse[]>([]);
-  const [profiles, setProfiles] = useState<Map<number, UserProfile>>(new Map());
+  const [profiles, setProfiles] = useState<Map<number, UserProfileResponse>>(new Map());
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export function FriendRequestsModal({
         senderIds.map((userId) => userProfileService.getProfileById(userId)),
       );
 
-      const nextProfiles = new Map<number, UserProfile>();
+      const nextProfiles = new Map<number, UserProfileResponse>();
       profileResults.forEach((result, index) => {
         if (result.status === "fulfilled") {
           const profile = result.value;
@@ -71,11 +71,13 @@ export function FriendRequestsModal({
     } finally {
       setLoading(false);
     }
-  }, [user?.userId]);
+  }, [user]);
 
   useEffect(() => {
     if (!open) return;
-    void loadRequests();
+    Promise.resolve().then(() => {
+      void loadRequests();
+    });
   }, [loadRequests, open]);
 
   async function handleAccept(requestId: number) {

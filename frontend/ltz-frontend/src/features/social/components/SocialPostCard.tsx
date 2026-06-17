@@ -264,9 +264,11 @@ export function SocialPostCard({
   const videoVolumePercent = (isVideoMuted ? 0 : videoVolume) * 100;
 
   useEffect(() => {
-    setIsVideoPlaying(false);
-    setVideoCurrentTime(0);
-    setVideoDuration(0);
+    Promise.resolve().then(() => {
+      setIsVideoPlaying(false);
+      setVideoCurrentTime(0);
+      setVideoDuration(0);
+    });
   }, [activeMedia?.url]);
 
   useEffect(() => {

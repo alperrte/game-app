@@ -53,56 +53,78 @@ export function ProfileSettingsPanel({
   const visibleTabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
   return createPortal(
-    <div className="fixed inset-0 z-[55]">
-      <button
-        aria-label="Ayarları kapat"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 z-0 bg-black/90 backdrop-blur-sm"
         onClick={onClose}
-        type="button"
+        aria-hidden
       />
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col border-l border-violet-500/25 bg-zinc-950 shadow-2xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-5 py-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-panel-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-2xl rounded-3xl border border-violet-500/35 bg-[#050816] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-zinc-900/80 px-6 py-4">
           <div>
-            <h2 className="profile-display-font text-lg font-black text-white">Profil Ayarları</h2>
-            <p className="text-sm text-zinc-500">Gizlilik, hesaplar ve aktivite</p>
+            <h2 id="settings-panel-title" className="text-base font-black text-violet-300 tracking-widest uppercase">
+              Profil Ayarları
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Gizlilik, bağlı hesaplar ve işlem geçmişi</p>
           </div>
           <button
-            className="rounded-lg p-2 text-zinc-400 transition hover:bg-white/5 hover:text-white"
+            className="text-zinc-400 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg cursor-pointer"
             onClick={onClose}
             type="button"
           >
             <X className="h-5 w-5" />
           </button>
-        </header>
-
-        <div className="flex min-h-0 flex-1">
-          <nav className="flex w-36 shrink-0 flex-col gap-1 border-r border-zinc-800 bg-zinc-950/80 p-2">
-            {visibleTabs.map(({ id, label, icon: Icon }) => (
-              <button
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition",
-                  activeTab === id
-                    ? "bg-violet-600/20 text-violet-100 ring-1 ring-violet-500/40"
-                    : "text-zinc-400 hover:bg-white/5 hover:text-white",
-                )}
-                key={id}
-                onClick={() => onTabChange(id)}
-                type="button"
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="leading-tight">{label}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-5">
-            {activeTab === "privacy" ? <PrivacySettingsTab /> : null}
-            {activeTab === "accounts" ? <ConnectedAccountsTab /> : null}
-            {activeTab === "activity" ? <ActivityLogTab /> : null}
-            {activeTab === "admin-badges" && isAdmin ? <AdminBadgePanel /> : null}
-          </div>
         </div>
-      </aside>
+
+        {/* Navigation Tabs */}
+        <nav className="flex shrink-0 gap-1.5 border-b border-zinc-900/80 bg-zinc-950/40 p-3 overflow-x-auto scrollbar-none">
+          {visibleTabs.map(({ id, label, icon: Icon }) => (
+            <button
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition whitespace-nowrap cursor-pointer",
+                activeTab === id
+                  ? "bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 text-violet-300 ring-1 ring-violet-500/40 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-white"
+              )}
+              key={id}
+              onClick={() => onTabChange(id)}
+              type="button"
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Tab Content Area */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-zinc-800">
+          {activeTab === "privacy" ? <PrivacySettingsTab /> : null}
+          {activeTab === "accounts" ? <ConnectedAccountsTab /> : null}
+          {activeTab === "activity" ? <ActivityLogTab /> : null}
+          {activeTab === "admin-badges" && isAdmin ? <AdminBadgePanel /> : null}
+        </div>
+
+        {/* Footer */}
+        <div className="flex shrink-0 items-center justify-between border-t border-zinc-900/80 px-6 py-4 bg-zinc-950/20">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+            Tüm değişiklikler otomatik olarak kaydedilir
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-zinc-800 bg-white/[0.02] px-5 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/[0.05] transition-colors cursor-pointer"
+          >
+            Kapat
+          </button>
+        </div>
+      </div>
     </div>,
     document.body,
   );

@@ -213,13 +213,17 @@ export function SocialComposer({
   useEffect(() => {
     if (!pickerOpen || pickerOpen === "platform") return;
 
-    setGamePickerPage(1);
+    Promise.resolve().then(() => {
+      setGamePickerPage(1);
+    });
   }, [pickerOpen, pickerQuery]);
 
   useEffect(() => {
     if (gamePickerPage <= gamePickerTotalPages) return;
 
-    setGamePickerPage(gamePickerTotalPages);
+    Promise.resolve().then(() => {
+      setGamePickerPage(gamePickerTotalPages);
+    });
   }, [gamePickerPage, gamePickerTotalPages]);
 
   useEffect(() => {
@@ -234,12 +238,16 @@ export function SocialComposer({
     if (previewModalIndex === null) return;
 
     if (selectedMedia.length === 0) {
-      setPreviewModalIndex(null);
+      Promise.resolve().then(() => {
+        setPreviewModalIndex(null);
+      });
       return;
     }
 
     if (previewModalIndex >= selectedMedia.length) {
-      setPreviewModalIndex(selectedMedia.length - 1);
+      Promise.resolve().then(() => {
+        setPreviewModalIndex(selectedMedia.length - 1);
+      });
     }
   }, [previewModalIndex, selectedMedia.length]);
 

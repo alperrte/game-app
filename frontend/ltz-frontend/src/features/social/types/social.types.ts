@@ -1,4 +1,3 @@
-```ts
 import type { LucideIcon } from "lucide-react";
 
 export type SocialFeedTab =
@@ -303,4 +302,3 @@ export interface OnlineFriend {
   avatarUrl: string;
   status: "online" | "playing";
 }
-```

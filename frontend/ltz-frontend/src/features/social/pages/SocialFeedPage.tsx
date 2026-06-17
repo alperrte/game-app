@@ -666,7 +666,7 @@ function normalizeList<T>(value: unknown): T[] {
 }
 
 export default function SocialFeedPage() {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
   const { displayName, avatarUrl } = useCurrentUserProfile();
   const navigate = useNavigate();
   const savedPostStorageKey = useMemo(

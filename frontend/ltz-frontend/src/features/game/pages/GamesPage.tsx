@@ -455,14 +455,17 @@ const GamesPage = () => {
   };
 
   useEffect(() => {
-    void fetchManualGames("STEAM");
-    void fetchCategoryOptions("STEAM");
-    void runSearch("", "STEAM", 1, perPage, ALL_CATEGORIES_VALUE);
+    void Promise.resolve().then(() => {
+      void fetchManualGames("STEAM");
+      void fetchCategoryOptions("STEAM");
+      void runSearch("", "STEAM", 1, perPage, ALL_CATEGORIES_VALUE);
+    });
 
     return () => {
       clearScheduledSearch();
       requestIdRef.current += 1;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

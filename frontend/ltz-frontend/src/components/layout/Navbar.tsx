@@ -281,14 +281,16 @@ export function Navbar() {
             } catch {
                 setPendingRequestCount(0);
             }
-        }, [user?.userId]);
+        }, [user]);
 
     /*
      * İlk yüklemede ve kullanıcı değiştiğinde
      * arkadaşlık isteği sayısını günceller.
      */
     useEffect(() => {
-        void refreshPendingRequestCount();
+        Promise.resolve().then(() => {
+            void refreshPendingRequestCount();
+        });
     }, [refreshPendingRequestCount]);
 
     /*
@@ -352,8 +354,10 @@ export function Navbar() {
      * Route değiştiğinde açık dropdownlar kapatılır.
      */
     useEffect(() => {
-        setIsGameMenuOpen(false);
-        setProfileMenuOpen(false);
+        Promise.resolve().then(() => {
+            setIsGameMenuOpen(false);
+            setProfileMenuOpen(false);
+        });
     }, [location.pathname]);
 
     async function handleLogout() {

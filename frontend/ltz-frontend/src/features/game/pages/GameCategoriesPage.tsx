@@ -492,7 +492,9 @@ const GameCategoriesPage = () => {
 
   useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+      Promise.resolve().then(() => {
+        setCurrentPage(totalPages);
+      });
     }
   }, [currentPage, totalPages]);
 
