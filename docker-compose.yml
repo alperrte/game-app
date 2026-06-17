@@ -53,6 +53,7 @@ services:
       IF DB_ID('$GAME_DB_NAME') IS NULL CREATE DATABASE [$GAME_DB_NAME]; 
       IF DB_ID('$USER_DB_NAME') IS NULL CREATE DATABASE [$USER_DB_NAME];
       IF DB_ID('$SOCIAL_DB_NAME') IS NULL CREATE DATABASE [$SOCIAL_DB_NAME];
+      IF DB_ID('$CONTENT_DB_NAME') IS NULL CREATE DATABASE [$CONTENT_DB_NAME];
       IF DB_ID('$REVIEW_DB_NAME') IS NULL CREATE DATABASE [$REVIEW_DB_NAME];
       \""
     env_file:
@@ -206,7 +207,6 @@ services:
   # -------------------------------
   # ⭐ REVIEW SERVICE
   # -------------------------------
-
   review-service:
     build: ./backend/review-service
     container_name: ltz-review-service
@@ -235,6 +235,38 @@ services:
     restart: unless-stopped
 
   # -------------------------------
+  # 👥 CONTENT SERVICE
+  # -------------------------------
+  content-service:
+    build: ./backend/content-service
+    container_name: ltz-content-service
+    env_file: 
+      - .env
+    depends_on:
+      mssql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${SERVER_PORT_CONTENT}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${CONTENT_DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+    ports:
+      - "${SERVER_PORT_CONTENT}:${SERVER_PORT_CONTENT}"
+    # Eğer dosya yükleme yapmayacaksanız volumes kısmını silebilirsiniz veya kendi klasörünü verebilirsiniz:
+    volumes:
+      - ./backend/content-service/uploads:/app/uploads
+    restart: unless-stopped
+
+  # -------------------------------
   # 🚪 API GATEWAY
   # -------------------------------
 
@@ -254,16 +286,18 @@ services:
         condition: service_started
       review-service:
         condition: service_started
+      content-service:
+        condition: service_started
     environment:
       SERVER_PORT: ${SERVER_PORT_GATEWAY}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
 
-      # SERVİSLERİN API GATEWAY İÇİN KENDİ URL'LERİ
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
       GAME_SERVICE_URL: ${GAME_SERVICE_URL}
       USER_SERVICE_URL: ${USER_SERVICE_URL}
       SOCIAL_SERVICE_URL: ${SOCIAL_SERVICE_URL}
       REVIEW_SERVICE_URL: ${REVIEW_SERVICE_URL}
+      CONTENT_SERVICE_URL: ${CONTENT_SERVICE_URL}
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
