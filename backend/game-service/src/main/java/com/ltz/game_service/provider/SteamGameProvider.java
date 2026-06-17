@@ -44,6 +44,28 @@ public class SteamGameProvider implements ExternalGameProvider {
     private static final Duration STEAM_APP_LIST_CACHE_TTL = Duration.ofHours(6);
     private static final Duration STEAM_TAG_CACHE_TTL = Duration.ofHours(6);
 
+    private static final List<String> BLOCKED_ADULT_TAG_KEYWORDS = List.of(
+            "adult",
+            "adults only",
+            "hentai",
+            "nsfw",
+            "sexual",
+            "sexual content",
+            "nudity",
+            "nude",
+            "erotic",
+            "sex",
+            "porn",
+            "pornography",
+            "mature",
+            "mature content",
+            "dating sim",
+            "visual novel",
+            "anime sexual",
+            "18+",
+            "xxx"
+    );
+
     private static final List<String> POPULAR_SEARCH_TERMS = List.of(
             "counter",
             "gta",
@@ -253,6 +275,7 @@ public class SteamGameProvider implements ExternalGameProvider {
                 .stream()
                 .filter(item -> item.getId() != null)
                 .filter(item -> item.getName() != null && !item.getName().isBlank())
+                .filter(item -> !isBlockedAdultGameTitle(item.getName()))
                 .limit(SEARCH_RESULT_LIMIT)
                 .map(item -> new ExternalGameSearchResponse(
                         GameSource.STEAM,
@@ -316,12 +339,22 @@ public class SteamGameProvider implements ExternalGameProvider {
 
     @Override
     public ExternalGamePageResponse getGames(int page, int size, String tag) {
-        if (tag == null || tag.isBlank()) {
-            return getGames(page, size);
-        }
-
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+
+        if (tag == null || tag.isBlank()) {
+            return getGames(safePage, safeSize);
+        }
+
+        if (isBlockedAdultTag(tag)) {
+            return new ExternalGamePageResponse(
+                    List.of(),
+                    safePage,
+                    safeSize,
+                    0,
+                    0
+            );
+        }
 
         return fetchSteamGamesByTag(tag, safePage, safeSize);
     }
@@ -335,6 +368,10 @@ public class SteamGameProvider implements ExternalGameProvider {
         }
 
         SteamAppDetailsResponse.SteamGameData data = steamResponse.getData();
+
+        if (isBlockedAdultGameTitle(data.getName())) {
+            throw new RuntimeException("Bu oyun platform içerik filtresi nedeniyle gösterilemiyor.");
+        }
 
         return new ExternalGameDetailResponse(
                 GameSource.STEAM,
@@ -359,6 +396,9 @@ public class SteamGameProvider implements ExternalGameProvider {
     @Override
     public List<ExternalGameCategoryResponse> getCategories(String query) {
         return STEAM_CATEGORIES.stream()
+                .filter(category -> !isBlockedAdultTag(category.externalId()))
+                .filter(category -> !isBlockedAdultTag(category.name()))
+                .filter(category -> !isBlockedAdultTag(category.searchTerm()))
                 .filter(category -> matchesCategoryQuery(category, query))
                 .map(category -> {
                     SteamCategoryStats stats = getSteamCategoryStats(category.searchTerm());
@@ -470,6 +510,10 @@ public class SteamGameProvider implements ExternalGameProvider {
                 ));
 
         for (ExternalGameTagResponse enrichedTag : enrichedTags) {
+            if (isBlockedAdultTag(enrichedTag.getName()) || isBlockedAdultTag(enrichedTag.getExternalId())) {
+                continue;
+            }
+
             ExternalGameTagResponse currentTag = currentTagsById.get(enrichedTag.getExternalId());
 
             if (currentTag == null) {
@@ -546,6 +590,10 @@ public class SteamGameProvider implements ExternalGameProvider {
                     continue;
                 }
 
+                if (isBlockedAdultGameTitle(title)) {
+                    continue;
+                }
+
                 games.add(new ExternalGameSearchResponse(
                         GameSource.STEAM,
                         externalId,
@@ -581,6 +629,16 @@ public class SteamGameProvider implements ExternalGameProvider {
         String normalizedTag = tag.trim();
         int start = Math.max(0, (page - 1) * size);
 
+        if (isBlockedAdultTag(normalizedTag)) {
+            return new ExternalGamePageResponse(
+                    List.of(),
+                    page,
+                    size,
+                    0,
+                    0
+            );
+        }
+
         SteamTagSearchParam tagSearchParam = resolveSteamTagSearchParam(normalizedTag);
 
         try {
@@ -614,13 +672,13 @@ public class SteamGameProvider implements ExternalGameProvider {
                     "count"
             );
 
-            int totalItems = totalCount != null && totalCount > 0 ? totalCount : 0;
+            String resultsHtml = rootNode.path("results_html").asText(null);
+            List<ExternalGameSearchResponse> games = parseSteamSearchResultsHtml(resultsHtml);
+
+            int totalItems = totalCount != null && totalCount > 0 ? totalCount : games.size();
             int totalPages = totalItems == 0
                     ? 0
                     : (int) Math.ceil((double) totalItems / size);
-
-            String resultsHtml = rootNode.path("results_html").asText(null);
-            List<ExternalGameSearchResponse> games = parseSteamSearchResultsHtml(resultsHtml);
 
             return new ExternalGamePageResponse(
                     games,
@@ -645,6 +703,8 @@ public class SteamGameProvider implements ExternalGameProvider {
                                     || normalizeText(steamTag.getExternalId()).equals(normalizedSelectedTag)
                     )
                     .filter(steamTag -> steamTag.getExternalId() != null && !steamTag.getExternalId().isBlank())
+                    .filter(steamTag -> !isBlockedAdultTag(steamTag.getName()))
+                    .filter(steamTag -> !isBlockedAdultTag(steamTag.getExternalId()))
                     .filter(steamTag -> isNumeric(steamTag.getExternalId()))
                     .findFirst()
                     .map(steamTag -> new SteamTagSearchParam("tags", steamTag.getExternalId()))
@@ -672,6 +732,10 @@ public class SteamGameProvider implements ExternalGameProvider {
             String title = extractSteamSearchResultTitle(resultHtml);
 
             if (externalId == null || externalId.isBlank() || title == null || title.isBlank()) {
+                continue;
+            }
+
+            if (isBlockedAdultGameTitle(title)) {
                 continue;
             }
 
@@ -731,6 +795,10 @@ public class SteamGameProvider implements ExternalGameProvider {
                     String externalId = tagIdNode != null && !tagIdNode.isNull()
                             ? tagIdNode.asText()
                             : slugify(name);
+
+                    if (isBlockedAdultTag(name) || isBlockedAdultTag(externalId)) {
+                        continue;
+                    }
 
                     Integer gameCount = readOptionalInt(
                             tagNode,
@@ -794,6 +862,12 @@ public class SteamGameProvider implements ExternalGameProvider {
 
                 String externalId = slugify(rawTagValue);
 
+                if (isBlockedAdultTag(name)
+                        || isBlockedAdultTag(externalId)
+                        || isBlockedAdultTag(rawTagValue)) {
+                    continue;
+                }
+
                 boolean shouldEnrich =
                         tagsByExternalId.size() < INITIAL_TAG_ENRICHMENT_LIMIT
                                 || (allowBackgroundEnrichment
@@ -826,6 +900,8 @@ public class SteamGameProvider implements ExternalGameProvider {
 
     private List<ExternalGameTagResponse> sortAndDeduplicateTags(List<ExternalGameTagResponse> tags) {
         return tags.stream()
+                .filter(tag -> !isBlockedAdultTag(tag.getName()))
+                .filter(tag -> !isBlockedAdultTag(tag.getExternalId()))
                 .collect(Collectors.toMap(
                         ExternalGameTagResponse::getExternalId,
                         tag -> tag,
@@ -1054,6 +1130,21 @@ public class SteamGameProvider implements ExternalGameProvider {
                 && tag.getGameCount() > 0;
     }
 
+    private boolean isBlockedAdultTag(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        String normalizedValue = normalizeText(value);
+
+        return BLOCKED_ADULT_TAG_KEYWORDS.stream()
+                .anyMatch(keyword -> normalizedValue.contains(normalizeText(keyword)));
+    }
+
+    private boolean isBlockedAdultGameTitle(String title) {
+        return isBlockedAdultTag(title);
+    }
+
     private boolean isNumeric(String value) {
         return value != null && value.matches("\\d+");
     }
@@ -1106,6 +1197,7 @@ public class SteamGameProvider implements ExternalGameProvider {
                 .stream()
                 .filter(item -> item.getId() != null)
                 .filter(item -> item.getName() != null && !item.getName().isBlank())
+                .filter(item -> !isBlockedAdultGameTitle(item.getName()))
                 .map(item -> buildSteamHeaderImageUrl(item.getId()))
                 .findFirst()
                 .orElse(null);

@@ -12,12 +12,36 @@ import com.ltz.game_service.provider.ExternalGameProvider;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 public class ExternalGameService {
+
+    private static final List<String> BLOCKED_ADULT_CONTENT_KEYWORDS = List.of(
+            "adult",
+            "adults only",
+            "hentai",
+            "nsfw",
+            "sexual",
+            "sexual content",
+            "nudity",
+            "nude",
+            "erotic",
+            "sex",
+            "porn",
+            "pornography",
+            "mature",
+            "mature content",
+            "dating sim",
+            "visual novel",
+            "anime sexual",
+            "18+",
+            "xxx"
+    );
 
     private final Map<GameSource, ExternalGameProvider> providers;
 
@@ -35,7 +59,10 @@ public class ExternalGameService {
             unless = "#result == null"
     )
     public List<ExternalGameSearchResponse> search(GameSource source, String query) {
-        return getProvider(source).searchGames(query);
+        return getProvider(source).searchGames(query)
+                .stream()
+                .filter(game -> !isBlockedAdultContent(game.getTitle()))
+                .collect(Collectors.toList());
     }
 
     @Cacheable(
@@ -44,7 +71,10 @@ public class ExternalGameService {
             unless = "#result == null"
     )
     public List<ExternalGameSearchResponse> getPopularGames(GameSource source) {
-        return getProvider(source).getPopularGames();
+        return getProvider(source).getPopularGames()
+                .stream()
+                .filter(game -> !isBlockedAdultContent(game.getTitle()))
+                .collect(Collectors.toList());
     }
 
     @Cacheable(
@@ -62,11 +92,18 @@ public class ExternalGameService {
             unless = "#result == null"
     )
     public ExternalGamePageResponse getGames(GameSource source, int page, int size, String tag) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+
         if (tag == null || tag.isBlank()) {
-            return getProvider(source).getGames(page, size);
+            return getProvider(source).getGames(safePage, safeSize);
         }
 
-        return getProvider(source).getGames(page, size, tag);
+        if (isBlockedAdultContent(tag)) {
+            return emptyGamePage(safePage, safeSize);
+        }
+
+        return getProvider(source).getGames(safePage, safeSize, tag);
     }
 
     @Cacheable(
@@ -75,7 +112,13 @@ public class ExternalGameService {
             unless = "#result == null"
     )
     public ExternalGameDetailResponse getDetail(GameSource source, String externalId) {
-        return getProvider(source).getGameDetail(externalId);
+        ExternalGameDetailResponse detail = getProvider(source).getGameDetail(externalId);
+
+        if (detail != null && isBlockedAdultContent(detail.getTitle())) {
+            throw new RuntimeException("Bu oyun platform içerik filtresi nedeniyle gösterilemiyor.");
+        }
+
+        return detail;
     }
 
     @Cacheable(
@@ -84,11 +127,19 @@ public class ExternalGameService {
             unless = "#result == null"
     )
     public List<ExternalGameCategoryResponse> getCategories(GameSource source, String query) {
-        return getProvider(source).getCategories(query);
+        return getProvider(source).getCategories(query)
+                .stream()
+                .filter(category -> !isBlockedAdultContent(category.getName()))
+                .filter(category -> !isBlockedAdultContent(category.getExternalId()))
+                .collect(Collectors.toList());
     }
 
     public List<ExternalGameTagResponse> getTags(GameSource source) {
-        return getProvider(source).getTags();
+        return getProvider(source).getTags()
+                .stream()
+                .filter(tag -> !isBlockedAdultContent(tag.getName()))
+                .filter(tag -> !isBlockedAdultContent(tag.getExternalId()))
+                .collect(Collectors.toList());
     }
 
     @Cacheable(
@@ -111,5 +162,38 @@ public class ExternalGameService {
         }
 
         return provider;
+    }
+
+    private boolean isBlockedAdultContent(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        String normalizedValue = normalizeText(value);
+
+        return BLOCKED_ADULT_CONTENT_KEYWORDS.stream()
+                .anyMatch(keyword -> normalizedValue.contains(normalizeText(keyword)));
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return Normalizer.normalize(value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace("ı", "i")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private ExternalGamePageResponse emptyGamePage(int page, int size) {
+        return new ExternalGamePageResponse(
+                List.of(),
+                page,
+                size,
+                0,
+                0
+        );
     }
 }
