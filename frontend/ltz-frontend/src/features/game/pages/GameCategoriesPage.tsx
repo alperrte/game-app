@@ -25,6 +25,28 @@ type CategoryOrigin = "external" | "manual";
 const DEFAULT_PAGE_SIZE = 12;
 const PAGINATION_WINDOW_SIZE = 30;
 
+const BLOCKED_ADULT_CONTENT_KEYWORDS = [
+  "adult",
+  "adults only",
+  "hentai",
+  "nsfw",
+  "sexual",
+  "sexual content",
+  "nudity",
+  "nude",
+  "erotic",
+  "sex",
+  "porn",
+  "pornography",
+  "mature",
+  "mature content",
+  "dating sim",
+  "visual novel",
+  "anime sexual",
+  "18+",
+  "xxx",
+];
+
 type CategoryListItem = {
   dataSource: string;
   description: string;
@@ -42,6 +64,53 @@ const initialForm: GameCategoryRequest = {
   source: "STEAM",
   name: "",
   description: "",
+};
+
+const normalizeBlockedContentText = (value: string) => {
+  return value
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replaceAll("ı", "i")
+      .toLocaleLowerCase("tr-TR")
+      .replace(/\s+/g, " ")
+      .trim();
+};
+
+const isBlockedAdultContent = (value: string | null | undefined) => {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  const normalizedValue = normalizeBlockedContentText(value);
+
+  return BLOCKED_ADULT_CONTENT_KEYWORDS.some((keyword) =>
+      normalizedValue.includes(normalizeBlockedContentText(keyword))
+  );
+};
+
+const isBlockedCategoryItem = (category: CategoryListItem) => {
+  return (
+      isBlockedAdultContent(category.name) ||
+      isBlockedAdultContent(category.description) ||
+      isBlockedAdultContent(category.externalId) ||
+      isBlockedAdultContent(category.dataSource)
+  );
+};
+
+const isBlockedExternalTag = (category: ExternalGameTag) => {
+  return (
+      isBlockedAdultContent(category.name) ||
+      isBlockedAdultContent(category.description) ||
+      isBlockedAdultContent(category.externalId) ||
+      isBlockedAdultContent(category.sourceProvider)
+  );
+};
+
+const isBlockedManualCategory = (category: GameCategory) => {
+  return (
+      isBlockedAdultContent(category.name) ||
+      isBlockedAdultContent(category.description)
+  );
 };
 
 const statusBadgeClass = (status: string) => {
@@ -330,7 +399,7 @@ const GameCategoriesPage = () => {
       const results = await getExternalGameTags(nextSource);
 
       if (requestIdRef.current === requestId) {
-        setCategories(results);
+        setCategories(results.filter((category) => !isBlockedExternalTag(category)));
       }
     } catch (categoryError) {
       if (requestIdRef.current === requestId) {
@@ -356,7 +425,9 @@ const GameCategoriesPage = () => {
 
     try {
       const results = await getGameCategories(nextSource);
-      setManualCategories(results);
+      setManualCategories(
+          results.filter((category) => !isBlockedManualCategory(category))
+      );
     } catch (manualCategoryError) {
       setManualCategories([]);
       setManualError(
@@ -383,10 +454,15 @@ const GameCategoriesPage = () => {
   }, []);
 
   const combinedCategories = useMemo(
-      () => [
-        ...categories.map(toExternalCategoryItem),
-        ...manualCategories.map(toManualCategoryItem),
-      ],
+      () =>
+          [
+            ...categories
+                .filter((category) => !isBlockedExternalTag(category))
+                .map(toExternalCategoryItem),
+            ...manualCategories
+                .filter((category) => !isBlockedManualCategory(category))
+                .map(toManualCategoryItem),
+          ].filter((category) => !isBlockedCategoryItem(category)),
       [categories, manualCategories]
   );
 
@@ -417,6 +493,10 @@ const GameCategoriesPage = () => {
     const normalizedSearch = search.trim().toLocaleLowerCase("tr");
 
     const filtered = combinedCategories.filter((category) => {
+      if (isBlockedCategoryItem(category)) {
+        return false;
+      }
+
       const searchableText = [
         category.name,
         category.description,
@@ -574,6 +654,14 @@ const GameCategoriesPage = () => {
 
     if (!request.name) {
       setFormNotice("Kategori adı zorunludur.");
+      return;
+    }
+
+    if (
+        isBlockedAdultContent(request.name) ||
+        isBlockedAdultContent(request.description)
+    ) {
+      setFormNotice("Bu kategori yetişkin içerik filtresi nedeniyle eklenemez.");
       return;
     }
 

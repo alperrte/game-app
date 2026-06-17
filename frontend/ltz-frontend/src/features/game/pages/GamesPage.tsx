@@ -33,6 +33,28 @@ const PAGINATION_WINDOW_SIZE = 30;
 const ALL_CATEGORIES_VALUE = "all";
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
 
+const BLOCKED_ADULT_CONTENT_KEYWORDS = [
+  "adult",
+  "adults only",
+  "hentai",
+  "nsfw",
+  "sexual",
+  "sexual content",
+  "nudity",
+  "nude",
+  "erotic",
+  "sex",
+  "porn",
+  "pornography",
+  "mature",
+  "mature content",
+  "dating sim",
+  "visual novel",
+  "anime sexual",
+  "18+",
+  "xxx",
+];
+
 type GameListItem =
     | {
   game: ExternalGameSearchResponse;
@@ -76,6 +98,52 @@ const sourceLabel = (source: GameSource) => {
 
 const normalizeCategory = (value: string) => {
   return value.trim().toLocaleLowerCase("tr-TR");
+};
+
+const normalizeBlockedContentText = (value: string) => {
+  return value
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replaceAll("ı", "i")
+      .toLocaleLowerCase("tr-TR")
+      .replace(/\s+/g, " ")
+      .trim();
+};
+
+const isBlockedAdultContent = (value: string | null | undefined) => {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  const normalizedValue = normalizeBlockedContentText(value);
+
+  return BLOCKED_ADULT_CONTENT_KEYWORDS.some((keyword) =>
+      normalizedValue.includes(normalizeBlockedContentText(keyword))
+  );
+};
+
+const isBlockedAdultCategory = (category: CategoryOption) => {
+  return (
+      isBlockedAdultContent(category.name) ||
+      isBlockedAdultContent(category.externalId?.toString())
+  );
+};
+
+const isBlockedExternalGame = (game: ExternalGameSearchResponse) => {
+  return isBlockedAdultContent(game.title);
+};
+
+const isBlockedManualGame = (game: Game) => {
+  const searchableText = [
+    game.title,
+    game.description,
+    game.genre,
+    game.categoryName,
+  ]
+      .filter(Boolean)
+      .join(" ");
+
+  return isBlockedAdultContent(searchableText);
 };
 
 const getSelectedCategoryTag = (selectedCategory: string) => {
@@ -180,7 +248,7 @@ const mergeCategoryOptions = (options: CategoryOption[]) => {
   options.forEach((option) => {
     const categoryName = option.name.trim();
 
-    if (!categoryName) {
+    if (!categoryName || isBlockedAdultCategory(option)) {
       return;
     }
 
@@ -310,7 +378,7 @@ const GamesPage = () => {
 
     try {
       const results = await getGamesByFilter({ source: nextSource });
-      setManualGames(results);
+      setManualGames(results.filter((game) => !isBlockedManualGame(game)));
     } catch (manualGamesLoadError) {
       setManualGames([]);
       setManualGamesError(
@@ -329,7 +397,9 @@ const GamesPage = () => {
     setFormError(null);
 
     try {
-      const results = await getGameCategories(nextSource);
+      const results = await getGameCategories(nextSource).then((categories) =>
+          categories.filter((category) => !isBlockedAdultContent(category.name))
+      );
 
       setFormCategories(results);
       setGameForm((currentForm) => ({
@@ -363,12 +433,16 @@ const GamesPage = () => {
 
     const externalOptions =
         externalCategoriesResult.status === "fulfilled"
-            ? externalCategoriesResult.value.map(toExternalCategoryOption)
+            ? externalCategoriesResult.value
+                .map(toExternalCategoryOption)
+                .filter((category) => !isBlockedAdultCategory(category))
             : [];
 
     const manualOptions =
         manualCategoriesResult.status === "fulfilled"
-            ? manualCategoriesResult.value.map(toManualCategoryOption)
+            ? manualCategoriesResult.value
+                .map(toManualCategoryOption)
+                .filter((category) => !isBlockedAdultCategory(category))
             : [];
 
     setCategoryOptions(mergeCategoryOptions([...externalOptions, ...manualOptions]));
@@ -402,12 +476,15 @@ const GamesPage = () => {
     try {
       if (trimmedQuery) {
         const searchResults = await searchExternalGames(nextSource, trimmedQuery);
+        const safeSearchResults = searchResults.filter(
+            (game) => !isBlockedExternalGame(game)
+        );
 
         if (requestIdRef.current === requestId) {
-          setGames(searchResults);
-          setExternalTotalItems(searchResults.length);
+          setGames(safeSearchResults);
+          setExternalTotalItems(safeSearchResults.length);
           setExternalTotalPages(
-              Math.max(1, Math.ceil(searchResults.length / nextPerPage))
+              Math.max(1, Math.ceil(safeSearchResults.length / nextPerPage))
           );
           setPage(1);
         }
@@ -422,9 +499,17 @@ const GamesPage = () => {
           selectedTag
       );
 
+      const safeApps = appsPage.items.filter(
+          (game) => !isBlockedExternalGame(game)
+      );
+
       if (requestIdRef.current === requestId) {
-        setGames(appsPage.items);
-        setExternalTotalItems(appsPage.totalItems);
+        setGames(safeApps);
+        setExternalTotalItems(
+            safeApps.length < appsPage.items.length
+                ? safeApps.length
+                : appsPage.totalItems
+        );
         setExternalTotalPages(Math.max(1, appsPage.totalPages));
         setPage(appsPage.page);
       }
@@ -512,6 +597,10 @@ const GamesPage = () => {
   };
 
   const handleCategorySelect = (category: CategoryOption) => {
+    if (isBlockedAdultCategory(category)) {
+      return;
+    }
+
     setSelectedCategory(category.name);
     setCategorySearchTerm(category.name);
     setIsCategoryDropdownOpen(false);
@@ -604,6 +693,11 @@ const GamesPage = () => {
       return;
     }
 
+    if (isBlockedAdultContent(request.title) || isBlockedAdultContent(request.genre)) {
+      setFormError("Bu oyun yetişkin içerik filtresi nedeniyle eklenemez.");
+      return;
+    }
+
     if (formCategories.length === 0) {
       setFormError("Bu platform için önce kategori eklemelisin.");
       return;
@@ -637,11 +731,15 @@ const GamesPage = () => {
   const filteredCategoryOptions = useMemo(() => {
     const normalizedSearchTerm = normalizeCategory(categorySearchTerm);
 
+    const safeCategoryOptions = categoryOptions.filter(
+        (category) => !isBlockedAdultCategory(category)
+    );
+
     if (!normalizedSearchTerm) {
-      return categoryOptions;
+      return safeCategoryOptions;
     }
 
-    return categoryOptions.filter((category) =>
+    return safeCategoryOptions.filter((category) =>
         normalizeCategory(category.name).includes(normalizedSearchTerm)
     );
   }, [categoryOptions, categorySearchTerm]);
@@ -649,8 +747,12 @@ const GamesPage = () => {
   const manualGamesForList = useMemo(() => {
     const trimmedQuery = query.trim().toLocaleLowerCase("tr-TR");
 
+    const safeManualGames = manualGames.filter(
+        (game) => !isBlockedManualGame(game)
+    );
+
     const filteredByQuery = trimmedQuery
-        ? manualGames.filter((game) => {
+        ? safeManualGames.filter((game) => {
           const searchableText = [
             game.title,
             game.description,
@@ -666,7 +768,7 @@ const GamesPage = () => {
 
           return searchableText.includes(trimmedQuery);
         })
-        : manualGames;
+        : safeManualGames;
 
     const filteredByCategory = isCategoryFilterActive
         ? filteredByQuery.filter((game) => hasCategoryMatch(game, selectedCategory))
@@ -681,11 +783,15 @@ const GamesPage = () => {
 
   const listedGames = useMemo<GameListItem[]>(
       () => [
-        ...games.map((game) => ({ game, origin: "external" as const })),
-        ...manualGamesForList.map((game) => ({
-          game,
-          origin: "manual" as const,
-        })),
+        ...games
+            .filter((game) => !isBlockedExternalGame(game))
+            .map((game) => ({ game, origin: "external" as const })),
+        ...manualGamesForList
+            .filter((game) => !isBlockedManualGame(game))
+            .map((game) => ({
+              game,
+              origin: "manual" as const,
+            })),
       ],
       [games, manualGamesForList]
   );
