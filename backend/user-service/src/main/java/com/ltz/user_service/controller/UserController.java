@@ -1,5 +1,7 @@
 package com.ltz.user_service.controller;
 
+import com.ltz.user_service.client.AuthServiceClient;
+import com.ltz.user_service.dto.client.response.UserInfoResponse;
 import com.ltz.user_service.dto.request.ConnectedAccountRequest;
 import com.ltz.user_service.dto.request.PrivacySettingsRequest;
 import com.ltz.user_service.dto.request.UserProfileRequest;
@@ -34,10 +36,14 @@ import java.util.List;
 public class UserController {
 
     private final UserProfileService userProfileService;
+    private final AuthServiceClient authServiceClient;
     private final HttpServletRequest httpServletRequest;
 
-    public UserController(UserProfileService userProfileService, HttpServletRequest httpServletRequest) {
+    public UserController(UserProfileService userProfileService,
+                          AuthServiceClient authServiceClient,
+                          HttpServletRequest httpServletRequest) {
         this.userProfileService = userProfileService;
+        this.authServiceClient = authServiceClient;
         this.httpServletRequest = httpServletRequest;
     }
 
@@ -71,6 +77,10 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getMyProfile(@AuthenticationPrincipal JwtUserPrincipal principal) {
         String userId = userId(principal);
+        if (!userProfileService.profileExists(userId)) {
+            UserInfoResponse authUser = authServiceClient.getUserById(principal.userId());
+            userProfileService.createOrUpdateProfile(userId, authUser.getUsername(), authUser.getEmail(), null, getClientContext());
+        }
         userProfileService.syncRoleFromJwt(userId, principal.role());
         userProfileService.touchLastSeenIfNeeded(userId);
         return ResponseEntity.ok(userProfileService.getProfile(userId));
@@ -86,11 +96,10 @@ public class UserController {
             @RequestParam(required = false) String email,
             @Valid @RequestBody(required = false) UserProfileRequest request
     ) {
-        String principalUsername = principal.username() != null ? principal.username() : username;
-        String principalEmail = principal.email() != null ? principal.email() : email;
         String uid = userId(principal);
-        userProfileService.syncRoleFromJwt(uid, principal.role());
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(uid, principalUsername, principalEmail, request, getClientContext()));
+        UserInfoResponse authUser = authServiceClient.getUserById(principal.userId());
+        userProfileService.syncRoleFromJwt(uid, authUser.getRole());
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(uid, authUser.getUsername(), authUser.getEmail(), request, getClientContext()));
     }
 
     /**
@@ -102,9 +111,9 @@ public class UserController {
             @Valid @RequestBody UserProfileRequest request
     ) {
         String userId = userId(principal);
-        userProfileService.syncRoleFromJwt(userId, principal.role());
-        UserProfileResponse existing = userProfileService.getProfile(userId);
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientContext()));
+        UserInfoResponse authUser = authServiceClient.getUserById(principal.userId());
+        userProfileService.syncRoleFromJwt(userId, authUser.getRole());
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, authUser.getUsername(), authUser.getEmail(), request, getClientContext()));
     }
 
     /**

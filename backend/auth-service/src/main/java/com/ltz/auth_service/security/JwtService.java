@@ -117,8 +117,8 @@ public class JwtService {
     /*
      * JWT imzalama anahtarını hazırlar.
      *
-     * Not:
-     * jjwt 0.11.5 için secret değeri Base64 formatında olmalı.
+     * JWT_SECRET env değişkeni düz metin (plain string) olarak verilmelidir.
+     * HMAC-SHA256 için en az 32 karakter (256 bit) uzunluğunda olması zorunludur.
      */
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());

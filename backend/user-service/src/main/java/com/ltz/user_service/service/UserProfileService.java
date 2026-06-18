@@ -116,6 +116,11 @@ public class UserProfileService {
         return null;
     }
 
+    @Transactional(readOnly = true)
+    public boolean profileExists(String userId) {
+        return userProfileRepository.existsByUserId(userId);
+    }
+
     @Transactional
     public void touchLastSeenIfNeeded(String userId) {
         userProfileRepository.findByUserId(userId).ifPresent(profile -> {

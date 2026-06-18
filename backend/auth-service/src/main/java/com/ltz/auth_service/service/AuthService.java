@@ -6,6 +6,7 @@ import com.ltz.auth_service.dto.request.RegisterRequest;
 import com.ltz.auth_service.dto.response.AuthResponse;
 import com.ltz.auth_service.dto.response.MessageResponse;
 import com.ltz.auth_service.dto.response.TokenValidationResponse;
+import com.ltz.auth_service.dto.response.UserInfoResponse;
 import com.ltz.auth_service.entity.RefreshToken;
 import com.ltz.auth_service.entity.Role;
 import com.ltz.auth_service.entity.UserCredential;
@@ -20,8 +21,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -40,6 +44,7 @@ public class AuthService {
     /*
      * Yeni kullanıcı kaydı oluşturur.
      */
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
 
         if (userCredentialRepository.existsByEmail(request.getEmail())) {
@@ -74,7 +79,10 @@ public class AuthService {
      * Kullanıcı girişi yapar.
      *
      * identifier alanı email veya username olabilir.
+     * Yeni oturum açılmadan önce mevcut refresh token'lar iptal edilir; böylece
+     * aynı hesap için birden fazla geçerli refresh token birikmesi önlenir.
      */
+    @Transactional
     public AuthResponse login(LoginRequest request) {
 
         UserCredential userCredential = userCredentialRepository
@@ -102,6 +110,8 @@ public class AuthService {
         userCredential.setLastLoginAt(LocalDateTime.now());
         userCredentialRepository.save(userCredential);
 
+        revokeAllUserTokens(userCredential);
+
         String accessToken = jwtService.generateAccessToken(userCredential);
         RefreshToken refreshToken = createRefreshToken(userCredential);
 
@@ -109,8 +119,14 @@ public class AuthService {
     }
 
     /*
-     * Refresh token ile yeni access token üretir.
+     * Refresh token ile yeni access + refresh token çifti üretir (token rotation).
+     *
+     * Eski refresh token kullanıldıktan hemen sonra revoke edilir; yerine yeni bir
+     * token yaratılır. Böylece çalınan bir refresh token yeniden kullanılamaz.
+     * Revoke edilmiş bir token ile istek gelirse aktif oturum çalınmış olabilir;
+     * bu yüzden InvalidTokenException fırlatılır.
      */
+    @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
 
         RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
@@ -131,9 +147,14 @@ public class AuthService {
 
         validateAccountStatus(userCredential);
 
-        String newAccessToken = jwtService.generateAccessToken(userCredential);
+        // Eski token'ı iptal et ve yeni bir token üret (rotation).
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
 
-        return buildAuthResponse(userCredential, newAccessToken, refreshToken.getToken());
+        String newAccessToken = jwtService.generateAccessToken(userCredential);
+        RefreshToken newRefreshToken = createRefreshToken(userCredential);
+
+        return buildAuthResponse(userCredential, newAccessToken, newRefreshToken.getToken());
     }
 
     /*
@@ -202,6 +223,7 @@ public class AuthService {
      *
      * email STEAM için null gelir (Steam e-posta vermez); bu durumda placeholder üretilir.
      */
+    @Transactional
     public AuthResponse loginWithProvider(
             AuthProvider provider,
             String providerId,
@@ -216,6 +238,8 @@ public class AuthService {
 
         userCredential.setLastLoginAt(LocalDateTime.now());
         userCredentialRepository.save(userCredential);
+
+        revokeAllUserTokens(userCredential);
 
         String accessToken = jwtService.generateAccessToken(userCredential);
         RefreshToken refreshToken = createRefreshToken(userCredential);
@@ -294,6 +318,7 @@ public class AuthService {
 
     /*
      * Refresh token oluşturur ve database'e kaydeder.
+     * refreshTokenExpiration değeri millisaniye cinsindendir.
      */
     private RefreshToken createRefreshToken(UserCredential userCredential) {
 
@@ -301,10 +326,24 @@ public class AuthService {
                 .user(userCredential)
                 .token(UUID.randomUUID().toString())
                 .revoked(false)
-                .expiresAt(LocalDateTime.now().plusNanos(refreshTokenExpiration * 1_000_000))
+                .expiresAt(LocalDateTime.now().plus(refreshTokenExpiration, ChronoUnit.MILLIS))
                 .build();
 
         return refreshTokenRepository.save(refreshToken);
+    }
+
+    /*
+     * Kullanıcıya ait tüm aktif refresh token'ları iptal eder.
+     * Login ve OAuth girişinde yeni token üretilmeden önce çağrılır;
+     * böylece eski oturumlar geçersiz kalır ve token birikimi önlenir.
+     */
+    private void revokeAllUserTokens(UserCredential userCredential) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserAndRevokedFalse(userCredential);
+        if (activeTokens.isEmpty()) {
+            return;
+        }
+        activeTokens.forEach(token -> token.setRevoked(true));
+        refreshTokenRepository.saveAll(activeTokens);
     }
 
     /*
@@ -323,6 +362,23 @@ public class AuthService {
                 .email(userCredential.getEmail())
                 .username(userCredential.getUsername())
                 .role(userCredential.getRole().getName())
+                .build();
+    }
+
+    /*
+     * Dahili servisler için userId'ye göre kullanıcı bilgisi döner.
+     */
+    public UserInfoResponse getUserById(Long userId) {
+
+        UserCredential userCredential = userCredentialRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("Kullanıcı bulunamadı."));
+
+        return UserInfoResponse.builder()
+                .userId(userCredential.getId())
+                .username(userCredential.getUsername())
+                .email(userCredential.getEmail())
+                .role(userCredential.getRole().getName())
+                .accountStatus(userCredential.getAccountStatus().name())
                 .build();
     }
 

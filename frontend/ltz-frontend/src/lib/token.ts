@@ -121,7 +121,8 @@ export function clearProfileReady(): void {
 }
 
 export function isAuthenticated(): boolean {
-    return Boolean(getAccessToken());
+    const token = getAccessToken();
+    return Boolean(token) && !isTokenExpired(token);
 }
 
 /*

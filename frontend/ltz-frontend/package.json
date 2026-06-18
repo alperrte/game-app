@@ -12,6 +12,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.3.1",
     "@tailwindcss/vite": "^4.3.1",
     "axios": "^1.17.0",
     "lucide-react": "^0.500.0",

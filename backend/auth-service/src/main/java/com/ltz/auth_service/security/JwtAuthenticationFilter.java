@@ -25,6 +25,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserCredentialRepository userCredentialRepository;
 
     /*
+     * Kullanıcı tek bir DB sorgusu ile yüklenir; doğrulama aynı nesne üzerinde yapılır.
+     * Önceki tasarımda loadUserByUsername + findByEmail olarak iki ayrı sorgu atılıyordu.
+     */
+
+    /*
      * Her HTTP isteğinde bir kez çalışır.
      * Authorization header içindeki Bearer token'ı kontrol eder.
      */
@@ -65,16 +70,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         /*
-         * Email varsa ve daha önce authentication set edilmemişse
-         * kullanıcıyı Spring Security context içine ekliyoruz.
+         * Email varsa ve daha önce authentication set edilmemişse kullanıcıyı
+         * tek bir DB sorgusuyla çekip doğrulama ve UserDetails oluşturmayı
+         * aynı nesne üzerinden yapıyoruz.
          */
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
 
             userCredentialRepository.findByEmail(email).ifPresent(userCredential -> {
 
                 if (jwtService.isTokenValid(token, userCredential)) {
+
+                    UserDetails userDetails = customUserDetailsService.toUserDetails(userCredential);
 
                     UsernamePasswordAuthenticationToken authenticationToken =
                             new UsernamePasswordAuthenticationToken(
