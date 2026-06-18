@@ -21,6 +21,8 @@ CREATE TABLE user_profiles (
     hardware_ram VARCHAR(100) NULL,
     hardware_os VARCHAR(100) NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-    updated_at DATETIME2 NOT NULL DEFAULT GETDATE()
+    updated_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    role VARCHAR(50) NOT NULL DEFAULT 'USER',
+    last_seen_at DATETIME2 NULL
 );
 
