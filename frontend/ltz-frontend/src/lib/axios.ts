@@ -90,6 +90,21 @@ axiosClient.interceptors.response.use(
 
     const status = error.response?.status;
 
+    // Ağ hatası veya sunucu cevap vermiyor - sadece logla, otomatik çıkış yapma
+    if (!error.response) {
+      console.error("Sunucuya erişilemedi:", error.message);
+      return Promise.reject(error);
+    }
+
+    // 403 Forbidden - token geçersiz veya kullanıcı engellenmiş olabilir
+    if (status === 403 && originalRequest && !isAuthEndpoint(originalRequest.url)) {
+      clearAuth();
+      if (window.location.pathname !== ROUTES.login) {
+        window.location.href = ROUTES.login;
+      }
+      return Promise.reject(error);
+    }
+
     /*
      * Sadece 401 + daha önce denenmemiş + auth endpoint'i olmayan istekleri yenile.
      * Login/register/refresh 401'leri olduğu gibi forma iletilir.
@@ -98,40 +113,34 @@ axiosClient.interceptors.response.use(
       status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
-      !isAuthEndpoint(originalRequest.url)
+      !isAuthEndpoint(originalRequest.url) &&
+      getRefreshToken()
     ) {
-      if (getRefreshToken()) {
-        originalRequest._retry = true;
+      originalRequest._retry = true;
 
-        try {
-          if (!refreshPromise) {
-            refreshPromise = requestNewAccessToken().finally(() => {
-              refreshPromise = null;
-            });
-          }
-
-          const newToken = await refreshPromise;
-
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return axiosClient(originalRequest);
-        } catch (refreshError) {
-          clearAuth();
-
-          if (window.location.pathname !== ROUTES.login) {
-            window.location.href = ROUTES.login;
-          }
-
-          return Promise.reject(refreshError);
+      try {
+        if (!refreshPromise) {
+          refreshPromise = requestNewAccessToken().finally(() => {
+            refreshPromise = null;
+          });
         }
+
+        const newToken = await refreshPromise;
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axiosClient(originalRequest);
+      } catch (refreshError) {
+        /*
+         * Refresh başarısız: oturumu temizle ve login'e yönlendir.
+         */
+        clearAuth();
+
+        if (window.location.pathname !== ROUTES.login) {
+          window.location.href = ROUTES.login;
+        }
+
+        return Promise.reject(refreshError);
       }
-
-      clearAuth();
-
-      if (window.location.pathname !== ROUTES.login) {
-        window.location.href = ROUTES.login;
-      }
-
-      return Promise.reject(error);
     }
 
     return Promise.reject(error);

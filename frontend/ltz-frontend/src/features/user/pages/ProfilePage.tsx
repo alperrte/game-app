@@ -89,7 +89,12 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const { showToast } = useToast();
-  const { displayName: loggedInDisplayName, avatarUrl: loggedInAvatarUrl, refresh: refreshCurrentUserProfile } = useCurrentUserProfile();
+  const {
+    displayName: loggedInDisplayName,
+    avatarUrl: loggedInAvatarUrl,
+    refresh: refreshCurrentUserProfile,
+    hydrateProfile,
+  } = useCurrentUserProfile();
 
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -262,6 +267,9 @@ export const ProfilePage: React.FC = () => {
         if (active) {
           setProfile(data);
           setIsRestricted(false);
+          if (isOwnProfile) {
+            hydrateProfile(data);
+          }
         }
       } catch (err: unknown) {
         if (!active) return;
@@ -279,7 +287,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [targetUsername, isOwnProfile, currentUsername, showToast]);
+  }, [targetUsername, isOwnProfile, currentUsername, showToast, hydrateProfile]);
 
   useEffect(() => {
     if (!profile) return;

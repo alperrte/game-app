@@ -85,6 +85,7 @@ public class DealsService {
                             .collect(Collectors.toList());
 
                     return DealCompareResponse.builder()
+                            .campaignId(repCampaignId)
                             .gameTitle(gameTitle)
                             .stores(storeDeals)
                             .historicalLow(lowDto)
