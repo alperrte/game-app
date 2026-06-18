@@ -4,6 +4,8 @@ CREATE TABLE historical_lows (
     lowest_price DECIMAL(10,2) NOT NULL,
     store_name NVARCHAR(50) NOT NULL,
     currency NVARCHAR(3) NOT NULL DEFAULT 'USD',
-    recorded_at DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+    recorded_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    CONSTRAINT ck_hist_price CHECK (lowest_price >= 0)
 );
-CREATE INDEX ix_historical_title ON historical_lows(game_title);
+
+-- uq_hist_title zaten game_title üzerinde unique index sağlar; ek indeks gerekmez

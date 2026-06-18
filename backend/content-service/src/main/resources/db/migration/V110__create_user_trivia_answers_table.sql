@@ -7,4 +7,4 @@ CREATE TABLE user_trivia_answers (
     CONSTRAINT uq_user_daily_trivia UNIQUE (user_id, trivia_date)
 );
 
-CREATE INDEX ix_user_trivia_date ON user_trivia_answers(user_id, trivia_date);
+-- uq_user_daily_trivia zaten (user_id, trivia_date) lookup'ını kapsar
