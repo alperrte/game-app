@@ -4,6 +4,7 @@ import com.ltz.review_service.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -27,14 +28,39 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // Swagger
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html",
-                                "/actuator/health",
-                                "/actuator/info",
-                                "/api/reviews/**"
+                                "/swagger-ui.html"
                         ).permitAll()
+
+                        // Actuator
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/info"
+                        ).permitAll()
+
+                        // Moderation endpoints
+                        // TODO: Role yapısı netleşince burası ADMIN rolüyle sınırlandırılmalı.
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/reports/pending").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/reviews/reports/*/status").authenticated()
+
+                        // Public review read endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/game/*/average-rating").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/game/*/top").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/game/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/user/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/*").permitAll()
+
+                        // Authenticated review write/action endpoints
+                        .requestMatchers(HttpMethod.POST, "/api/reviews").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/reviews/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/reviews/*").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/reviews/*/like").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/reviews/*/like").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/reviews/*/report").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

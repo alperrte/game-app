@@ -9,8 +9,10 @@ import com.ltz.review_service.entity.ReviewReportStatus;
 import com.ltz.review_service.repository.ReviewReportRepository;
 import com.ltz.review_service.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,12 +25,28 @@ public class ReviewReportService {
     private final ReviewReportRepository reviewReportRepository;
 
     @Transactional
-    public ReviewReportResponse reportReview(Long reviewId, ReviewReportRequest request) {
+    public ReviewReportResponse reportReview(
+            Long reviewId,
+            ReviewReportRequest request,
+            Long authenticatedUserId
+    ) {
         Review review = findReviewById(reviewId);
+
+        boolean alreadyReported = reviewReportRepository.existsByReviewIdAndUserId(
+                reviewId,
+                authenticatedUserId
+        );
+
+        if (alreadyReported) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This user has already reported this review."
+            );
+        }
 
         ReviewReport reviewReport = ReviewReport.builder()
                 .review(review)
-                .userId(request.getUserId())
+                .userId(authenticatedUserId)
                 .reason(request.getReason())
                 .status(ReviewReportStatus.PENDING)
                 .build();
@@ -53,7 +71,10 @@ public class ReviewReportService {
     @Transactional
     public ReviewReportResponse updateReportStatus(Long reportId, UpdateReviewReportStatusRequest request) {
         ReviewReport reviewReport = reviewReportRepository.findById(reportId)
-                .orElseThrow(() -> new RuntimeException("Rapor bulunamadı. ID: " + reportId));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Report not found. ID: " + reportId
+                ));
 
         reviewReport.setStatus(request.getStatus());
 
@@ -69,7 +90,10 @@ public class ReviewReportService {
 
     private Review findReviewById(Long id) {
         return reviewRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("İnceleme bulunamadı. ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Review not found. ID: " + id
+                ));
     }
 
     private ReviewReportResponse mapToReviewReportResponse(ReviewReport reviewReport) {

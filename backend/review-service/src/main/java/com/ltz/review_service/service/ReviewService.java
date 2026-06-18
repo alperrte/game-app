@@ -6,8 +6,11 @@ import com.ltz.review_service.dto.response.ReviewResponse;
 import com.ltz.review_service.entity.Review;
 import com.ltz.review_service.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -18,19 +21,22 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
 
     @Transactional
-    public ReviewResponse createReview(CreateReviewRequest request) {
+    public ReviewResponse createReview(CreateReviewRequest request, Long authenticatedUserId) {
         boolean alreadyReviewed = reviewRepository.existsByGameIdAndUserId(
                 request.getGameId(),
-                request.getUserId()
+                authenticatedUserId
         );
 
         if (alreadyReviewed) {
-            throw new RuntimeException("Bu kullanıcı bu oyun için zaten inceleme yazmış.");
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This user has already reviewed this game."
+            );
         }
 
         Review review = Review.builder()
                 .gameId(request.getGameId())
-                .userId(request.getUserId())
+                .userId(authenticatedUserId)
                 .rating(request.getRating())
                 .reviewText(request.getReviewText())
                 .recommended(request.getRecommended())
@@ -69,8 +75,14 @@ public class ReviewService {
     }
 
     @Transactional
-    public ReviewResponse updateReview(Long id, UpdateReviewRequest request) {
+    public ReviewResponse updateReview(
+            Long id,
+            UpdateReviewRequest request,
+            Long authenticatedUserId,
+            String role
+    ) {
         Review review = findReviewById(id);
+        assertOwnerOrModerator(review, authenticatedUserId, role);
 
         review.setRating(request.getRating());
         review.setReviewText(request.getReviewText());
@@ -85,14 +97,35 @@ public class ReviewService {
     }
 
     @Transactional
-    public void deleteReview(Long id) {
+    public void deleteReview(Long id, Long authenticatedUserId, String role) {
         Review review = findReviewById(id);
+        assertOwnerOrModerator(review, authenticatedUserId, role);
         reviewRepository.delete(review);
     }
 
     private Review findReviewById(Long id) {
         return reviewRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("İnceleme bulunamadı. ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Review not found. ID: " + id
+                ));
+    }
+
+    private void assertOwnerOrModerator(Review review, Long authenticatedUserId, String role) {
+        if (review.getUserId().equals(authenticatedUserId) || isModeratorRole(role)) {
+            return;
+        }
+
+        throw new AccessDeniedException("You are not allowed to modify this review.");
+    }
+
+    private boolean isModeratorRole(String role) {
+        if (role == null || role.isBlank()) {
+            return false;
+        }
+
+        String normalizedRole = role.toUpperCase().replace("ROLE_", "");
+        return "ADMIN".equals(normalizedRole) || "MODERATOR".equals(normalizedRole);
     }
 
     private ReviewResponse mapToReviewResponse(Review review) {
