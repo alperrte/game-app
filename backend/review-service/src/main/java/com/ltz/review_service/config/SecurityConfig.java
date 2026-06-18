@@ -46,10 +46,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/reviews/reports/pending").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/reviews/reports/*/status").authenticated()
 
-                        // Public review read endpoints
+                        // Public internal review read endpoints
                         .requestMatchers(HttpMethod.GET, "/api/reviews/game/*/average-rating").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/game/*/top").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/game/*").permitAll()
+
+                        // Public external review read endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/external/*/*/average-rating").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/external/*/*/top").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/external/*/*").permitAll()
+
+                        // Public common review read endpoints
                         .requestMatchers(HttpMethod.GET, "/api/reviews/user/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/*").permitAll()
 

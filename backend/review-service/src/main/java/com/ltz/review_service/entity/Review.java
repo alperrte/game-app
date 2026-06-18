@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -29,24 +28,24 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(
-        name = "reviews",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uq_reviews_game_user",
-                        columnNames = {"game_id", "user_id"}
-                )
-        }
-)
+@Table(name = "reviews")
 public class Review {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "Oyun ID boş olamaz.")
-    @Column(name = "game_id", nullable = false)
+    @NotBlank(message = "Oyun kaynağı boş olamaz.")
+    @Size(max = 30, message = "Oyun kaynağı en fazla 30 karakter olabilir.")
+    @Column(name = "game_source", nullable = false, length = 30)
+    private String gameSource;
+
+    @Column(name = "game_id")
     private Long gameId;
+
+    @Size(max = 100, message = "Harici oyun ID en fazla 100 karakter olabilir.")
+    @Column(name = "external_game_id", length = 100)
+    private String externalGameId;
 
     @NotNull(message = "Kullanıcı ID boş olamaz.")
     @Column(name = "user_id", nullable = false)
@@ -97,6 +96,10 @@ public class Review {
 
         if (createdAt == null) {
             createdAt = now;
+        }
+
+        if (gameSource == null || gameSource.isBlank()) {
+            gameSource = "INTERNAL";
         }
 
         if (likeCount == null) {

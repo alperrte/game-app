@@ -13,8 +13,13 @@ import lombok.Setter;
 @Setter
 public class CreateReviewRequest {
 
-    @NotNull(message = "Game ID is required.")
+    @Size(max = 30, message = "Game source can be at most 30 characters.")
+    private String gameSource;
+
     private Long gameId;
+
+    @Size(max = 100, message = "External game ID can be at most 100 characters.")
+    private String externalGameId;
 
     @NotNull(message = "Rating is required.")
     @Min(value = 1, message = "Rating must be at least 1.")

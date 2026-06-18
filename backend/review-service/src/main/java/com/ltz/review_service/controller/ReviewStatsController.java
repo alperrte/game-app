@@ -25,9 +25,33 @@ public class ReviewStatsController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/external/{gameSource}/{externalGameId}/top")
+    public ResponseEntity<List<ReviewResponse>> getTopReviewsByExternalGame(
+            @PathVariable String gameSource,
+            @PathVariable String externalGameId
+    ) {
+        List<ReviewResponse> response = reviewStatsService.getTopReviewsByExternalGame(
+                gameSource,
+                externalGameId
+        );
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/game/{gameId}/average-rating")
     public ResponseEntity<GameRatingSummaryResponse> getGameRatingSummary(@PathVariable Long gameId) {
         GameRatingSummaryResponse response = reviewStatsService.getGameRatingSummary(gameId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/external/{gameSource}/{externalGameId}/average-rating")
+    public ResponseEntity<GameRatingSummaryResponse> getExternalGameRatingSummary(
+            @PathVariable String gameSource,
+            @PathVariable String externalGameId
+    ) {
+        GameRatingSummaryResponse response = reviewStatsService.getExternalGameRatingSummary(
+                gameSource,
+                externalGameId
+        );
         return ResponseEntity.ok(response);
     }
 }

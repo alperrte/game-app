@@ -13,17 +13,31 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
 
+    private static final String GAME_SOURCE_INTERNAL = "INTERNAL";
+    private static final String GAME_SOURCE_STEAM = "STEAM";
+    private static final String GAME_SOURCE_EPIC = "EPIC";
+
     private final ReviewRepository reviewRepository;
 
     @Transactional
     public ReviewResponse createReview(CreateReviewRequest request, Long authenticatedUserId) {
-        boolean alreadyReviewed = reviewRepository.existsByGameIdAndUserId(
-                request.getGameId(),
+        String gameSource = normalizeGameSource(request.getGameSource());
+        Long gameId = resolveGameId(gameSource, request.getGameId());
+        String externalGameId = resolveExternalGameId(
+                gameSource,
+                request.getExternalGameId()
+        );
+
+        boolean alreadyReviewed = isAlreadyReviewed(
+                gameSource,
+                gameId,
+                externalGameId,
                 authenticatedUserId
         );
 
@@ -35,7 +49,9 @@ public class ReviewService {
         }
 
         Review review = Review.builder()
-                .gameId(request.getGameId())
+                .gameSource(gameSource)
+                .gameId(gameId)
+                .externalGameId(externalGameId)
                 .userId(authenticatedUserId)
                 .rating(request.getRating())
                 .reviewText(request.getReviewText())
@@ -60,7 +76,27 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> getReviewsByGameId(Long gameId) {
-        return reviewRepository.findByGameIdOrderByCreatedAtDesc(gameId)
+        return reviewRepository.findByGameSourceAndGameIdOrderByCreatedAtDesc(
+                        GAME_SOURCE_INTERNAL,
+                        gameId
+                )
+                .stream()
+                .map(this::mapToReviewResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getReviewsByExternalGame(
+            String gameSource,
+            String externalGameId
+    ) {
+        String normalizedGameSource = normalizeExternalGameSource(gameSource);
+        String normalizedExternalGameId = normalizeExternalGameId(externalGameId);
+
+        return reviewRepository.findByGameSourceAndExternalGameIdOrderByCreatedAtDesc(
+                        normalizedGameSource,
+                        normalizedExternalGameId
+                )
                 .stream()
                 .map(this::mapToReviewResponse)
                 .toList();
@@ -69,6 +105,34 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public List<ReviewResponse> getReviewsByUserId(Long userId) {
         return reviewRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(this::mapToReviewResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getTopReviewsByGameId(Long gameId) {
+        return reviewRepository.findTop10ByGameSourceAndGameIdOrderByLikeCountDescCreatedAtDesc(
+                        GAME_SOURCE_INTERNAL,
+                        gameId
+                )
+                .stream()
+                .map(this::mapToReviewResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getTopReviewsByExternalGame(
+            String gameSource,
+            String externalGameId
+    ) {
+        String normalizedGameSource = normalizeExternalGameSource(gameSource);
+        String normalizedExternalGameId = normalizeExternalGameId(externalGameId);
+
+        return reviewRepository.findTop10ByGameSourceAndExternalGameIdOrderByLikeCountDescCreatedAtDesc(
+                        normalizedGameSource,
+                        normalizedExternalGameId
+                )
                 .stream()
                 .map(this::mapToReviewResponse)
                 .toList();
@@ -103,6 +167,95 @@ public class ReviewService {
         reviewRepository.delete(review);
     }
 
+    private boolean isAlreadyReviewed(
+            String gameSource,
+            Long gameId,
+            String externalGameId,
+            Long authenticatedUserId
+    ) {
+        if (GAME_SOURCE_INTERNAL.equals(gameSource)) {
+            return reviewRepository.existsByGameSourceAndGameIdAndUserId(
+                    gameSource,
+                    gameId,
+                    authenticatedUserId
+            );
+        }
+
+        return reviewRepository.existsByGameSourceAndExternalGameIdAndUserId(
+                gameSource,
+                externalGameId,
+                authenticatedUserId
+        );
+    }
+
+    private String normalizeGameSource(String gameSource) {
+        if (gameSource == null || gameSource.isBlank()) {
+            return GAME_SOURCE_INTERNAL;
+        }
+
+        String normalizedGameSource = gameSource.trim().toUpperCase(Locale.ROOT);
+
+        if (
+                GAME_SOURCE_INTERNAL.equals(normalizedGameSource)
+                        || GAME_SOURCE_STEAM.equals(normalizedGameSource)
+                        || GAME_SOURCE_EPIC.equals(normalizedGameSource)
+        ) {
+            return normalizedGameSource;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Invalid game source. Allowed values are INTERNAL, STEAM, EPIC."
+        );
+    }
+
+    private String normalizeExternalGameSource(String gameSource) {
+        String normalizedGameSource = normalizeGameSource(gameSource);
+
+        if (GAME_SOURCE_INTERNAL.equals(normalizedGameSource)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "External game source must be STEAM or EPIC."
+            );
+        }
+
+        return normalizedGameSource;
+    }
+
+    private Long resolveGameId(String gameSource, Long gameId) {
+        if (GAME_SOURCE_INTERNAL.equals(gameSource)) {
+            if (gameId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Game ID is required for internal games."
+                );
+            }
+
+            return gameId;
+        }
+
+        return null;
+    }
+
+    private String resolveExternalGameId(String gameSource, String externalGameId) {
+        if (GAME_SOURCE_INTERNAL.equals(gameSource)) {
+            return null;
+        }
+
+        return normalizeExternalGameId(externalGameId);
+    }
+
+    private String normalizeExternalGameId(String externalGameId) {
+        if (externalGameId == null || externalGameId.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "External game ID is required for external games."
+            );
+        }
+
+        return externalGameId.trim();
+    }
+
     private Review findReviewById(Long id) {
         return reviewRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -131,7 +284,9 @@ public class ReviewService {
     private ReviewResponse mapToReviewResponse(Review review) {
         return ReviewResponse.builder()
                 .id(review.getId())
+                .gameSource(review.getGameSource())
                 .gameId(review.getGameId())
+                .externalGameId(review.getExternalGameId())
                 .userId(review.getUserId())
                 .rating(review.getRating())
                 .reviewText(review.getReviewText())
