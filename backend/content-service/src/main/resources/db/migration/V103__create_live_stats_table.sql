@@ -1,0 +1,7 @@
+CREATE TABLE live_stats (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    stat_key NVARCHAR(100) NOT NULL CONSTRAINT uq_stat_key UNIQUE,
+    stat_value NVARCHAR(MAX) NOT NULL, -- JSON veri yapısı saklanır
+    is_reliable BIT NOT NULL DEFAULT 1,
+    updated_at DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
