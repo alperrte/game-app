@@ -1,7 +1,9 @@
 CREATE TABLE reviews (
                          id BIGINT IDENTITY(1,1) PRIMARY KEY,
 
-                         game_id BIGINT NOT NULL,
+                         game_source NVARCHAR(30) NOT NULL DEFAULT 'INTERNAL',
+                         game_id BIGINT NULL,
+                         external_game_id NVARCHAR(100) NULL,
                          user_id BIGINT NOT NULL,
 
                          rating INT NOT NULL,
@@ -20,5 +22,26 @@ CREATE TABLE reviews (
 
                          CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 10),
                          CONSTRAINT chk_reviews_playtime_hours CHECK (playtime_hours IS NULL OR playtime_hours >= 0),
-                         CONSTRAINT uq_reviews_game_user UNIQUE (game_id, user_id)
+
+                         CONSTRAINT chk_reviews_game_reference CHECK (
+                             (
+                                 game_source = 'INTERNAL'
+                                     AND game_id IS NOT NULL
+                                     AND external_game_id IS NULL
+                                 )
+                                 OR
+                             (
+                                 game_source IN ('STEAM', 'EPIC')
+                                     AND game_id IS NULL
+                                     AND external_game_id IS NOT NULL
+                                 )
+                             )
 );
+
+CREATE UNIQUE INDEX uq_reviews_internal_game_user
+    ON reviews (game_source, game_id, user_id)
+    WHERE game_source = 'INTERNAL' AND game_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_reviews_external_game_user
+    ON reviews (game_source, external_game_id, user_id)
+    WHERE game_source IN ('STEAM', 'EPIC') AND external_game_id IS NOT NULL;

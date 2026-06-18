@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { ReviewSection } from "../../review/components/ReviewSection";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { getExternalGameDetail } from "../services/externalGameService";
 import { gameService } from "../services/gameService";
@@ -59,7 +60,7 @@ const requirementLabelPattern = requirementLabels
 
 const requirementLabelRegex = new RegExp(
     `(${requirementLabelPattern})\\s*:`,
-    "gi"
+    "gi",
 );
 
 const isGameSource = (value: string | undefined): value is GameSource => {
@@ -67,7 +68,7 @@ const isGameSource = (value: string | undefined): value is GameSource => {
 };
 
 const isExternalDetailGame = (
-    game: DetailGame
+    game: DetailGame,
 ): game is ExternalGameDetailResponse => {
   return "externalId" in game;
 };
@@ -81,7 +82,7 @@ const getDetailErrorMessage = (error: unknown, isExternalDetail: boolean) => {
       error,
       isExternalDetail
           ? "Harici oyun detayı yüklenirken bir hata oluştu."
-          : "Oyun detayı yüklenirken bir hata oluştu."
+          : "Oyun detayı yüklenirken bir hata oluştu.",
   );
 };
 
@@ -109,7 +110,7 @@ const toDisplayText = (value: string | number | null | undefined) => {
 
   const parsedDocument = new DOMParser().parseFromString(
       normalizedValue,
-      "text/html"
+      "text/html",
   );
 
   return parsedDocument.body.textContent?.trim() || stringValue.trim();
@@ -170,7 +171,7 @@ const normalizeRequirementLabel = (label: string) => {
 
   if (
       ["additional notes", "notes", "ek notlar", "notlar"].includes(
-          normalizedLabel
+          normalizedLabel,
       )
   ) {
     return "Ek Notlar";
@@ -196,7 +197,7 @@ const normalizeRequirementText = (requirementText: string | null | undefined) =>
       .replace(/\bönerilen\s*:\s*/gi, "")
       .replace(
           /requires a 64-bit processor and operating system\.?/gi,
-          "64-bit işlemci ve işletim sistemi gerektirir"
+          "64-bit işlemci ve işletim sistemi gerektirir",
       )
       .trim();
 };
@@ -244,7 +245,7 @@ const parseSystemRequirementRows = (text: string): RequirementRow[] => {
             : text.length;
 
     const value = cleanRequirementValue(
-        text.slice(valueStartIndex, nextMatchIndex)
+        text.slice(valueStartIndex, nextMatchIndex),
     );
 
     if (!rawLabel || !value) {
@@ -261,7 +262,7 @@ const parseSystemRequirementRows = (text: string): RequirementRow[] => {
 };
 
 const formatSystemRequirements = (
-    requirementText: string | null | undefined
+    requirementText: string | null | undefined,
 ): RequirementRow[] => {
   const normalizedText = normalizeRequirementText(requirementText);
 
@@ -449,7 +450,7 @@ const GameDetailPage = () => {
 
   const languageTags = useMemo(
       () => splitTags(game?.supportedLanguages ?? null),
-      [game]
+      [game],
   );
 
   const visibleError = routeError ?? error;
@@ -658,6 +659,12 @@ const GameDetailPage = () => {
             </div>
 
             <TextBlock title="Desteklenen diller" value={game.supportedLanguages} />
+
+            {isExternalRoute && isExternalDetailGame(game) ? (
+                <ReviewSection gameSource={game.source} externalGameId={game.externalId} />
+            ) : backendGameId ? (
+                <ReviewSection gameSource="INTERNAL" gameId={backendGameId} />
+            ) : null}
           </main>
         </div>
       </div>

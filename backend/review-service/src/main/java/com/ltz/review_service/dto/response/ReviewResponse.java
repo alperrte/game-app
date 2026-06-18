@@ -13,7 +13,11 @@ public class ReviewResponse {
 
     private Long id;
 
+    private String gameSource;
+
     private Long gameId;
+
+    private String externalGameId;
 
     private Long userId;
 

@@ -50,6 +50,18 @@ public class ReviewController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/external/{gameSource}/{externalGameId}")
+    public ResponseEntity<List<ReviewResponse>> getReviewsByExternalGame(
+            @PathVariable String gameSource,
+            @PathVariable String externalGameId
+    ) {
+        List<ReviewResponse> response = reviewService.getReviewsByExternalGame(
+                gameSource,
+                externalGameId
+        );
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ReviewResponse>> getReviewsByUserId(@PathVariable Long userId) {
         List<ReviewResponse> response = reviewService.getReviewsByUserId(userId);
