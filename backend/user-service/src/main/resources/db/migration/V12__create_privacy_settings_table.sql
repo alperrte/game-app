@@ -10,5 +10,7 @@ CREATE TABLE privacy_settings (
     hardware_visibility VARCHAR(50) NOT NULL DEFAULT 'PUBLIC',
     friend_list_visibility VARCHAR(50) NOT NULL DEFAULT 'PUBLIC',
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-    updated_at DATETIME2 NOT NULL DEFAULT GETDATE()
+    updated_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    follower_list_visibility VARCHAR(50) NOT NULL DEFAULT 'PUBLIC',
+    last_seen_visibility VARCHAR(50) NOT NULL DEFAULT 'PUBLIC'
 );
