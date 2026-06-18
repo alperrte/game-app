@@ -265,6 +265,49 @@ export const REVIEW_API_ENDPOINTS = {
 } as const;
 
 /*
+ * Content-service frontend route adresleri.
+ */
+export const CONTENT_ROUTES = {
+    hub: "/content",
+    deals: "/content/deals",
+    news: "/content/news",
+    esports: "/content/esports",
+    free: "/content/free",
+    trivia: "/content/trivia",
+    history: "/content/history",
+} as const;
+
+export const CONTENT_NAV_TABS = [
+    { label: "Ana Panel", href: CONTENT_ROUTES.hub, end: true },
+    { label: "İndirimler", href: CONTENT_ROUTES.deals, end: false },
+    { label: "Haberler", href: CONTENT_ROUTES.news, end: false },
+    { label: "Espor", href: CONTENT_ROUTES.esports, end: false },
+    { label: "Ücretsiz", href: CONTENT_ROUTES.free, end: false },
+    { label: "Trivia", href: CONTENT_ROUTES.trivia, end: false },
+    { label: "Tarih", href: CONTENT_ROUTES.history, end: false },
+] as const;
+
+/*
+ * Content-service endpoint path'leri (Gateway üzerinden).
+ */
+export const CONTENT_API_ENDPOINTS = {
+    stats: "/api/content/stats",
+    statByKey: (key: string) => `/api/content/stats/${key}`,
+    esports: "/api/content/stats/esports",
+    news: "/api/content/news",
+    newsById: (id: number | string) => `/api/content/news/${id}`,
+    deals: "/api/content/deals",
+    dealsSearch: "/api/content/deals/search",
+    freeGames: "/api/content/deals/free-games",
+    historyToday: "/api/content/history/today",
+    historyByDate: "/api/content/history/date",
+    triviaToday: "/api/content/trivia/today",
+    triviaSubmit: "/api/content/trivia/submit",
+    reactions: "/api/content/reactions",
+    spotlight: "/api/content/spotlight",
+} as const;
+
+/*
  * Form doğrulama kuralları (backend RegisterRequest ile uyumlu).
  */
 export const VALIDATION = {
@@ -284,6 +327,7 @@ export const STORAGE_KEYS = {
     savedSocialPosts: "ltz_saved_social_posts",
     user: "ltz_user",
     userIdentityCache: "ltz_user_identity_cache",
+    profileReadyUserId: "ltz_profile_ready_user_id",
 } as const;
 
 /*

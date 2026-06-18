@@ -139,41 +139,41 @@ public class StatsScheduler {
             ));
             saveOrUpdateStat("twitch_live_streams", objectMapper.writeValueAsString(liveStreams));
 
-            // Game Release Calendar (Upcoming games)
+            // Game Release Calendar (Upcoming games) — Steam CDN kapakları (güvenilir fallback)
             List<Map<String, Object>> upcomingReleases = new ArrayList<>();
             upcomingReleases.add(Map.of(
                     "gameTitle", "Grand Theft Auto VI",
                     "releaseDate", "2026-10-25",
                     "platforms", List.of("PS5", "Xbox Series X/S"),
-                    "imageUrl", "https://media.rockstargames.com/rockstargames-new/images/global/gta6-cover.jpg",
+                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg",
                     "description", "Grand Theft Auto serisinin en yeni ve en çok beklenen açık dünya aksiyon oyunu."
             ));
             upcomingReleases.add(Map.of(
                     "gameTitle", "Monster Hunter Wilds",
                     "releaseDate", "2026-02-28",
                     "platforms", List.of("PC", "PS5", "Xbox Series X/S"),
-                    "imageUrl", "https://images.capcom.com/mhwilds-banner.jpg",
+                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/2246340/header.jpg",
                     "description", "Capcom'un efsanevi canavar avlama serisinin yeni nesil grafiklerle buluşan oyunu."
             ));
             upcomingReleases.add(Map.of(
                     "gameTitle", "Death Stranding 2: On The Beach",
                     "releaseDate", "2026-06-15",
                     "platforms", List.of("PS5"),
-                    "imageUrl", "https://kogimashits-ds2-cover.jpg",
+                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/1850570/header.jpg",
                     "description", "Hideo Kojima imzalı ödüllü başyapıtın gizemli hikayesini devam ettiren macera."
             ));
             upcomingReleases.add(Map.of(
                     "gameTitle", "Metroid Prime 4: Beyond",
                     "releaseDate", "2026-08-20",
                     "platforms", List.of("Nintendo Switch"),
-                    "imageUrl", "https://nintendo.com/metroid-prime-4-box.jpg",
+                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/412020/header.jpg",
                     "description", "Samus Aran'in galaksiyi korumak için çıktığı birinci şahıs macera ve aksiyon."
             ));
             upcomingReleases.add(Map.of(
                     "gameTitle", "The Witcher 4: Polaris",
                     "releaseDate", "2026-12-10",
                     "platforms", List.of("PC", "PS5", "Xbox Series X/S"),
-                    "imageUrl", "https://cdpred.com/witcher-polaris-teaser.jpg",
+                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/292030/header.jpg",
                     "description", "Yeni bir Witcher efsanesinin kapılarını aralayan Unreal Engine 5 tabanlı RPG."
             ));
             saveOrUpdateStat("upcoming_releases", objectMapper.writeValueAsString(upcomingReleases));

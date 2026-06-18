@@ -99,6 +99,24 @@ export function clearAuthStorage(): void {
         storage.removeItem(STORAGE_KEYS.accessToken);
         storage.removeItem(STORAGE_KEYS.refreshToken);
         storage.removeItem(STORAGE_KEYS.user);
+        storage.removeItem(STORAGE_KEYS.profileReadyUserId);
+    });
+}
+
+export function getProfileReadyUserId(): string | null {
+    return (
+        localStorage.getItem(STORAGE_KEYS.profileReadyUserId) ??
+        sessionStorage.getItem(STORAGE_KEYS.profileReadyUserId)
+    );
+}
+
+export function setProfileReady(userId: string): void {
+    activeStorage().setItem(STORAGE_KEYS.profileReadyUserId, userId);
+}
+
+export function clearProfileReady(): void {
+    [localStorage, sessionStorage].forEach((storage) => {
+        storage.removeItem(STORAGE_KEYS.profileReadyUserId);
     });
 }
 

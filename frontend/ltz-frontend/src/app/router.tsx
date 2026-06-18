@@ -8,7 +8,7 @@ import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 
 import { useAuthStore } from "../store/authStore";
-import { GAME_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
+import { CONTENT_ROUTES, GAME_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
 import { ProfilePage } from "../features/user/pages/ProfilePage";
 
 import GamesPage from "../features/game/pages/GamesPage";
@@ -23,6 +23,14 @@ import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequire
 
 import SocialFeedPage from "../features/social/pages/SocialFeedPage";
 import MessagesPage from "../features/social/pages/MessagesPage";
+
+import HubPage from "../features/content/pages/HubPage";
+import DealsPage from "../features/content/pages/DealsPage";
+import NewsPage from "../features/content/pages/NewsPage";
+import EsportsPage from "../features/content/pages/EsportsPage";
+import FreeGamesPage from "../features/content/pages/FreeGamesPage";
+import TriviaPage from "../features/content/pages/TriviaPage";
+import HistoryPage from "../features/content/pages/HistoryPage";
 
 /*
  * Giriş yapılmamışsa login sayfasına yönlendiren koruma.
@@ -146,6 +154,15 @@ export function AppRouter() {
             path={GAME_ROUTES.gameDetail(":id")}
             element={<GameDetailPage />}
           />
+
+          {/* LTZ Corner / content-service */}
+          <Route path={CONTENT_ROUTES.hub} element={<HubPage />} />
+          <Route path={CONTENT_ROUTES.deals} element={<DealsPage />} />
+          <Route path={CONTENT_ROUTES.news} element={<NewsPage />} />
+          <Route path={CONTENT_ROUTES.esports} element={<EsportsPage />} />
+          <Route path={CONTENT_ROUTES.free} element={<FreeGamesPage />} />
+          <Route path={CONTENT_ROUTES.trivia} element={<TriviaPage />} />
+          <Route path={CONTENT_ROUTES.history} element={<HistoryPage />} />
 
           {/* Kullanıcı profili */}
           <Route

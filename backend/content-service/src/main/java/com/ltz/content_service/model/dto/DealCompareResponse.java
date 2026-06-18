@@ -10,6 +10,7 @@ import java.util.Map;
 @Data
 @Builder
 public class DealCompareResponse {
+    private Long campaignId;
     private String gameTitle;
     private List<StoreDealDTO> stores;
     private HistoricalLowDTO historicalLow;

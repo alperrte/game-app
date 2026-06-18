@@ -2,12 +2,12 @@
  * Uygulamanın genel, sabit üst navigasyonu.
  *
  * Navbar sırası:
- * Logo | Akış | Sohbet | Oyunlar | Sistem Gereksinimleri
+ * Logo | Akış | Sohbet | Oyunlar | Sistem Gereksinimleri | LTZ Corner
  * | Kullanıcı Profili | Çıkış Yap
  *
  * - GameNavbar kullanılmaz.
  * - Sosyal özellikler ortak Navbar içinde yönetilir.
- * - Oyun sayfaları dropdown altında gruplanır.
+ * - Oyun sayfaları ve LTZ Corner modülleri dropdown altında gruplanır.
  * - Profil dropdown içinde profil ve arkadaşlık istekleri bulunur.
  * - Bekleyen arkadaşlık isteği sayısı badge olarak gösterilir.
  * - Scroll sırasında navbar küçülür.
@@ -26,24 +26,34 @@ import {
     useNavigate,
 } from "react-router-dom";
 import {
+    Brain,
     Building2,
     ChevronDown,
     Code2,
     Cpu,
     Gamepad2,
+    Gift,
+    History,
     Home,
     LayoutGrid,
     LogOut,
     MessageCircle,
     MonitorSmartphone,
+    Newspaper,
+    Percent,
     ShieldOff,
+    Sparkles,
+    Swords,
     UserPlus,
     UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../ui/Button";
-import { ROUTES } from "../../lib/constants";
+import {
+    CONTENT_ROUTES,
+    ROUTES,
+} from "../../lib/constants";
 import { getRefreshToken } from "../../lib/token";
 import {
     clearAuth,
@@ -117,10 +127,49 @@ const systemRequirementsItem: NavItem = {
     icon: Cpu,
 };
 
+const contentCornerItems: NavItem[] = [
+    {
+        label: "Ana Panel",
+        href: CONTENT_ROUTES.hub,
+        icon: Sparkles,
+    },
+    {
+        label: "İndirimler",
+        href: CONTENT_ROUTES.deals,
+        icon: Percent,
+    },
+    {
+        label: "Haberler",
+        href: CONTENT_ROUTES.news,
+        icon: Newspaper,
+    },
+    {
+        label: "Espor",
+        href: CONTENT_ROUTES.esports,
+        icon: Swords,
+    },
+    {
+        label: "Ücretsiz",
+        href: CONTENT_ROUTES.free,
+        icon: Gift,
+    },
+    {
+        label: "Trivia",
+        href: CONTENT_ROUTES.trivia,
+        icon: Brain,
+    },
+    {
+        label: "Tarih",
+        href: CONTENT_ROUTES.history,
+        icon: History,
+    },
+];
+
 const allNavItems: NavItem[] = [
     ...mainNavItems,
     ...gameServiceItems,
     systemRequirementsItem,
+    ...contentCornerItems,
 ];
 
 /*
@@ -161,6 +210,120 @@ function isGameServiceDropdownPath(pathname: string): boolean {
         pathname.startsWith("/games/developers") ||
         pathname.startsWith("/games/publishers") ||
         pathname.startsWith("/games/external")
+    );
+}
+
+function isContentCornerPath(pathname: string): boolean {
+    return (
+        pathname === CONTENT_ROUTES.hub ||
+        pathname.startsWith(`${CONTENT_ROUTES.hub}/`)
+    );
+}
+
+function renderNavDropdownPanel(
+    items: NavItem[],
+    activeHref: string,
+    sectionLabel: string,
+    onItemClick?: () => void,
+) {
+    return (
+        <div
+            className="
+                absolute left-0 top-full
+                z-50 mt-3 w-72
+                overflow-hidden
+                rounded-2xl
+                border border-white/10
+                bg-slate-950/95
+                p-2
+                shadow-2xl shadow-black/50
+                backdrop-blur-xl
+            "
+        >
+            <div
+                className="
+                    px-3 py-2
+                    text-[10px] font-bold
+                    uppercase
+                    tracking-[0.24em]
+                    text-slate-500
+                "
+            >
+                {sectionLabel}
+            </div>
+
+            <div className="flex flex-col gap-1">
+                {items.map((item) => {
+                    const active = item.href === activeHref;
+                    const Icon = item.icon;
+                    const exactMatch =
+                        item.href === CONTENT_ROUTES.hub ||
+                        item.href === "/games";
+
+                    return (
+                        <NavLink
+                            key={item.href}
+                            to={item.href}
+                            end={exactMatch}
+                            onClick={onItemClick}
+                            className={`
+                                group flex
+                                items-center
+                                gap-3
+                                rounded-xl
+                                px-3 py-2.5
+                                text-sm
+                                font-semibold
+                                transition
+                                ${
+                                active
+                                    ? `
+                                            bg-violet-500/15
+                                            text-violet-100
+                                          `
+                                    : `
+                                            text-slate-400
+                                            hover:bg-white/[0.04]
+                                            hover:text-white
+                                          `
+                            }
+                            `}
+                        >
+                            <span
+                                className={`
+                                    grid h-9 w-9
+                                    shrink-0
+                                    place-items-center
+                                    rounded-lg
+                                    border
+                                    transition
+                                    ${
+                                    active
+                                        ? `
+                                                border-violet-400/40
+                                                bg-violet-500/15
+                                                text-violet-200
+                                              `
+                                        : `
+                                                border-white/10
+                                                bg-white/[0.03]
+                                                text-slate-500
+                                                group-hover:text-slate-200
+                                              `
+                                }
+                                `}
+                            >
+                                <Icon size={17} strokeWidth={2.25} />
+                            </span>
+
+                            <span className="min-w-0 truncate">
+                                {item.label}
+                            </span>
+                        </NavLink>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
 
@@ -229,12 +392,16 @@ export function Navbar() {
     const { avatarUrl } = useCurrentUserProfile();
 
     const gameMenuRef = useRef<HTMLDivElement | null>(null);
+    const contentMenuRef = useRef<HTMLDivElement | null>(null);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [scrolled, setScrolled] = useState(false);
 
     const [isGameMenuOpen, setIsGameMenuOpen] =
+        useState(false);
+
+    const [isContentMenuOpen, setIsContentMenuOpen] =
         useState(false);
 
     const [profileMenuOpen, setProfileMenuOpen] =
@@ -257,6 +424,10 @@ export function Navbar() {
 
     const gameServiceActive =
         isGameServiceDropdownPath(location.pathname);
+
+    const contentCornerActive = isContentCornerPath(
+        location.pathname,
+    );
 
     const profileActive =
         Boolean(user?.username) &&
@@ -333,6 +504,13 @@ export function Navbar() {
             }
 
             if (
+                contentMenuRef.current &&
+                !contentMenuRef.current.contains(clickedNode)
+            ) {
+                setIsContentMenuOpen(false);
+            }
+
+            if (
                 profileMenuRef.current &&
                 !profileMenuRef.current.contains(clickedNode)
             ) {
@@ -359,6 +537,7 @@ export function Navbar() {
     useEffect(() => {
         Promise.resolve().then(() => {
             setIsGameMenuOpen(false);
+            setIsContentMenuOpen(false);
             setProfileMenuOpen(false);
         });
     }, [location.pathname]);
@@ -586,6 +765,10 @@ export function Navbar() {
                                             false,
                                         );
 
+                                        setIsContentMenuOpen(
+                                            false,
+                                        );
+
                                         setIsGameMenuOpen(
                                             (current) =>
                                                 !current,
@@ -608,125 +791,141 @@ export function Navbar() {
                                 </button>
                             </div>
 
-                            {isGameMenuOpen ? (
-                                <div
-                                    className="
-                                        absolute left-0 top-full
-                                        z-50 mt-3 w-72
-                                        overflow-hidden
-                                        rounded-2xl
-                                        border border-white/10
-                                        bg-slate-950/95
-                                        p-2
-                                        shadow-2xl shadow-black/50
-                                        backdrop-blur-xl
-                                    "
-                                >
-                                    <div
-                                        className="
-                                            px-3 py-2
-                                            text-[10px] font-bold
-                                            uppercase
-                                            tracking-[0.24em]
-                                            text-slate-500
-                                        "
-                                    >
-                                        Game Service
-                                    </div>
-
-                                    <div className="flex flex-col gap-1">
-                                        {gameServiceItems.map(
-                                            (item) => {
-                                                const active =
-                                                    item.href ===
-                                                    activeHref;
-
-                                                const Icon =
-                                                    item.icon;
-
-                                                return (
-                                                    <NavLink
-                                                        key={
-                                                            item.href
-                                                        }
-                                                        to={
-                                                            item.href
-                                                        }
-                                                        className={`
-                                                            group flex
-                                                            items-center
-                                                            gap-3
-                                                            rounded-xl
-                                                            px-3 py-2.5
-                                                            text-sm
-                                                            font-semibold
-                                                            transition
-                                                            ${
-                                                            active
-                                                                ? `
-                                                                        bg-violet-500/15
-                                                                        text-violet-100
-                                                                      `
-                                                                : `
-                                                                        text-slate-400
-                                                                        hover:bg-white/[0.04]
-                                                                        hover:text-white
-                                                                      `
-                                                        }
-                                                        `}
-                                                    >
-                                                        <span
-                                                            className={`
-                                                                grid h-9 w-9
-                                                                shrink-0
-                                                                place-items-center
-                                                                rounded-lg
-                                                                border
-                                                                transition
-                                                                ${
-                                                                active
-                                                                    ? `
-                                                                            border-violet-400/40
-                                                                            bg-violet-500/15
-                                                                            text-violet-200
-                                                                          `
-                                                                    : `
-                                                                            border-white/10
-                                                                            bg-white/[0.03]
-                                                                            text-slate-500
-                                                                            group-hover:text-slate-200
-                                                                          `
-                                                            }
-                                                            `}
-                                                        >
-                                                            <Icon
-                                                                size={
-                                                                    17
-                                                                }
-                                                                strokeWidth={
-                                                                    2.25
-                                                                }
-                                                            />
-                                                        </span>
-
-                                                        <span className="min-w-0 truncate">
-                                                            {
-                                                                item.label
-                                                            }
-                                                        </span>
-                                                    </NavLink>
-                                                );
-                                            },
-                                        )}
-                                    </div>
-                                </div>
-                            ) : null}
+                            {isGameMenuOpen
+                                ? renderNavDropdownPanel(
+                                      gameServiceItems,
+                                      activeHref,
+                                      "GAME SERVICE",
+                                      () => setIsGameMenuOpen(false),
+                                  )
+                                : null}
                         </div>
 
                         {renderNavLink(
                             systemRequirementsItem,
                             activeHref,
                         )}
+
+                        {/* LTZ Corner dropdown */}
+                        <div
+                            ref={contentMenuRef}
+                            className="relative shrink-0"
+                        >
+                            <div
+                                className={`
+                                    group relative flex h-9
+                                    shrink-0 items-center
+                                    overflow-hidden rounded-full
+                                    border
+                                    text-[11px] font-semibold
+                                    transition-[color,background-color,border-color,box-shadow,transform]
+                                    duration-200
+                                    2xl:text-[13px]
+                                    ${
+                                    contentCornerActive
+                                        ? `
+                                                border-violet-400/40
+                                                bg-violet-500/15
+                                                text-white
+                                                shadow-[0_0_18px_-4px_rgba(139,92,246,0.6),inset_0_0_14px_-6px_rgba(168,85,247,0.8)]
+                                              `
+                                        : `
+                                                border-transparent
+                                                text-slate-400
+                                                hover:-translate-y-0.5
+                                                hover:border-white/10
+                                                hover:bg-white/[0.04]
+                                                hover:text-white
+                                              `
+                                }
+                                `}
+                            >
+                                <NavLink
+                                    to={CONTENT_ROUTES.hub}
+                                    className="
+                                        flex h-full items-center
+                                        gap-1.5 whitespace-nowrap
+                                        pl-2.5 pr-1
+                                        2xl:gap-2 2xl:pl-3.5
+                                    "
+                                >
+                                    <Sparkles
+                                        size={16}
+                                        strokeWidth={2.25}
+                                        className={
+                                            contentCornerActive
+                                                ? "text-violet-200"
+                                                : `
+                                                    text-slate-500
+                                                    transition-colors
+                                                    group-hover:text-slate-200
+                                                  `
+                                        }
+                                    />
+
+                                    <span>LTZ Corner</span>
+                                </NavLink>
+
+                                <button
+                                    type="button"
+                                    aria-expanded={
+                                        isContentMenuOpen
+                                    }
+                                    aria-label="LTZ Corner menüsünü aç veya kapat"
+                                    className="
+                                        mr-1 grid h-7 w-7
+                                        place-items-center
+                                        rounded-full
+                                        text-slate-400
+                                        transition
+                                        hover:bg-white/10
+                                        hover:text-white
+                                    "
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+
+                                        setProfileMenuOpen(
+                                            false,
+                                        );
+                                        setIsGameMenuOpen(
+                                            false,
+                                        );
+
+                                        setIsContentMenuOpen(
+                                            (current) =>
+                                                !current,
+                                        );
+                                    }}
+                                >
+                                    <ChevronDown
+                                        size={14}
+                                        strokeWidth={2.4}
+                                        className={`
+                                            transition-transform
+                                            duration-200
+                                            ${
+                                            isContentMenuOpen
+                                                ? "rotate-180"
+                                                : ""
+                                        }
+                                        `}
+                                    />
+                                </button>
+                            </div>
+
+                            {isContentMenuOpen
+                                ? renderNavDropdownPanel(
+                                      contentCornerItems,
+                                      activeHref,
+                                      "LTZ CORNER",
+                                      () =>
+                                          setIsContentMenuOpen(
+                                              false,
+                                          ),
+                                  )
+                                : null}
+                        </div>
                     </nav>
 
                     {/* Kullanıcı alanı */}
@@ -744,6 +943,9 @@ export function Navbar() {
                                     aria-haspopup="menu"
                                     onClick={() => {
                                         setIsGameMenuOpen(
+                                            false,
+                                        );
+                                        setIsContentMenuOpen(
                                             false,
                                         );
 
