@@ -9,4 +9,6 @@ import java.util.List;
 public interface ReviewReportRepository extends JpaRepository<ReviewReport, Long> {
 
     List<ReviewReport> findByStatusOrderByCreatedAtDesc(ReviewReportStatus status);
+
+    boolean existsByReviewIdAndUserId(Long reviewId, Long userId);
 }

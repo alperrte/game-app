@@ -13,30 +13,27 @@ import lombok.Setter;
 @Setter
 public class CreateReviewRequest {
 
-    @NotNull(message = "Oyun ID boş olamaz.")
+    @NotNull(message = "Game ID is required.")
     private Long gameId;
 
-    @NotNull(message = "Kullanıcı ID boş olamaz.")
-    private Long userId;
-
-    @NotNull(message = "Puan boş olamaz.")
-    @Min(value = 1, message = "Puan en az 1 olmalıdır.")
-    @Max(value = 10, message = "Puan en fazla 10 olmalıdır.")
+    @NotNull(message = "Rating is required.")
+    @Min(value = 1, message = "Rating must be at least 1.")
+    @Max(value = 10, message = "Rating must be at most 10.")
     private Integer rating;
 
-    @NotBlank(message = "İnceleme metni boş olamaz.")
-    @Size(max = 3000, message = "İnceleme metni en fazla 3000 karakter olabilir.")
+    @NotBlank(message = "Review text is required.")
+    @Size(max = 3000, message = "Review text can be at most 3000 characters.")
     private String reviewText;
 
-    @NotNull(message = "Olumlu/olumsuz değerlendirme boş olamaz.")
+    @NotNull(message = "Recommendation value is required.")
     private Boolean recommended;
 
-    @PositiveOrZero(message = "Oynama süresi negatif olamaz.")
+    @PositiveOrZero(message = "Playtime cannot be negative.")
     private Integer playtimeHours;
 
-    @Size(max = 100, message = "Platform en fazla 100 karakter olabilir.")
+    @Size(max = 100, message = "Platform can be at most 100 characters.")
     private String platform;
 
-    @Size(max = 500, message = "Donanım bilgisi en fazla 500 karakter olabilir.")
+    @Size(max = 500, message = "Hardware info can be at most 500 characters.")
     private String hardwareInfo;
 }
