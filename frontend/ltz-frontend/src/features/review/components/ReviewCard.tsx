@@ -4,7 +4,11 @@ type ReviewCardProps = {
     review: ReviewResponse;
     isAuthenticated: boolean;
     actionLoading?: boolean;
-    onLike: (reviewId: number) => Promise<void>;
+    authorName?: string;
+    likedByCurrentUser?: boolean;
+    canDelete?: boolean;
+    onToggleLike: (review: ReviewResponse) => Promise<void>;
+    onDelete: (review: ReviewResponse) => Promise<void>;
     onReport: (review: ReviewResponse) => void;
 };
 
@@ -22,20 +26,55 @@ function formatReviewDate(value: string) {
     }
 }
 
+function formatPlaytime(hours: number | null, minutes: number | null) {
+    const safeHours = hours ?? 0;
+    const safeMinutes = minutes ?? 0;
+
+    if (safeHours === 0 && safeMinutes === 0) {
+        return "Belirtilmedi";
+    }
+
+    if (safeHours >= 300) {
+        return "300+ saat";
+    }
+
+    const parts: string[] = [];
+
+    if (safeHours > 0) {
+        parts.push(`${safeHours} saat`);
+    }
+
+    if (safeMinutes > 0) {
+        parts.push(`${safeMinutes} dakika`);
+    }
+
+    return parts.join(" ");
+}
+
 export function ReviewCard({
                                review,
                                isAuthenticated,
                                actionLoading = false,
-                               onLike,
+                               authorName,
+                               likedByCurrentUser = false,
+                               canDelete = false,
+                               onToggleLike,
+                               onDelete,
                                onReport,
                            }: ReviewCardProps) {
+    const displayName = authorName?.trim() || `User #${review.userId}`;
+    const playtimeText = formatPlaytime(
+        review.playtimeHours,
+        review.playtimeMinutes,
+    );
+
     return (
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 dark:hover:border-purple-900/70">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-              User #{review.userId}
+              {displayName}
             </span>
 
                         <span
@@ -83,9 +122,7 @@ export function ReviewCard({
             Oynama süresi
           </span>
                     <span className="font-medium text-slate-700 dark:text-slate-200">
-            {review.playtimeHours != null
-                ? `${review.playtimeHours} saat`
-                : "Belirtilmedi"}
+            {playtimeText}
           </span>
                 </div>
 
@@ -103,10 +140,14 @@ export function ReviewCard({
                 <button
                     type="button"
                     disabled={!isAuthenticated || actionLoading}
-                    onClick={() => onLike(review.id)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:text-slate-200 dark:hover:border-purple-900 dark:hover:bg-purple-950/40 dark:hover:text-purple-200"
+                    onClick={() => onToggleLike(review)}
+                    className={`rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        likedByCurrentUser
+                            ? "border-purple-400 bg-purple-600 text-white hover:bg-purple-700 dark:border-purple-500 dark:bg-purple-700 dark:text-white dark:hover:bg-purple-600"
+                            : "border-slate-200 text-slate-700 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 dark:border-slate-800 dark:text-slate-200 dark:hover:border-purple-900 dark:hover:bg-purple-950/40 dark:hover:text-purple-200"
+                    }`}
                 >
-                    Beğen · {review.likeCount}
+                    {likedByCurrentUser ? "Beğenildi" : "Beğen"} · {review.likeCount}
                 </button>
 
                 <button
@@ -117,6 +158,17 @@ export function ReviewCard({
                 >
                     Şikayet et
                 </button>
+
+                {canDelete && (
+                    <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => onDelete(review)}
+                        className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/70 dark:text-red-300 dark:hover:bg-red-950/40"
+                    >
+                        Sil
+                    </button>
+                )}
 
                 {!isAuthenticated && (
                     <span className="text-xs text-slate-500 dark:text-slate-400">

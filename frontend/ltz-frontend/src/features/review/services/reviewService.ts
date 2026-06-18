@@ -50,6 +50,9 @@ export const reviewService = {
             request,
         ),
 
+    deleteReview: (reviewId: number | string) =>
+        apiClient.delete(REVIEW_API_ENDPOINTS.reviewById(reviewId)),
+
     likeReview: (reviewId: number | string) =>
         apiClient.post<ReviewResponse>(REVIEW_API_ENDPOINTS.likeReview(reviewId)),
 

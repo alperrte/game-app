@@ -33,8 +33,12 @@ public class CreateReviewRequest {
     @NotNull(message = "Recommendation value is required.")
     private Boolean recommended;
 
-    @PositiveOrZero(message = "Playtime cannot be negative.")
+    @PositiveOrZero(message = "Playtime hours cannot be negative.")
     private Integer playtimeHours;
+
+    @Min(value = 0, message = "Playtime minutes must be at least 0.")
+    @Max(value = 59, message = "Playtime minutes must be at most 59.")
+    private Integer playtimeMinutes;
 
     @Size(max = 100, message = "Platform can be at most 100 characters.")
     private String platform;

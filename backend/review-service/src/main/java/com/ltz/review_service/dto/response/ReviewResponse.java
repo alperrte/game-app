@@ -29,6 +29,8 @@ public class ReviewResponse {
 
     private Integer playtimeHours;
 
+    private Integer playtimeMinutes;
+
     private String platform;
 
     private String hardwareInfo;

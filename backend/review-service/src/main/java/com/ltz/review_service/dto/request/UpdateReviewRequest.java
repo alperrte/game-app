@@ -25,8 +25,12 @@ public class UpdateReviewRequest {
     @NotNull(message = "Olumlu/olumsuz değerlendirme boş olamaz.")
     private Boolean recommended;
 
-    @PositiveOrZero(message = "Oynama süresi negatif olamaz.")
+    @PositiveOrZero(message = "Oynama süresi saati negatif olamaz.")
     private Integer playtimeHours;
+
+    @Min(value = 0, message = "Oynama süresi dakikası en az 0 olmalıdır.")
+    @Max(value = 59, message = "Oynama süresi dakikası en fazla 59 olmalıdır.")
+    private Integer playtimeMinutes;
 
     @Size(max = 100, message = "Platform en fazla 100 karakter olabilir.")
     private String platform;

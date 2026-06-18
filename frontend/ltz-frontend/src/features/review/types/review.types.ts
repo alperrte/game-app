@@ -10,6 +10,7 @@ export type ReviewResponse = {
     reviewText: string;
     recommended: boolean;
     playtimeHours: number | null;
+    playtimeMinutes: number | null;
     platform: string | null;
     hardwareInfo: string | null;
     likeCount: number;
@@ -32,6 +33,7 @@ export type CreateReviewRequest = {
     reviewText: string;
     recommended: boolean;
     playtimeHours?: number | null;
+    playtimeMinutes?: number | null;
     platform?: string | null;
     hardwareInfo?: string | null;
 };
@@ -45,6 +47,7 @@ export type ReviewFormValues = {
     reviewText: string;
     recommended: boolean;
     playtimeHours: string;
+    playtimeMinutes: string;
     platform: string;
     hardwareInfo: string;
 };
