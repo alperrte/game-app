@@ -11,6 +11,7 @@ CREATE TABLE reviews (
                          recommended BIT NOT NULL,
 
                          playtime_hours INT NULL,
+                         playtime_minutes INT NULL,
                          platform NVARCHAR(100) NULL,
                          hardware_info NVARCHAR(500) NULL,
 
@@ -22,6 +23,7 @@ CREATE TABLE reviews (
 
                          CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 10),
                          CONSTRAINT chk_reviews_playtime_hours CHECK (playtime_hours IS NULL OR playtime_hours >= 0),
+                         CONSTRAINT chk_reviews_playtime_minutes CHECK (playtime_minutes IS NULL OR playtime_minutes BETWEEN 0 AND 59),
 
                          CONSTRAINT chk_reviews_game_reference CHECK (
                              (

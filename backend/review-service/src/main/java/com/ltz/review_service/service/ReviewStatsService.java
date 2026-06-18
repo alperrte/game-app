@@ -140,6 +140,7 @@ public class ReviewStatsService {
                 .reviewText(review.getReviewText())
                 .recommended(review.getRecommended())
                 .playtimeHours(review.getPlaytimeHours())
+                .playtimeMinutes(review.getPlaytimeMinutes())
                 .platform(review.getPlatform())
                 .hardwareInfo(review.getHardwareInfo())
                 .likeCount(review.getLikeCount())

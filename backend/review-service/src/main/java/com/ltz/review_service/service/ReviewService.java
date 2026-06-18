@@ -57,6 +57,7 @@ public class ReviewService {
                 .reviewText(request.getReviewText())
                 .recommended(request.getRecommended())
                 .playtimeHours(request.getPlaytimeHours())
+                .playtimeMinutes(request.getPlaytimeMinutes())
                 .platform(request.getPlatform())
                 .hardwareInfo(request.getHardwareInfo())
                 .likeCount(0)
@@ -152,6 +153,7 @@ public class ReviewService {
         review.setReviewText(request.getReviewText());
         review.setRecommended(request.getRecommended());
         review.setPlaytimeHours(request.getPlaytimeHours());
+        review.setPlaytimeMinutes(request.getPlaytimeMinutes());
         review.setPlatform(request.getPlatform());
         review.setHardwareInfo(request.getHardwareInfo());
 
@@ -292,6 +294,7 @@ public class ReviewService {
                 .reviewText(review.getReviewText())
                 .recommended(review.getRecommended())
                 .playtimeHours(review.getPlaytimeHours())
+                .playtimeMinutes(review.getPlaytimeMinutes())
                 .platform(review.getPlatform())
                 .hardwareInfo(review.getHardwareInfo())
                 .likeCount(review.getLikeCount())

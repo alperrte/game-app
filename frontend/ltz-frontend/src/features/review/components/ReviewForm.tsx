@@ -8,14 +8,39 @@ type ReviewFormProps = {
     onSubmit: (values: ReviewFormValues) => Promise<void>;
 };
 
+const ratingOptions = Array.from({ length: 10 }, (_, index) => index + 1);
+
+const playtimeHourOptions = Array.from({ length: 301 }, (_, index) => index);
+
+const playtimeMinuteOptions = [0, 15, 30, 45];
+
+const platformOptions = [
+    "",
+    "PC",
+    "Steam Deck",
+    "PlayStation 5",
+    "PlayStation 4",
+    "Xbox Series X/S",
+    "Xbox One",
+    "Nintendo Switch",
+    "Mobile",
+    "Mac",
+    "Linux",
+];
+
 const initialValues: ReviewFormValues = {
     rating: 8,
     reviewText: "",
     recommended: true,
     playtimeHours: "",
+    playtimeMinutes: "0",
     platform: "",
     hardwareInfo: "",
 };
+
+function formatPlaytimeHourOption(hour: number) {
+    return hour >= 300 ? "300+ saat" : `${hour} saat`;
+}
 
 export function ReviewForm({
                                submitting = false,
@@ -61,10 +86,8 @@ export function ReviewForm({
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             Puan
           </span>
-                    <input
-                        type="number"
-                        min={1}
-                        max={10}
+
+                    <select
                         value={values.rating}
                         onChange={(event) =>
                             setValues((current) => ({
@@ -73,13 +96,20 @@ export function ReviewForm({
                             }))
                         }
                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                    />
+                    >
+                        {ratingOptions.map((rating) => (
+                            <option key={rating} value={rating}>
+                                {rating} / 10
+                            </option>
+                        ))}
+                    </select>
                 </label>
 
                 <label className="space-y-2">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             Tavsiye
           </span>
+
                     <select
                         value={values.recommended ? "true" : "false"}
                         onChange={(event) =>
@@ -95,32 +125,65 @@ export function ReviewForm({
                     </select>
                 </label>
 
-                <label className="space-y-2">
+                <div className="space-y-2">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             Oynama süresi
           </span>
-                    <input
-                        type="number"
-                        min={0}
-                        placeholder="Örn: 42"
-                        value={values.playtimeHours}
-                        onChange={(event) =>
-                            setValues((current) => ({
-                                ...current,
-                                playtimeHours: event.target.value,
-                            }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                    />
-                </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <label className="sr-only" htmlFor="review-playtime-hours">
+                            Saat
+                        </label>
+
+                        <select
+                            id="review-playtime-hours"
+                            value={values.playtimeHours}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    playtimeHours: event.target.value,
+                                }))
+                            }
+                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                        >
+                            <option value="">Saat seç</option>
+                            {playtimeHourOptions.map((hour) => (
+                                <option key={hour} value={hour}>
+                                    {formatPlaytimeHourOption(hour)}
+                                </option>
+                            ))}
+                        </select>
+
+                        <label className="sr-only" htmlFor="review-playtime-minutes">
+                            Dakika
+                        </label>
+
+                        <select
+                            id="review-playtime-minutes"
+                            value={values.playtimeMinutes}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    playtimeMinutes: event.target.value,
+                                }))
+                            }
+                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                        >
+                            {playtimeMinuteOptions.map((minute) => (
+                                <option key={minute} value={minute}>
+                                    {minute} dakika
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
 
                 <label className="space-y-2">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             Platform
           </span>
-                    <input
-                        type="text"
-                        placeholder="PC, PlayStation, Xbox..."
+
+                    <select
                         value={values.platform}
                         onChange={(event) =>
                             setValues((current) => ({
@@ -129,7 +192,16 @@ export function ReviewForm({
                             }))
                         }
                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                    />
+                    >
+                        <option value="">Platform seç</option>
+                        {platformOptions
+                            .filter((platform) => platform !== "")
+                            .map((platform) => (
+                                <option key={platform} value={platform}>
+                                    {platform}
+                                </option>
+                            ))}
+                    </select>
                 </label>
             </div>
 
@@ -137,6 +209,7 @@ export function ReviewForm({
         <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
           Donanım bilgisi
         </span>
+
                 <input
                     type="text"
                     placeholder="Örn: RTX 4060, Ryzen 5, 16GB RAM"
@@ -155,6 +228,7 @@ export function ReviewForm({
         <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
           İnceleme metni
         </span>
+
                 <textarea
                     rows={5}
                     placeholder="Bu oyun hakkında ne düşünüyorsun?"

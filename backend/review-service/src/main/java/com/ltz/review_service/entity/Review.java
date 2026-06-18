@@ -66,9 +66,14 @@ public class Review {
     @Column(name = "recommended", nullable = false)
     private Boolean recommended;
 
-    @PositiveOrZero(message = "Oynama süresi negatif olamaz.")
+    @PositiveOrZero(message = "Oynama süresi saati negatif olamaz.")
     @Column(name = "playtime_hours")
     private Integer playtimeHours;
+
+    @Min(value = 0, message = "Oynama süresi dakikası en az 0 olmalıdır.")
+    @Max(value = 59, message = "Oynama süresi dakikası en fazla 59 olmalıdır.")
+    @Column(name = "playtime_minutes")
+    private Integer playtimeMinutes;
 
     @Size(max = 100, message = "Platform en fazla 100 karakter olabilir.")
     @Column(name = "platform", length = 100)
