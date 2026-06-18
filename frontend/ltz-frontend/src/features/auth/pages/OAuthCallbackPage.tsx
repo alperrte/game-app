@@ -2,10 +2,15 @@
  * OAuth (Steam) dönüş sayfası.
  *
  * Backend, başarılı OAuth girişinden sonra tarayıcıyı şu adrese yönlendirir:
- *   /oauth/callback?accessToken=...&refreshToken=...
+ *   /oauth/callback#accessToken=...&refreshToken=...
+ *
+ * Token'lar güvenlik nedeniyle URL fragment (#) içinde taşınır:
+ *   - Sunucuya / proxy'ye iletilmez → log'a düşmez
+ *   - Referer header'ına girmez → 3. parti sızıntısı olmaz
+ *   - Sayfa yüklenir yüklenmez hash temizlenir → tarayıcı geçmişinde kalmaz
  *
  * Bu sayfa:
- *  1) Token'ları query'den okur,
+ *  1) Token'ları fragment'tan okur ve adresten hemen siler,
  *  2) validate-token ile kullanıcı bilgisini çözer,
  *  3) oturumu başlatır (store + depolama) ve ana sayfaya yönlendirir.
  */
@@ -25,8 +30,28 @@ export function OAuthCallbackPage() {
     const [searchParams] = useSearchParams();
     const [asyncError, setAsyncError] = useState<string | null>(null);
 
-    const accessToken = searchParams.get("accessToken");
-    const refreshToken = searchParams.get("refreshToken");
+    /*
+     * Token'lar URL fragment (#) içinde gelir — query param DEĞİL.
+     *
+     * useState lazy initializer ile hash yalnızca bir kez (ilk mount) okunur;
+     * React StrictMode'un çift render'ında hash zaten temizlenmiş olacağından
+     * ikinci render'da null görünüp hata gösterilmesi önlenir.
+     */
+    const [{ accessToken, refreshToken }] = useState(() => {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const at = params.get("accessToken");
+        const rt = params.get("refreshToken");
+        if (window.location.hash) {
+            window.history.replaceState(
+                null,
+                document.title,
+                window.location.pathname + window.location.search,
+            );
+        }
+        return { accessToken: at, refreshToken: rt };
+    });
+
+    // Hata query param olarak gelebilir (OAuth sağlayıcısı hataları için).
     const providerError = searchParams.get("error");
     const missingTokens = !providerError && (!accessToken || !refreshToken);
 

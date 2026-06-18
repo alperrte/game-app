@@ -1,7 +1,9 @@
 package com.ltz.auth_service.config;
 
+import com.ltz.auth_service.security.InternalSecretFilter;
 import com.ltz.auth_service.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +31,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
+
+    @Value("${internal.secret}")
+    private String internalSecret;
 
     /*
      * Hangi endpointlerin public, hangi endpointlerin token istediğini belirler.
@@ -72,6 +77,13 @@ public class SecurityConfig {
                         ).permitAll()
 
                         /*
+                         * Dahili servis endpoint'leri — yalnızca ROLE_INTERNAL yetkisiyle erişilir.
+                         * InternalSecretFilter X-Internal-Secret header'ını doğrular ve
+                         * geçerliyse bu rolü SecurityContext'e yazar.
+                         */
+                        .requestMatchers("/internal/**").hasRole("INTERNAL")
+
+                        /*
                          * Swagger endpointleri public.
                          */
                         .requestMatchers(
@@ -98,6 +110,16 @@ public class SecurityConfig {
                  * Kullanıcı doğrulama provider'ı.
                  */
                 .authenticationProvider(authenticationProvider())
+
+                /*
+                 * InternalSecretFilter JWT filter'dan önce çalışır:
+                 * /internal/** isteklerinde X-Internal-Secret header'ını kontrol eder,
+                 * geçerliyse ROLE_INTERNAL auth set eder.
+                 */
+                .addFilterBefore(
+                        new InternalSecretFilter(internalSecret),
+                        UsernamePasswordAuthenticationFilter.class
+                )
 
                 /*
                  * JWT filter, Spring Security filter zincirine eklenir.

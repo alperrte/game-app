@@ -31,28 +31,19 @@ public class CustomerUserDetailsService implements UserDetailsService {
         UserCredential userCredential = userCredentialRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Kullanıcı bulunamadı."));
 
-        /*
-         * Kullanıcının aktif olup olmadığını Spring Security'ye bildiriyoruz.
-         *
-         * ACTIVE değilse enabled=false olur.
-         * Böylece kullanıcı doğrulama sürecinde aktif kabul edilmez.
-         */
+        return toUserDetails(userCredential);
+    }
+
+    /*
+     * UserCredential -> UserDetails dönüşümünü merkezi bir yerde tutar.
+     * JwtAuthenticationFilter bu metodu kullanarak gereksiz ikinci DB sorgusunu önler.
+     *
+     * OAuth (STEAM) kullanıcılarının şifresi NULL'dır; Spring Security boş string ister.
+     * ACTIVE olmayan hesaplar enabled=false ile işaretlenir.
+     */
+    public UserDetails toUserDetails(UserCredential userCredential) {
         boolean enabled = userCredential.getAccountStatus() == AccountStatus.ACTIVE;
 
-        /*
-         * Spring Security rol yapısında roller genelde ROLE_ prefix'i ile tutulur.
-         *
-         * Database'de:
-         * USER
-         *
-         * Security tarafında:
-         * ROLE_USER
-         */
-        /*
-         * OAuth (STEAM) kullanıcılarının şifresi NULL'dır.
-         * Spring Security'nin User nesnesi null şifre kabul etmediği için boş string veriyoruz.
-         * Bu kullanıcılar zaten şifreyle giriş yapamaz; doğrulama JWT üzerinden yürür.
-         */
         String password = userCredential.getPasswordHash() != null
                 ? userCredential.getPasswordHash()
                 : "";

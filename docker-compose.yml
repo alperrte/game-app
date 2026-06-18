@@ -87,6 +87,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       REFRESH_TOKEN_EXPIRATION: ${REFRESH_TOKEN_EXPIRATION}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
 
       # OAuth / sosyal giriş + yönlendirme adresleri
       FRONTEND_URL: ${FRONTEND_URL}
@@ -163,6 +164,9 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
     ports:
       - "${SERVER_PORT_USER}:${SERVER_PORT_USER}"
     volumes:

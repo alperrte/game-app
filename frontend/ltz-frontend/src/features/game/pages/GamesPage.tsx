@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { Button } from "../../../components/ui/Button";
+import { Select } from "../../../components/ui/Select";
+import type { SelectOption } from "../../../components/ui/Select";
 import GameCard from "../components/GameCard";
 import type { GameCardViewMode } from "../components/GameCard";
 import {
@@ -32,6 +34,27 @@ const SEARCH_DEBOUNCE_MS = 450;
 const PAGINATION_WINDOW_SIZE = 30;
 const ALL_CATEGORIES_VALUE = "all";
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
+
+const SOURCE_SELECT_OPTIONS: SelectOption[] = [
+  {
+    value: "STEAM",
+    label: "Steam",
+    icon: (
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#1b2838] text-[10px] font-black text-[#c7d5e0] ring-1 ring-white/10">
+        S
+      </span>
+    ),
+  },
+  {
+    value: "EPIC",
+    label: "Epic Games",
+    icon: (
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0078f2] text-[10px] font-black text-white ring-1 ring-white/10">
+        E
+      </span>
+    ),
+  },
+];
 
 const BLOCKED_ADULT_CONTENT_KEYWORDS = [
   "adult",
@@ -862,19 +885,11 @@ const GamesPage = () => {
                   Kaynak
                 </span>
 
-                  <select
-                      className="h-12 w-full cursor-pointer rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm font-semibold text-white outline-none"
-                      onChange={(event) =>
-                          handleSourceChange(event.target.value as GameSource)
-                      }
+                  <Select
                       value={source}
-                  >
-                    {SOURCE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {sourceLabel(option)}
-                        </option>
-                    ))}
-                  </select>
+                      onValueChange={(val) => handleSourceChange(val as GameSource)}
+                      options={SOURCE_SELECT_OPTIONS}
+                  />
                 </label>
 
                 <div
@@ -1229,16 +1244,11 @@ const GamesPage = () => {
                     Platform / Sağlayıcı
                   </span>
 
-                      <select
-                          className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                          onChange={(event) =>
-                              handleFormSourceChange(event.target.value as GameSource)
-                          }
+                      <Select
                           value={gameForm.source}
-                      >
-                        <option value="STEAM">STEAM</option>
-                        <option value="EPIC">EPIC</option>
-                      </select>
+                          onValueChange={(val) => handleFormSourceChange(val as GameSource)}
+                          options={SOURCE_SELECT_OPTIONS}
+                      />
                     </label>
 
                     <label className="grid gap-2">

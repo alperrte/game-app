@@ -73,17 +73,25 @@ public class OAuthController {
     }
 
     /*
-     * Token'ları frontend'in /oauth/callback sayfasına query parametresi olarak taşır.
-     * Frontend bu token'ları saklayıp oturumu başlatır.
+     * Token'ları URL fragment (#) ile taşır; query parametresi KULLANILMAZ.
+     *
+     * Query param ile gönderilseydi token'lar:
+     *   - Sunucu / proxy access log'larına düşerdi
+     *   - Tarayıcı geçmişine kaydolurdu
+     *   - Referer header'ı üzerinden 3. parti kaynaklara sızabilirdi
+     *
+     * Fragment (#) sunucuya iletilmez, log'a girmez ve Referer'a dahil edilmez.
+     * Frontend hash'i okur okumaz window.history.replaceState ile adresten temizler.
      */
     private URI buildFrontendRedirect(AuthResponse authResponse) {
-        String url = UriComponentsBuilder.fromUriString(frontendUrl)
+        String base = UriComponentsBuilder.fromUriString(frontendUrl)
                 .path("/oauth/callback")
-                .queryParam("accessToken", authResponse.getAccessToken())
-                .queryParam("refreshToken", authResponse.getRefreshToken())
                 .build()
                 .toUriString();
 
-        return URI.create(url);
+        String fragment = "accessToken=" + authResponse.getAccessToken()
+                + "&refreshToken=" + authResponse.getRefreshToken();
+
+        return URI.create(base + "#" + fragment);
     }
 }

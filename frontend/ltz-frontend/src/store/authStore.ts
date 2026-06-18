@@ -132,11 +132,23 @@ export async function bootstrapAuth(): Promise<void> {
 
     const refreshToken = getRefreshToken();
 
-    if (refreshToken && !isTokenExpired(refreshToken)) {
+    if (refreshToken) {
         try {
             const response = await authService.refreshToken({ refreshToken });
-            // remember verilmez: token'lar hâlihazırdaki depolamada kalır.
+
+            // Token rotation: sunucu yeni bir refresh token döner; storage tercihini koruyarak güncelle.
             setTokens(response.accessToken, response.refreshToken);
+
+            // Kullanıcı bilgisini (rol değişikliği vb.) ve store state'ini de yenile.
+            const updatedUser: AuthUser = {
+                userId: response.userId,
+                email: response.email,
+                username: response.username,
+                role: response.role,
+            };
+            setStoredUser(updatedUser);
+            state = { user: updatedUser, isAuthenticated: true };
+            emit();
             return;
         } catch {
             // Yenileme başarısız: aşağıda oturumu temizle.
