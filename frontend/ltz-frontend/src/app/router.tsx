@@ -21,6 +21,8 @@ import GameDevelopersPage from "../features/game/pages/GameDevelopersPage";
 import GamePublishersPage from "../features/game/pages/GamePublishersPage";
 import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequirementsPage";
 
+import ReviewCreatePage from "../features/review/pages/ReviewCreatePage";
+
 import SocialFeedPage from "../features/social/pages/SocialFeedPage";
 import MessagesPage from "../features/social/pages/MessagesPage";
 
@@ -61,123 +63,128 @@ function PublicOnlyRoute() {
 
 export function AppRouter() {
   return (
-    <Routes>
-      {/* Public: yalnızca giriş yapılmamışken erişilebilir */}
-      <Route element={<PublicOnlyRoute />}>
-        <Route element={<AuthLayout />}>
-          <Route path={ROUTES.login} element={<LoginPage />} />
-          <Route path={ROUTES.register} element={<RegisterPage />} />
+      <Routes>
+        {/* Public: yalnızca giriş yapılmamışken erişilebilir */}
+        <Route element={<PublicOnlyRoute />}>
+          <Route element={<AuthLayout />}>
+            <Route path={ROUTES.login} element={<LoginPage />} />
+            <Route path={ROUTES.register} element={<RegisterPage />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* OAuth dönüşü oturumu kendisi başlatır; guard kullanılmaz */}
-      <Route
-        path={ROUTES.oauthCallback}
-        element={<OAuthCallbackPage />}
-      />
+        {/* OAuth dönüşü oturumu kendisi başlatır; guard kullanılmaz */}
+        <Route
+            path={ROUTES.oauthCallback}
+            element={<OAuthCallbackPage />}
+        />
 
-      {/* Private: giriş gerektiren sayfalar */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<MainLayout />}>
-          {/* Sosyal medya */}
-          <Route
-            path={ROUTES.home}
-            element={<SocialFeedPage />}
-          />
+        {/* Private: giriş gerektiren sayfalar */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout />}>
+            {/* Sosyal medya */}
+            <Route
+                path={ROUTES.home}
+                element={<SocialFeedPage />}
+            />
 
-          <Route
-            path={SOCIAL_ROUTES.messages}
-            element={<MessagesPage />}
-          />
+            <Route
+                path={SOCIAL_ROUTES.messages}
+                element={<MessagesPage />}
+            />
 
-          <Route
-            path={SOCIAL_ROUTES.chatRoom(":roomId")}
-            element={<MessagesPage />}
-          />
+            <Route
+                path={SOCIAL_ROUTES.chatRoom(":roomId")}
+                element={<MessagesPage />}
+            />
 
-          {/* Oyun listeleme ve oluşturma */}
-          <Route
-            path={GAME_ROUTES.games}
-            element={<GamesPage />}
-          />
+            {/* Oyun listeleme ve oluşturma */}
+            <Route
+                path={GAME_ROUTES.games}
+                element={<GamesPage />}
+            />
 
-          <Route
-            path={GAME_ROUTES.createGame}
-            element={<GameCreatePage />}
-          />
+            <Route
+                path={GAME_ROUTES.createGame}
+                element={<GameCreatePage />}
+            />
 
-          {/* Oyun servisinin alt sayfaları */}
-          <Route
-            path={GAME_ROUTES.categories}
-            element={<GameCategoriesPage />}
-          />
+            {/* Review-service */}
+            <Route
+                path="/reviews"
+                element={<ReviewCreatePage />}
+            />
 
-          <Route
-            path={GAME_ROUTES.platforms}
-            element={<GamePlatformsPage />}
-          />
+            {/* Oyun servisinin alt sayfaları */}
+            <Route
+                path={GAME_ROUTES.categories}
+                element={<GameCategoriesPage />}
+            />
 
-          <Route
-            path={GAME_ROUTES.developers}
-            element={<GameDevelopersPage />}
-          />
+            <Route
+                path={GAME_ROUTES.platforms}
+                element={<GamePlatformsPage />}
+            />
 
-          <Route
-            path={GAME_ROUTES.publishers}
-            element={<GamePublishersPage />}
-          />
+            <Route
+                path={GAME_ROUTES.developers}
+                element={<GameDevelopersPage />}
+            />
 
-          <Route
-            path={GAME_ROUTES.systemRequirements}
-            element={<GameSystemRequirementsPage />}
-          />
+            <Route
+                path={GAME_ROUTES.publishers}
+                element={<GamePublishersPage />}
+            />
 
-          {/*
+            <Route
+                path={GAME_ROUTES.systemRequirements}
+                element={<GameSystemRequirementsPage />}
+            />
+
+            {/*
            * External route dinamik /games/:id route'undan önce tanımlanır.
            * Böylece "external", oyun ID'si olarak değerlendirilmez.
            */}
-          <Route
-            path={GAME_ROUTES.externalGameDetail(
-              ":source",
-              ":externalId",
-            )}
-            element={<GameDetailPage />}
-          />
+            <Route
+                path={GAME_ROUTES.externalGameDetail(
+                    ":source",
+                    ":externalId",
+                )}
+                element={<GameDetailPage />}
+            />
 
-          {/* Düzenleme route'u detay route'undan önce tutulur */}
-          <Route
-            path={GAME_ROUTES.editGame(":id")}
-            element={<GameEditPage />}
-          />
+            {/* Düzenleme route'u detay route'undan önce tutulur */}
+            <Route
+                path={GAME_ROUTES.editGame(":id")}
+                element={<GameEditPage />}
+            />
 
-          <Route
-            path={GAME_ROUTES.gameDetail(":id")}
-            element={<GameDetailPage />}
-          />
+            <Route
+                path={GAME_ROUTES.gameDetail(":id")}
+                element={<GameDetailPage />}
+            />
 
-          {/* LTZ Corner / content-service */}
-          <Route path={CONTENT_ROUTES.hub} element={<HubPage />} />
-          <Route path={CONTENT_ROUTES.deals} element={<DealsPage />} />
-          <Route path={CONTENT_ROUTES.news} element={<NewsPage />} />
-          <Route path={CONTENT_ROUTES.esports} element={<EsportsPage />} />
-          <Route path={CONTENT_ROUTES.free} element={<FreeGamesPage />} />
-          <Route path={CONTENT_ROUTES.trivia} element={<TriviaPage />} />
-          <Route path={CONTENT_ROUTES.history} element={<HistoryPage />} />
+            {/* LTZ Corner / content-service */}
+            <Route path={CONTENT_ROUTES.hub} element={<HubPage />} />
+            <Route path={CONTENT_ROUTES.deals} element={<DealsPage />} />
+            <Route path={CONTENT_ROUTES.news} element={<NewsPage />} />
+            <Route path={CONTENT_ROUTES.esports} element={<EsportsPage />} />
+            <Route path={CONTENT_ROUTES.free} element={<FreeGamesPage />} />
+            <Route path={CONTENT_ROUTES.trivia} element={<TriviaPage />} />
+            <Route path={CONTENT_ROUTES.history} element={<HistoryPage />} />
 
-          {/* Kullanıcı profili */}
-          <Route
-            path={ROUTES.profile}
-            element={<ProfilePage />}
-          />
+            {/* Kullanıcı profili */}
+            <Route
+                path={ROUTES.profile}
+                element={<ProfilePage />}
+            />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Bilinmeyen yollar sosyal akış sayfasına yönlendirilir */}
-      <Route
-        path="*"
-        element={<Navigate to={SOCIAL_ROUTES.feed} replace />}
-      />
-    </Routes>
+        {/* Bilinmeyen yollar sosyal akış sayfasına yönlendirilir */}
+        <Route
+            path="*"
+            element={<Navigate to={SOCIAL_ROUTES.feed} replace />}
+        />
+      </Routes>
   );
 }
-

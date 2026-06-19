@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Star } from "lucide-react";
 
 import type { ReviewFormValues } from "../types/review.types";
 
@@ -9,10 +10,6 @@ type ReviewFormProps = {
 };
 
 const ratingOptions = Array.from({ length: 10 }, (_, index) => index + 1);
-
-const playtimeHourOptions = Array.from({ length: 301 }, (_, index) => index);
-
-const playtimeMinuteOptions = [0, 15, 30, 45];
 
 const platformOptions = [
     "",
@@ -29,18 +26,14 @@ const platformOptions = [
 ];
 
 const initialValues: ReviewFormValues = {
-    rating: 8,
+    rating: 0,
     reviewText: "",
     recommended: true,
     playtimeHours: "",
-    playtimeMinutes: "0",
+    playtimeMinutes: "",
     platform: "",
     hardwareInfo: "",
 };
-
-function formatPlaytimeHourOption(hour: number) {
-    return hour >= 300 ? "300+ saat" : `${hour} saat`;
-}
 
 export function ReviewForm({
                                submitting = false,
@@ -48,17 +41,22 @@ export function ReviewForm({
                                onSubmit,
                            }: ReviewFormProps) {
     const [values, setValues] = useState<ReviewFormValues>(initialValues);
+    const [hoveredRating, setHoveredRating] = useState<number | null>(null);
+
+    const visibleRating = hoveredRating ?? values.rating;
+    const hasSelectedRating = values.rating >= 1;
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        if (!values.reviewText.trim()) {
+        if (!values.reviewText.trim() || !hasSelectedRating) {
             return;
         }
 
         await onSubmit(values);
 
         setValues(initialValues);
+        setHoveredRating(null);
     };
 
     return (
@@ -82,33 +80,76 @@ export function ReviewForm({
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Puan
-          </span>
+                <div className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        Puan
+                    </span>
 
-                    <select
-                        value={values.rating}
-                        onChange={(event) =>
-                            setValues((current) => ({
-                                ...current,
-                                rating: Number(event.target.value),
-                            }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                    <div
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+                        onMouseLeave={() => setHoveredRating(null)}
                     >
-                        {ratingOptions.map((rating) => (
-                            <option key={rating} value={rating}>
-                                {rating} / 10
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {ratingOptions.map((rating) => {
+                                const active = rating <= visibleRating;
+
+                                return (
+                                    <button
+                                        key={rating}
+                                        type="button"
+                                        aria-label={`${rating} puan ver`}
+                                        title={`${rating} / 10`}
+                                        onMouseEnter={() => setHoveredRating(rating)}
+                                        onFocus={() => setHoveredRating(rating)}
+                                        onBlur={() => setHoveredRating(null)}
+                                        onClick={() =>
+                                            setValues((current) => ({
+                                                ...current,
+                                                rating,
+                                            }))
+                                        }
+                                        className="
+                                            group rounded-lg p-1
+                                            transition
+                                            hover:-translate-y-0.5
+                                            focus:outline-none
+                                            focus:ring-2
+                                            focus:ring-purple-500/40
+                                        "
+                                    >
+                                        <Star
+                                            size={26}
+                                            strokeWidth={1.8}
+                                            className={`
+                                                transition
+                                                ${
+                                                active
+                                                    ? "fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.45)]"
+                                                    : "fill-transparent text-slate-300 group-hover:text-yellow-300 dark:text-slate-600 dark:group-hover:text-yellow-300"
+                                            }
+                                            `}
+                                        />
+                                    </button>
+                                );
+                            })}
+
+                            <span className="ml-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                {hasSelectedRating
+                                    ? `${values.rating} / 10`
+                                    : "Puan seçilmedi"}
+                            </span>
+                        </div>
+
+                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                            Yıldızların üzerine gelerek önizle, tıklayarak puanı seç.
+                        </p>
+                    </div>
+                </div>
 
                 <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Tavsiye
-          </span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        Tavsiye
+                    </span>
 
                     <select
                         value={values.recommended ? "true" : "false"}
@@ -125,63 +166,38 @@ export function ReviewForm({
                     </select>
                 </label>
 
-                <div className="space-y-2">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Oynama süresi
-          </span>
+                <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        Oynama süresi
+                    </span>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <label className="sr-only" htmlFor="review-playtime-hours">
-                            Saat
-                        </label>
+                    <input
+                        type="number"
+                        min={0}
+                        max={99999}
+                        step={1}
+                        inputMode="numeric"
+                        placeholder="Örn: 120"
+                        value={values.playtimeHours}
+                        onChange={(event) =>
+                            setValues((current) => ({
+                                ...current,
+                                playtimeHours: event.target.value,
+                                playtimeMinutes: "",
+                            }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+                    />
 
-                        <select
-                            id="review-playtime-hours"
-                            value={values.playtimeHours}
-                            onChange={(event) =>
-                                setValues((current) => ({
-                                    ...current,
-                                    playtimeHours: event.target.value,
-                                }))
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                        >
-                            <option value="">Saat seç</option>
-                            {playtimeHourOptions.map((hour) => (
-                                <option key={hour} value={hour}>
-                                    {formatPlaytimeHourOption(hour)}
-                                </option>
-                            ))}
-                        </select>
-
-                        <label className="sr-only" htmlFor="review-playtime-minutes">
-                            Dakika
-                        </label>
-
-                        <select
-                            id="review-playtime-minutes"
-                            value={values.playtimeMinutes}
-                            onChange={(event) =>
-                                setValues((current) => ({
-                                    ...current,
-                                    playtimeMinutes: event.target.value,
-                                }))
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                        >
-                            {playtimeMinuteOptions.map((minute) => (
-                                <option key={minute} value={minute}>
-                                    {minute} dakika
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Oynama süresini saat olarak yaz.
+                    </p>
+                </label>
 
                 <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Platform
-          </span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        Platform
+                    </span>
 
                     <select
                         value={values.platform}
@@ -206,9 +222,9 @@ export function ReviewForm({
             </div>
 
             <label className="mt-4 block space-y-2">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-          Donanım bilgisi
-        </span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Donanım bilgisi
+                </span>
 
                 <input
                     type="text"
@@ -225,9 +241,9 @@ export function ReviewForm({
             </label>
 
             <label className="mt-4 block space-y-2">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-          İnceleme metni
-        </span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    İnceleme metni
+                </span>
 
                 <textarea
                     rows={5}
@@ -246,7 +262,11 @@ export function ReviewForm({
             <div className="mt-5 flex justify-end">
                 <button
                     type="submit"
-                    disabled={submitting || !values.reviewText.trim()}
+                    disabled={
+                        submitting ||
+                        !values.reviewText.trim() ||
+                        !hasSelectedRating
+                    }
                     className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     {submitting ? "Gönderiliyor..." : "İncelemeyi gönder"}

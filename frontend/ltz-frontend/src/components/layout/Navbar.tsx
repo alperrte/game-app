@@ -2,7 +2,7 @@
  * Uygulamanın genel, sabit üst navigasyonu.
  *
  * Navbar sırası:
- * Logo | Akış | Sohbet | Oyunlar | Sistem Gereksinimleri | LTZ Corner
+ * Logo | Akış | Sohbet | Oyunlar | İncelemeler | Sistem Gereksinimleri | LTZ Corner
  * | Kullanıcı Profili | Çıkış Yap
  *
  * - GameNavbar kullanılmaz.
@@ -38,6 +38,7 @@ import {
     LayoutGrid,
     LogOut,
     MessageCircle,
+    MessageSquareText,
     MonitorSmartphone,
     Newspaper,
     Percent,
@@ -121,6 +122,12 @@ const gameServiceItems: NavItem[] = [
     },
 ];
 
+const reviewsItem: NavItem = {
+    label: "İncelemeler",
+    href: "/reviews",
+    icon: MessageSquareText,
+};
+
 const systemRequirementsItem: NavItem = {
     label: "Sistem Gereksinimleri",
     href: "/games/system-requirements",
@@ -168,6 +175,7 @@ const contentCornerItems: NavItem[] = [
 const allNavItems: NavItem[] = [
     ...mainNavItems,
     ...gameServiceItems,
+    reviewsItem,
     systemRequirementsItem,
     ...contentCornerItems,
 ];
@@ -793,13 +801,18 @@ export function Navbar() {
 
                             {isGameMenuOpen
                                 ? renderNavDropdownPanel(
-                                      gameServiceItems,
-                                      activeHref,
-                                      "GAME SERVICE",
-                                      () => setIsGameMenuOpen(false),
-                                  )
+                                    gameServiceItems,
+                                    activeHref,
+                                    "GAME SERVICE",
+                                    () => setIsGameMenuOpen(false),
+                                )
                                 : null}
                         </div>
+
+                        {renderNavLink(
+                            reviewsItem,
+                            activeHref,
+                        )}
 
                         {renderNavLink(
                             systemRequirementsItem,
@@ -916,14 +929,14 @@ export function Navbar() {
 
                             {isContentMenuOpen
                                 ? renderNavDropdownPanel(
-                                      contentCornerItems,
-                                      activeHref,
-                                      "LTZ CORNER",
-                                      () =>
-                                          setIsContentMenuOpen(
-                                              false,
-                                          ),
-                                  )
+                                    contentCornerItems,
+                                    activeHref,
+                                    "LTZ CORNER",
+                                    () =>
+                                        setIsContentMenuOpen(
+                                            false,
+                                        ),
+                                )
                                 : null}
                         </div>
                     </nav>

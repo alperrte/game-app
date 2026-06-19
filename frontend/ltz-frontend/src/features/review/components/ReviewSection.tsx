@@ -5,14 +5,11 @@ import { apiClient } from "../../../lib/axios";
 import { useAuthStore } from "../../../store/authStore";
 import { reviewService } from "../services/reviewService";
 import type {
-    CreateReviewRequest,
     GameSource,
     ReviewAverageRatingResponse,
-    ReviewFormValues,
     ReviewResponse,
 } from "../types/review.types";
 import { ReviewCard } from "./ReviewCard";
-import { ReviewForm } from "./ReviewForm";
 import { ReviewRatingSummary } from "./ReviewRatingSummary";
 import { ReviewReportModal } from "./ReviewReportModal";
 
@@ -49,22 +46,6 @@ function getErrorStatus(error: unknown) {
     return apiError.status ?? apiError.response?.status;
 }
 
-function toNullableText(value: string) {
-    const trimmedValue = value.trim();
-
-    return trimmedValue.length > 0 ? trimmedValue : null;
-}
-
-function toNullableNumber(value: string) {
-    if (!value.trim()) {
-        return null;
-    }
-
-    const parsedValue = Number(value);
-
-    return Number.isNaN(parsedValue) ? null : parsedValue;
-}
-
 function getProfileDisplayName(profile: UserProfileSummary) {
     return (
         profile.displayName?.trim() ||
@@ -90,12 +71,10 @@ export function ReviewSection({
 
     const [loading, setLoading] = useState(true);
     const [summaryLoading, setSummaryLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [reportSubmitting, setReportSubmitting] = useState(false);
 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
     const [reportErrorMessage, setReportErrorMessage] = useState<string | null>(
         null,
     );
@@ -252,51 +231,6 @@ export function ReviewSection({
             active = false;
         };
     }, [authorNamesByUserId, reviews]);
-
-    const handleCreateReview = async (values: ReviewFormValues) => {
-        setSubmitting(true);
-        setFormErrorMessage(null);
-
-        if (!hasValidReviewReference) {
-            setFormErrorMessage("Bu oyun için inceleme referansı bulunamadı.");
-            setSubmitting(false);
-            return;
-        }
-
-        const request: CreateReviewRequest = {
-            gameSource: normalizedGameSource,
-            gameId: isExternalGame ? null : Number(gameId),
-            externalGameId: isExternalGame ? String(externalGameId) : null,
-            rating: values.rating,
-            reviewText: values.reviewText.trim(),
-            recommended: values.recommended,
-            playtimeHours: toNullableNumber(values.playtimeHours),
-            playtimeMinutes: toNullableNumber(values.playtimeMinutes),
-            platform: toNullableText(values.platform),
-            hardwareInfo: toNullableText(values.hardwareInfo),
-        };
-
-        try {
-            await reviewService.createReview(request);
-            await refreshReviews();
-        } catch (error) {
-            const status = getErrorStatus(error);
-
-            if (status === 409) {
-                setFormErrorMessage("Bu oyun için zaten inceleme oluşturdun.");
-                return;
-            }
-
-            if (status === 401 || status === 403) {
-                setFormErrorMessage("İnceleme yazmak için giriş yapmalısın.");
-                return;
-            }
-
-            setFormErrorMessage("İnceleme gönderilirken bir sorun oluştu.");
-        } finally {
-            setSubmitting(false);
-        }
-    };
 
     const handleOpenDeleteConfirm = (review: ReviewResponse) => {
         setErrorMessage(null);
@@ -466,17 +400,10 @@ export function ReviewSection({
                 loading={summaryLoading}
             />
 
-            {isAuthenticated ? (
-                <ReviewForm
-                    submitting={submitting}
-                    errorMessage={formErrorMessage}
-                    onSubmit={handleCreateReview}
-                />
-            ) : (
-                <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5 text-sm text-purple-800 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-100">
-                    İnceleme yazmak, beğenmek veya şikayet etmek için giriş yapmalısın.
-                </div>
-            )}
+            <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5 text-sm text-purple-800 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-100">
+                İnceleme yazmak için navbar’daki İncelemeler sayfasını
+                kullanabilirsin. Beğenmek veya şikayet etmek için giriş yapmalısın.
+            </div>
 
             {errorMessage && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
@@ -524,7 +451,7 @@ export function ReviewSection({
                             Henüz inceleme yok
                         </h4>
                         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                            Bu oyun için ilk incelemeyi yazan oyuncu sen olabilirsin.
+                            Bu oyun için henüz inceleme yazılmamış.
                         </p>
                     </div>
                 )}
