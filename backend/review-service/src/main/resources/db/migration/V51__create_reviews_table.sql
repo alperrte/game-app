@@ -8,6 +8,14 @@ CREATE TABLE reviews (
 
                          rating INT NOT NULL,
                          review_text NVARCHAR(3000) NOT NULL,
+
+                         graphics_review NVARCHAR(1500) NULL,
+                         gameplay_review NVARCHAR(1500) NULL,
+                         story_review NVARCHAR(1500) NULL,
+                         performance_review NVARCHAR(1500) NULL,
+                         pros NVARCHAR(1500) NULL,
+                         cons NVARCHAR(1500) NULL,
+
                          recommended BIT NOT NULL,
 
                          playtime_hours INT NULL,
