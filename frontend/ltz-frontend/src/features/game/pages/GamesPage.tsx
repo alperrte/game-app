@@ -17,12 +17,14 @@ import {
   getExternalGameTags,
   searchExternalGames,
 } from "../services/externalGameService";
+import { platformService } from "../services/platformService";
 import type { Game, GameCategory, GameRequest } from "../types/gameTypes";
 import type {
   ExternalGameSearchResponse,
   ExternalGameTag,
   GameSource,
 } from "../types/externalGame.types";
+import type { Platform } from "../types/platformTypes";
 import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import {
@@ -33,25 +35,99 @@ import {
 const SEARCH_DEBOUNCE_MS = 450;
 const PAGINATION_WINDOW_SIZE = 30;
 const ALL_CATEGORIES_VALUE = "all";
+
 const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
 
-const SOURCE_SELECT_OPTIONS: SelectOption[] = [
+type SourceLogoUrls = Partial<Record<GameSource, string>>;
+
+const PLATFORM_SOURCE_ALIASES: Record<GameSource, string[]> = {
+  STEAM: ["steam"],
+  EPIC: ["epic", "epicgames", "epicgamesstore", "epicgamestore"],
+};
+
+const normalizePlatformLookupValue = (value: string | null | undefined) => {
+  return value
+      ?.trim()
+      .toLocaleLowerCase("tr")
+      .replace(/[^a-z0-9]/g, "");
+};
+
+const getPlatformLogoUrl = (platforms: Platform[], source: GameSource) => {
+  const aliases = PLATFORM_SOURCE_ALIASES[source];
+
+  const matchedPlatform = platforms.find((platform) => {
+    const normalizedName = normalizePlatformLookupValue(platform.name);
+    const normalizedSource = normalizePlatformLookupValue(platform.source);
+    const normalizedDataSource = normalizePlatformLookupValue(platform.dataSource);
+
+    return aliases.some(
+        (alias) =>
+            normalizedName === alias ||
+            normalizedSource === alias ||
+            normalizedDataSource === alias
+    );
+  });
+
+  return matchedPlatform?.logoUrl?.trim() || null;
+};
+
+const SourceLogoIcon = ({
+                          fallback,
+                          logoUrl,
+                          source,
+                        }: {
+  fallback: string;
+  logoUrl?: string | null;
+  source: GameSource;
+}) => {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const shouldShowLogo = Boolean(logoUrl) && !logoFailed;
+
+  return (
+      <span
+          className={`inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full p-0.5 ring-1 ring-white/10 ${
+              source === "STEAM" ? "bg-[#1b2838]" : "bg-black"
+          }`}
+      >
+      {shouldShowLogo ? (
+          <img
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-contain"
+              loading="lazy"
+              onError={() => setLogoFailed(true)}
+              src={logoUrl ?? undefined}
+          />
+      ) : (
+          <span className="text-[10px] font-black text-white">{fallback}</span>
+      )}
+    </span>
+  );
+};
+
+const getSourceSelectOptions = (
+    sourceLogoUrls: SourceLogoUrls
+): SelectOption[] => [
   {
     value: "STEAM",
     label: "Steam",
     icon: (
-      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#1b2838] text-[10px] font-black text-[#c7d5e0] ring-1 ring-white/10">
-        S
-      </span>
+        <SourceLogoIcon
+            fallback="S"
+            logoUrl={sourceLogoUrls.STEAM}
+            source="STEAM"
+        />
     ),
   },
   {
     value: "EPIC",
     label: "Epic Games",
     icon: (
-      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0078f2] text-[10px] font-black text-white ring-1 ring-white/10">
-        E
-      </span>
+        <SourceLogoIcon
+            fallback="E"
+            logoUrl={sourceLogoUrls.EPIC}
+            source="EPIC"
+        />
     ),
   },
 ];
@@ -368,6 +444,7 @@ const GamesPage = () => {
   const [games, setGames] = useState<ExternalGameSearchResponse[]>([]);
   const [manualGames, setManualGames] = useState<Game[]>([]);
   const [source, setSource] = useState<GameSource>("STEAM");
+  const [sourceLogoUrls, setSourceLogoUrls] = useState<SourceLogoUrls>({});
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_VALUE);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [categorySearchTerm, setCategorySearchTerm] = useState("");
@@ -394,6 +471,24 @@ const GamesPage = () => {
   const searchTimeoutRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
   const categoryFilterRef = useRef<HTMLDivElement | null>(null);
+
+  const sourceSelectOptions = useMemo(
+      () => getSourceSelectOptions(sourceLogoUrls),
+      [sourceLogoUrls]
+  );
+
+  const fetchSourceLogos = async () => {
+    try {
+      const platforms = await platformService.getPlatforms();
+
+      setSourceLogoUrls({
+        STEAM: getPlatformLogoUrl(platforms, "STEAM") ?? undefined,
+        EPIC: getPlatformLogoUrl(platforms, "EPIC") ?? undefined,
+      });
+    } catch {
+      setSourceLogoUrls({});
+    }
+  };
 
   const fetchManualGames = async (nextSource: GameSource) => {
     setManualGamesLoading(true);
@@ -564,6 +659,7 @@ const GamesPage = () => {
 
   useEffect(() => {
     void Promise.resolve().then(() => {
+      void fetchSourceLogos();
       void fetchManualGames("STEAM");
       void fetchCategoryOptions("STEAM");
       void runSearch("", "STEAM", 1, perPage, ALL_CATEGORIES_VALUE);
@@ -888,7 +984,7 @@ const GamesPage = () => {
                   <Select
                       value={source}
                       onValueChange={(val) => handleSourceChange(val as GameSource)}
-                      options={SOURCE_SELECT_OPTIONS}
+                      options={sourceSelectOptions}
                   />
                 </label>
 
@@ -1247,7 +1343,7 @@ const GamesPage = () => {
                       <Select
                           value={gameForm.source}
                           onValueChange={(val) => handleFormSourceChange(val as GameSource)}
-                          options={SOURCE_SELECT_OPTIONS}
+                          options={sourceSelectOptions}
                       />
                     </label>
 

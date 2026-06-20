@@ -1,13 +1,17 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Select } from "../../../components/ui/Select";
+import type { SelectOption } from "../../../components/ui/Select";
 import { createGameCategory, getGameCategories } from "../services/gameService";
 import { getExternalGameTags } from "../services/externalGameService";
+import { platformService } from "../services/platformService";
 import type { GameCategory, GameCategoryRequest } from "../types/gameTypes";
 import type {
   ExternalGameTag,
   GameSource,
 } from "../types/externalGame.types";
+import type { Platform } from "../types/platformTypes";
 import { useAuthStore } from "../../../store/authStore";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { ADMIN_ACTION_MESSAGE, isAdminRole } from "../utils/gameAdmin";
@@ -24,6 +28,100 @@ type CategoryOrigin = "external" | "manual";
 
 const DEFAULT_PAGE_SIZE = 12;
 const PAGINATION_WINDOW_SIZE = 30;
+
+type SourceLogoUrls = Partial<Record<GameSource, string>>;
+
+const PLATFORM_SOURCE_ALIASES: Record<GameSource, string[]> = {
+  STEAM: ["steam"],
+  EPIC: ["epic", "epicgames", "epicgamesstore", "epicgamestore"],
+};
+
+const normalizePlatformLookupValue = (value: string | null | undefined) => {
+  return value
+      ?.trim()
+      .toLocaleLowerCase("tr")
+      .replace(/[^a-z0-9]/g, "");
+};
+
+const getPlatformLogoUrl = (platforms: Platform[], source: GameSource) => {
+  const aliases = PLATFORM_SOURCE_ALIASES[source];
+
+  const matchedPlatform = platforms.find((platform) => {
+    const normalizedName = normalizePlatformLookupValue(platform.name);
+    const normalizedSource = normalizePlatformLookupValue(platform.source);
+    const normalizedDataSource = normalizePlatformLookupValue(platform.dataSource);
+
+    return aliases.some(
+        (alias) =>
+            normalizedName === alias ||
+            normalizedSource === alias ||
+            normalizedDataSource === alias
+    );
+  });
+
+  return matchedPlatform?.logoUrl?.trim() || null;
+};
+
+const SourceLogoIcon = ({
+                          fallback,
+                          logoUrl,
+                          source,
+                        }: {
+  fallback: string;
+  logoUrl?: string | null;
+  source: GameSource;
+}) => {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const shouldShowLogo = Boolean(logoUrl) && !logoFailed;
+
+  return (
+      <span
+          className={`inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full p-0.5 ring-1 ring-white/10 ${
+              source === "STEAM" ? "bg-[#1b2838]" : "bg-black"
+          }`}
+      >
+      {shouldShowLogo ? (
+          <img
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-contain"
+              loading="lazy"
+              onError={() => setLogoFailed(true)}
+              src={logoUrl ?? undefined}
+          />
+      ) : (
+          <span className="text-[10px] font-black text-white">{fallback}</span>
+      )}
+    </span>
+  );
+};
+
+const getSourceSelectOptions = (
+    sourceLogoUrls: SourceLogoUrls
+): SelectOption[] => [
+  {
+    value: "STEAM",
+    label: "Steam",
+    icon: (
+        <SourceLogoIcon
+            fallback="S"
+            logoUrl={sourceLogoUrls.STEAM}
+            source="STEAM"
+        />
+    ),
+  },
+  {
+    value: "EPIC",
+    label: "Epic Games",
+    icon: (
+        <SourceLogoIcon
+            fallback="E"
+            logoUrl={sourceLogoUrls.EPIC}
+            source="EPIC"
+        />
+    ),
+  },
+];
 
 const BLOCKED_ADULT_CONTENT_KEYWORDS = [
   "adult",
@@ -128,10 +226,8 @@ const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
       Math.floor((currentPage - 1) / PAGINATION_WINDOW_SIZE) *
       PAGINATION_WINDOW_SIZE +
       1;
-  const endPage = Math.min(
-      totalPages,
-      startPage + PAGINATION_WINDOW_SIZE - 1
-  );
+
+  const endPage = Math.min(totalPages, startPage + PAGINATION_WINDOW_SIZE - 1);
 
   return Array.from(
       { length: endPage - startPage + 1 },
@@ -295,6 +391,7 @@ const StatCard = ({
           >
             {icon}
           </div>
+
           <div>
             <p className="text-sm text-slate-400">{label}</p>
             <p className="mt-1 text-3xl font-black text-white">{value}</p>
@@ -325,6 +422,7 @@ const CategoryCardImage = ({ category }: { category: CategoryListItem }) => {
           <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-violet-100">
             {category.source}
           </span>
+
               <div>
                 <p className="text-lg font-black text-white">{category.name}</p>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -370,6 +468,7 @@ const GameCategoriesPage = () => {
   const [categories, setCategories] = useState<ExternalGameTag[]>([]);
   const [manualCategories, setManualCategories] = useState<GameCategory[]>([]);
   const [source, setSource] = useState<GameSource>("STEAM");
+  const [sourceLogoUrls, setSourceLogoUrls] = useState<SourceLogoUrls>({});
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CategoryStatusFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("featured");
@@ -388,6 +487,24 @@ const GameCategoriesPage = () => {
 
   const requestIdRef = useRef(0);
 
+  const sourceSelectOptions = useMemo(
+      () => getSourceSelectOptions(sourceLogoUrls),
+      [sourceLogoUrls]
+  );
+
+  const fetchSourceLogos = async () => {
+    try {
+      const platforms = await platformService.getPlatforms();
+
+      setSourceLogoUrls({
+        STEAM: getPlatformLogoUrl(platforms, "STEAM") ?? undefined,
+        EPIC: getPlatformLogoUrl(platforms, "EPIC") ?? undefined,
+      });
+    } catch {
+      setSourceLogoUrls({});
+    }
+  };
+
   const fetchCategories = async (nextSource: GameSource) => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
@@ -403,12 +520,12 @@ const GameCategoriesPage = () => {
       }
     } catch (categoryError) {
       if (requestIdRef.current === requestId) {
-        console.error("Steam tag verileri yüklenemedi.", categoryError);
+        console.error(`${sourceLabel(nextSource)} tag verileri yüklenemedi.`, categoryError);
         setCategories([]);
         setError(
             getErrorMessage(
                 categoryError,
-                "Seçili kaynak için Steam tag verileri yüklenemedi."
+                `Seçili kaynak için ${sourceLabel(nextSource)} tag verileri yüklenemedi.`
             )
         );
       }
@@ -443,6 +560,7 @@ const GameCategoriesPage = () => {
 
   useEffect(() => {
     const initialLoadTimeout = window.setTimeout(() => {
+      void fetchSourceLogos();
       void fetchCategories("STEAM");
       void fetchManualCategories("STEAM");
     }, 0);
@@ -557,10 +675,7 @@ const GameCategoriesPage = () => {
       Math.ceil(filteredCategories.length / pageSize)
   );
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const visiblePageNumbers = getVisiblePageNumbers(
-      safeCurrentPage,
-      totalPages
-  );
+  const visiblePageNumbers = getVisiblePageNumbers(safeCurrentPage, totalPages);
   const paginatedCategories = useMemo(
       () =>
           filteredCategories.slice(
@@ -744,16 +859,14 @@ const GameCategoriesPage = () => {
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                     Kaynak
                   </span>
-                    <select
-                        className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm font-semibold text-white outline-none"
-                        onChange={(event) =>
-                            handleSourceChange(event.target.value as GameSource)
-                        }
+
+                    <Select
                         value={source}
-                    >
-                      <option value="STEAM">Steam</option>
-                      <option value="EPIC">Epic</option>
-                    </select>
+                        onValueChange={(value) =>
+                            handleSourceChange(value as GameSource)
+                        }
+                        options={sourceSelectOptions}
+                    />
                   </label>
 
                   <label className="relative self-end">
@@ -763,7 +876,7 @@ const GameCategoriesPage = () => {
                     <input
                         className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/60 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
                         onChange={(event) => handleSearchChange(event.target.value)}
-                        placeholder="Steam etiketi ara..."
+                        placeholder={`${sourceLabel(source)} etiketi ara...`}
                         type="search"
                         value={search}
                     />
@@ -865,7 +978,7 @@ const GameCategoriesPage = () => {
 
               {loading && !manualLoading ? (
                   <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-3 text-sm text-cyan-100">
-                    Steam tag verileri yükleniyor...
+                    {sourceLabel(source)} tag verileri yükleniyor...
                   </div>
               ) : null}
 
@@ -1116,26 +1229,24 @@ const GameCategoriesPage = () => {
                     className="space-y-5"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      handleCreateCategory();
+                      void handleCreateCategory();
                     }}
                 >
                   <label className="grid gap-2">
                 <span className="text-sm font-bold text-white">
                   Platform / Sağlayıcı
                 </span>
-                    <select
-                        className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                        onChange={(event) =>
+
+                    <Select
+                        value={formValue.source}
+                        onValueChange={(value) =>
                             setFormValue({
                               ...formValue,
-                              source: event.target.value as GameSource,
+                              source: value as GameSource,
                             })
                         }
-                        value={formValue.source}
-                    >
-                      <option value="STEAM">STEAM</option>
-                      <option value="EPIC">EPIC</option>
-                    </select>
+                        options={sourceSelectOptions}
+                    />
                   </label>
 
                   <label className="grid gap-2">
