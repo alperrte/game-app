@@ -6,11 +6,9 @@ import { useAuthStore } from "../../../store/authStore";
 import { reviewService } from "../services/reviewService";
 import type {
     GameSource,
-    ReviewAverageRatingResponse,
     ReviewResponse,
 } from "../types/review.types";
 import { ReviewCard } from "./ReviewCard";
-import { ReviewRatingSummary } from "./ReviewRatingSummary";
 import { ReviewReportModal } from "./ReviewReportModal";
 
 type ReviewSectionProps = {
@@ -66,11 +64,7 @@ export function ReviewSection({
     const currentUserId = user?.userId ?? null;
 
     const [reviews, setReviews] = useState<ReviewResponse[]>([]);
-    const [averageRating, setAverageRating] =
-        useState<ReviewAverageRatingResponse | null>(null);
-
     const [loading, setLoading] = useState(true);
-    const [summaryLoading, setSummaryLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [reportSubmitting, setReportSubmitting] = useState(false);
 
@@ -143,40 +137,9 @@ export function ReviewSection({
         normalizedGameSource,
     ]);
 
-    const loadAverageRating = useCallback(async () => {
-        setSummaryLoading(true);
-
-        if (!hasValidReviewReference) {
-            setAverageRating(null);
-            setSummaryLoading(false);
-            return;
-        }
-
-        try {
-            const data = isExternalGame
-                ? await reviewService.getExternalGameAverageRating(
-                    normalizedGameSource,
-                    String(externalGameId),
-                )
-                : await reviewService.getGameAverageRating(Number(gameId));
-
-            setAverageRating(data);
-        } catch {
-            setAverageRating(null);
-        } finally {
-            setSummaryLoading(false);
-        }
-    }, [
-        externalGameId,
-        gameId,
-        hasValidReviewReference,
-        isExternalGame,
-        normalizedGameSource,
-    ]);
-
     const refreshReviews = useCallback(async () => {
-        await Promise.all([loadReviews(), loadAverageRating()]);
-    }, [loadReviews, loadAverageRating]);
+        await loadReviews();
+    }, [loadReviews]);
 
     useEffect(() => {
         void refreshReviews();
@@ -395,16 +358,6 @@ export function ReviewSection({
                 </p>
             </div>
 
-            <ReviewRatingSummary
-                averageRating={averageRating}
-                loading={summaryLoading}
-            />
-
-            <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5 text-sm text-purple-800 dark:border-purple-900/70 dark:bg-purple-950/40 dark:text-purple-100">
-                İnceleme yazmak için navbar’daki İncelemeler sayfasını
-                kullanabilirsin. Beğenmek veya şikayet etmek için giriş yapmalısın.
-            </div>
-
             {errorMessage && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
                     {errorMessage}
@@ -418,8 +371,8 @@ export function ReviewSection({
                     </h3>
 
                     <span className="text-sm text-slate-500 dark:text-slate-400">
-            {reviews.length} inceleme
-          </span>
+                        {reviews.length} inceleme
+                    </span>
                 </div>
 
                 {loading ? (

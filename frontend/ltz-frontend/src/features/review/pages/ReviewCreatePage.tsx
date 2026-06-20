@@ -134,10 +134,6 @@ function toExternalReviewOption(game: ExternalGameSearchResponse): ReviewGameOpt
 export default function ReviewCreatePage() {
     const [source, setSource] = useState<GameSource>("STEAM");
 
-    /*
-     * query inputun gerçek anlık değeridir.
-     * debouncedQuery ise kullanıcı yazmayı bıraktıktan sonra arama için kullanılır.
-     */
     const [query, setQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -265,31 +261,35 @@ export default function ReviewCreatePage() {
             return;
         }
 
+        const commonRequestFields = {
+            rating: values.rating,
+            reviewText: values.reviewText.trim(),
+            graphicsReview: toNullableText(values.graphicsReview),
+            gameplayReview: toNullableText(values.gameplayReview),
+            storyReview: toNullableText(values.storyReview),
+            performanceReview: toNullableText(values.performanceReview),
+            pros: toNullableText(values.pros),
+            cons: toNullableText(values.cons),
+            recommended: values.recommended,
+            playtimeHours: toNullableNumber(values.playtimeHours),
+            playtimeMinutes: toNullableNumber(values.playtimeMinutes),
+            platform: toNullableText(values.platform),
+            hardwareInfo: toNullableText(values.hardwareInfo),
+        };
+
         const request: CreateReviewRequest =
             selectedGameOption.origin === "manual"
                 ? {
                     gameSource: selectedGameOption.source,
                     gameId: selectedGameOption.game.id,
                     externalGameId: null,
-                    rating: values.rating,
-                    reviewText: values.reviewText.trim(),
-                    recommended: values.recommended,
-                    playtimeHours: toNullableNumber(values.playtimeHours),
-                    playtimeMinutes: toNullableNumber(values.playtimeMinutes),
-                    platform: toNullableText(values.platform),
-                    hardwareInfo: toNullableText(values.hardwareInfo),
+                    ...commonRequestFields,
                 }
                 : {
                     gameSource: selectedGameOption.source,
                     gameId: null,
                     externalGameId: selectedGameOption.game.externalId,
-                    rating: values.rating,
-                    reviewText: values.reviewText.trim(),
-                    recommended: values.recommended,
-                    playtimeHours: toNullableNumber(values.playtimeHours),
-                    playtimeMinutes: toNullableNumber(values.playtimeMinutes),
-                    platform: toNullableText(values.platform),
-                    hardwareInfo: toNullableText(values.hardwareInfo),
+                    ...commonRequestFields,
                 };
 
         try {

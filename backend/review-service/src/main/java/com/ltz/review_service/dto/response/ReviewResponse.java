@@ -25,6 +25,18 @@ public class ReviewResponse {
 
     private String reviewText;
 
+    private String graphicsReview;
+
+    private String gameplayReview;
+
+    private String storyReview;
+
+    private String performanceReview;
+
+    private String pros;
+
+    private String cons;
+
     private Boolean recommended;
 
     private Integer playtimeHours;

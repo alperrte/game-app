@@ -12,6 +12,11 @@ type ReviewCardProps = {
     onReport: (review: ReviewResponse) => void;
 };
 
+type DetailReviewBlock = {
+    title: string;
+    value: string | null;
+};
+
 function formatReviewDate(value: string) {
     try {
         return new Intl.DateTimeFormat("tr-TR", {
@@ -51,6 +56,10 @@ function formatPlaytime(hours: number | null, minutes: number | null) {
     return parts.join(" ");
 }
 
+function hasText(value: string | null) {
+    return Boolean(value?.trim());
+}
+
 export function ReviewCard({
                                review,
                                isAuthenticated,
@@ -68,14 +77,41 @@ export function ReviewCard({
         review.playtimeMinutes,
     );
 
+    const detailBlocks: DetailReviewBlock[] = [
+        {
+            title: "Grafikler",
+            value: review.graphicsReview,
+        },
+        {
+            title: "Oynanış",
+            value: review.gameplayReview,
+        },
+        {
+            title: "Hikaye",
+            value: review.storyReview,
+        },
+        {
+            title: "Performans / Optimizasyon",
+            value: review.performanceReview,
+        },
+        {
+            title: "Artılar",
+            value: review.pros,
+        },
+        {
+            title: "Eksiler",
+            value: review.cons,
+        },
+    ].filter((block) => hasText(block.value));
+
     return (
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 dark:hover:border-purple-900/70">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-              {displayName}
-            </span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                            {displayName}
+                        </span>
 
                         <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -84,8 +120,8 @@ export function ReviewCard({
                                     : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-200"
                             }`}
                         >
-              {review.recommended ? "Tavsiye ediyor" : "Tavsiye etmiyor"}
-            </span>
+                            {review.recommended ? "Tavsiye ediyor" : "Tavsiye etmiyor"}
+                        </span>
                     </div>
 
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
@@ -94,12 +130,12 @@ export function ReviewCard({
                 </div>
 
                 <div className="flex items-end gap-1 rounded-xl bg-purple-50 px-4 py-3 dark:bg-purple-950/40">
-          <span className="text-2xl font-bold text-purple-700 dark:text-purple-200">
-            {review.rating}
-          </span>
+                    <span className="text-2xl font-bold text-purple-700 dark:text-purple-200">
+                        {review.rating}
+                    </span>
                     <span className="pb-0.5 text-sm font-semibold text-purple-500 dark:text-purple-300">
-            /10
-          </span>
+                        /10
+                    </span>
                 </div>
             </div>
 
@@ -107,32 +143,51 @@ export function ReviewCard({
                 {review.reviewText}
             </p>
 
+            {detailBlocks.length > 0 && (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {detailBlocks.map((block) => (
+                        <section
+                            key={block.title}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+                        >
+                            <h4 className="text-sm font-semibold text-slate-950 dark:text-white">
+                                {block.title}
+                            </h4>
+
+                            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                {block.value}
+                            </p>
+                        </section>
+                    ))}
+                </div>
+            )}
+
             <div className="mt-4 grid gap-3 text-sm text-slate-500 dark:text-slate-400 sm:grid-cols-3">
                 <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-900">
-          <span className="block text-xs font-medium text-slate-400 dark:text-slate-500">
-            Platform
-          </span>
+                    <span className="block text-xs font-medium text-slate-400 dark:text-slate-500">
+                        Platform
+                    </span>
                     <span className="font-medium text-slate-700 dark:text-slate-200">
-            {review.platform || "Belirtilmedi"}
-          </span>
+                        {review.platform || "Belirtilmedi"}
+                    </span>
                 </div>
 
                 <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-900">
-          <span className="block text-xs font-medium text-slate-400 dark:text-slate-500">
-            Oynama süresi
-          </span>
+                    <span className="block text-xs font-medium text-slate-400 dark:text-slate-500">
+                        Oynama süresi
+                    </span>
                     <span className="font-medium text-slate-700 dark:text-slate-200">
-            {playtimeText}
-          </span>
+                        {playtimeText}
+                    </span>
                 </div>
 
                 <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-900">
-          <span className="block text-xs font-medium text-slate-400 dark:text-slate-500">
-            Donanım
-          </span>
+                    <span className="block text-xs font-medium text-slate-400 dark:text-slate-500">
+                        Donanım
+                    </span>
                     <span className="font-medium text-slate-700 dark:text-slate-200">
-            {review.hardwareInfo || "Belirtilmedi"}
-          </span>
+                        {review.hardwareInfo || "Belirtilmedi"}
+                    </span>
                 </div>
             </div>
 
@@ -172,8 +227,8 @@ export function ReviewCard({
 
                 {!isAuthenticated && (
                     <span className="text-xs text-slate-500 dark:text-slate-400">
-            Beğenmek veya şikayet etmek için giriş yapmalısın.
-          </span>
+                        Beğenmek veya şikayet etmek için giriş yapmalısın.
+                    </span>
                 )}
             </div>
         </article>

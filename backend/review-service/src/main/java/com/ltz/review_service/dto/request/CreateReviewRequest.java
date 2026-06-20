@@ -30,6 +30,24 @@ public class CreateReviewRequest {
     @Size(max = 3000, message = "Review text can be at most 3000 characters.")
     private String reviewText;
 
+    @Size(max = 1500, message = "Graphics review can be at most 1500 characters.")
+    private String graphicsReview;
+
+    @Size(max = 1500, message = "Gameplay review can be at most 1500 characters.")
+    private String gameplayReview;
+
+    @Size(max = 1500, message = "Story review can be at most 1500 characters.")
+    private String storyReview;
+
+    @Size(max = 1500, message = "Performance review can be at most 1500 characters.")
+    private String performanceReview;
+
+    @Size(max = 1500, message = "Pros can be at most 1500 characters.")
+    private String pros;
+
+    @Size(max = 1500, message = "Cons can be at most 1500 characters.")
+    private String cons;
+
     @NotNull(message = "Recommendation value is required.")
     private Boolean recommended;
 

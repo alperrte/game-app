@@ -8,6 +8,12 @@ export type ReviewResponse = {
     userId: number;
     rating: number;
     reviewText: string;
+    graphicsReview: string | null;
+    gameplayReview: string | null;
+    storyReview: string | null;
+    performanceReview: string | null;
+    pros: string | null;
+    cons: string | null;
     recommended: boolean;
     playtimeHours: number | null;
     playtimeMinutes: number | null;
@@ -31,6 +37,12 @@ export type CreateReviewRequest = {
     externalGameId: string | null;
     rating: number;
     reviewText: string;
+    graphicsReview?: string | null;
+    gameplayReview?: string | null;
+    storyReview?: string | null;
+    performanceReview?: string | null;
+    pros?: string | null;
+    cons?: string | null;
     recommended: boolean;
     playtimeHours?: number | null;
     playtimeMinutes?: number | null;
@@ -45,6 +57,12 @@ export type ReportReviewRequest = {
 export type ReviewFormValues = {
     rating: number;
     reviewText: string;
+    graphicsReview: string;
+    gameplayReview: string;
+    storyReview: string;
+    performanceReview: string;
+    pros: string;
+    cons: string;
     recommended: boolean;
     playtimeHours: string;
     playtimeMinutes: string;
