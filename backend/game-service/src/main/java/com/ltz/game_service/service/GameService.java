@@ -5,9 +5,14 @@ import com.ltz.game_service.dto.response.GameResponse;
 import com.ltz.game_service.entity.Game;
 import com.ltz.game_service.entity.GameCategory;
 import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.exception.GameCategoryNotFoundException;
+import com.ltz.game_service.exception.GameNotFoundException;
 import com.ltz.game_service.repository.GameCategoryRepository;
 import com.ltz.game_service.repository.GameRepository;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -28,20 +33,19 @@ public class GameService {
         this.gameCategoryRepository = gameCategoryRepository;
     }
 
-    public List<GameResponse> getAllGames(boolean includeSystemRequirementOnly) {
-        List<Game> games = includeSystemRequirementOnly
-                ? gameRepository.findAll()
-                : gameRepository.findBySystemRequirementOnlyFalse();
+    public Page<GameResponse> getAllGames(boolean includeSystemRequirementOnly, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
 
-        return games
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        Page<Game> games = includeSystemRequirementOnly
+                ? gameRepository.findAll(pageable)
+                : gameRepository.findBySystemRequirementOnlyFalse(pageable);
+
+        return games.map(this::mapToResponse);
     }
 
     public GameResponse getGameById(Long id) {
         Game game = gameRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Oyun bulunamadı. ID: " + id));
+                .orElseThrow(() -> new GameNotFoundException(id));
 
         return mapToResponse(game);
     }
@@ -58,7 +62,7 @@ public class GameService {
 
     public GameResponse updateGame(Long id, GameRequest request) {
         Game game = gameRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Güncellenecek oyun bulunamadı. ID: " + id));
+                .orElseThrow(() -> new GameNotFoundException(id));
 
         setGameFields(game, request);
 
@@ -69,13 +73,13 @@ public class GameService {
 
     public void deleteGame(Long id) {
         if (!gameRepository.existsById(id)) {
-            throw new RuntimeException("Silinecek oyun bulunamadı. ID: " + id);
+            throw new GameNotFoundException(id);
         }
 
         gameRepository.deleteById(id);
     }
 
-    public List<GameResponse> filterGames(
+    public Page<GameResponse> filterGames(
             GameSource source,
             Long categoryId,
             String title,
@@ -83,8 +87,12 @@ public class GameService {
             String platform,
             Boolean earlyAccess,
             Boolean onSale,
-            Boolean turkishLanguageSupport
+            Boolean turkishLanguageSupport,
+            int page,
+            int size
     ) {
+        Pageable pageable = PageRequest.of(page, size);
+
         Specification<Game> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -140,10 +148,8 @@ public class GameService {
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
 
-        return gameRepository.findAll(specification)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return gameRepository.findAll(specification, pageable)
+                .map(this::mapToResponse);
     }
 
     public List<GameResponse> getPopularGames() {
@@ -180,7 +186,7 @@ public class GameService {
         }
 
         return gameCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Kategori bulunamadı. ID: " + categoryId));
+                .orElseThrow(() -> new GameCategoryNotFoundException(categoryId));
     }
 
     private Boolean falseIfNull(Boolean value) {

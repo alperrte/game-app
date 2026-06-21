@@ -8,6 +8,8 @@ import com.ltz.game_service.dto.response.external.ExternalGamePlatformResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameSearchResponse;
 import com.ltz.game_service.dto.response.external.ExternalGameTagResponse;
 import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.exception.ExternalGameContentBlockedException;
+import com.ltz.game_service.exception.UnsupportedGameSourceException;
 import com.ltz.game_service.provider.ExternalGameProvider;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -115,7 +117,7 @@ public class ExternalGameService {
         ExternalGameDetailResponse detail = getProvider(source).getGameDetail(externalId);
 
         if (detail != null && isBlockedAdultContent(detail.getTitle())) {
-            throw new RuntimeException("Bu oyun platform içerik filtresi nedeniyle gösterilemiyor.");
+            throw new ExternalGameContentBlockedException();
         }
 
         return detail;
@@ -158,7 +160,7 @@ public class ExternalGameService {
         ExternalGameProvider provider = providers.get(source);
 
         if (provider == null) {
-            throw new RuntimeException("Desteklenmeyen oyun kaynağı: " + source);
+            throw new UnsupportedGameSourceException(source);
         }
 
         return provider;
