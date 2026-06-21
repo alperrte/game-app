@@ -363,6 +363,42 @@ const mergeCategoryOptions = (options: CategoryOption[]) => {
   );
 };
 
+const formCategoryOptionValue = (category: CategoryOption) => {
+  if (category.id !== undefined && category.id !== null) {
+    return `manual:${category.id}`;
+  }
+
+  return `external:${category.source ?? "UNKNOWN"}:${
+      category.externalId ?? category.name
+  }`;
+};
+
+const getSelectedFormCategoryValue = (
+    categories: CategoryOption[],
+    form: GameRequest
+) => {
+  const selectedManualCategory = categories.find(
+      (category) =>
+          category.id !== undefined &&
+          category.id !== null &&
+          Number(category.id) === form.categoryId
+  );
+
+  if (selectedManualCategory) {
+    return formCategoryOptionValue(selectedManualCategory);
+  }
+
+  const selectedExternalCategory = categories.find(
+      (category) =>
+          (category.id === undefined || category.id === null) &&
+          normalizeCategory(category.name) === normalizeCategory(form.genre ?? "")
+  );
+
+  return selectedExternalCategory
+      ? formCategoryOptionValue(selectedExternalCategory)
+      : "";
+};
+
 const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
   const startPage =
       Math.floor((currentPage - 1) / PAGINATION_WINDOW_SIZE) *
@@ -463,7 +499,7 @@ const GamesPage = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [gameForm, setGameForm] = useState<GameRequest>(initialGameForm);
-  const [formCategories, setFormCategories] = useState<GameCategory[]>([]);
+  const [formCategories, setFormCategories] = useState<CategoryOption[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [creatingGame, setCreatingGame] = useState(false);
@@ -522,19 +558,77 @@ const GamesPage = () => {
     setFormError(null);
 
     try {
-      const results = await getGameCategories(nextSource).then((categories) =>
-          categories.filter((category) => !isBlockedAdultContent(category.name))
-      );
+      const [externalCategoriesResult, manualCategoriesResult] =
+          await Promise.allSettled([
+            getExternalGameTags(nextSource),
+            getGameCategories(nextSource),
+          ]);
 
-      setFormCategories(results);
-      setGameForm((currentForm) => ({
-        ...currentForm,
-        categoryId: results.some(
-            (category) => category.id === currentForm.categoryId
-        )
-            ? currentForm.categoryId
-            : results[0]?.id ?? null,
-      }));
+      const externalOptions =
+          externalCategoriesResult.status === "fulfilled"
+              ? externalCategoriesResult.value
+                  .map(toExternalCategoryOption)
+                  .filter((category) => !isBlockedAdultCategory(category))
+              : [];
+
+      const manualOptions =
+          manualCategoriesResult.status === "fulfilled"
+              ? manualCategoriesResult.value
+                  .map(toManualCategoryOption)
+                  .filter((category) => !isBlockedAdultCategory(category))
+              : [];
+
+      const mergedCategories = mergeCategoryOptions([
+        ...manualOptions,
+        ...externalOptions,
+      ]);
+
+      setFormCategories(mergedCategories);
+
+      setGameForm((currentForm) => {
+        const selectedManualCategoryExists = mergedCategories.some(
+            (category) =>
+                category.id !== undefined &&
+                category.id !== null &&
+                Number(category.id) === currentForm.categoryId
+        );
+
+        if (selectedManualCategoryExists) {
+          return currentForm;
+        }
+
+        const selectedExternalCategoryExists = mergedCategories.some(
+            (category) =>
+                (category.id === undefined || category.id === null) &&
+                normalizeCategory(category.name) ===
+                normalizeCategory(currentForm.genre ?? "")
+        );
+
+        if (selectedExternalCategoryExists) {
+          return {
+            ...currentForm,
+            categoryId: null,
+          };
+        }
+
+        const firstCategory = mergedCategories[0];
+
+        if (!firstCategory) {
+          return {
+            ...currentForm,
+            categoryId: null,
+          };
+        }
+
+        return {
+          ...currentForm,
+          categoryId:
+              firstCategory.id !== undefined && firstCategory.id !== null
+                  ? Number(firstCategory.id)
+                  : null,
+          genre: currentForm.genre || firstCategory.name,
+        };
+      });
     } catch (categoryLoadError) {
       setFormCategories([]);
       setGameForm((currentForm) => ({ ...currentForm, categoryId: null }));
@@ -804,6 +898,7 @@ const GamesPage = () => {
       ...currentForm,
       source: nextSource,
       categoryId: null,
+      genre: "",
     }));
 
     void fetchFormCategories(nextSource);
@@ -828,7 +923,7 @@ const GamesPage = () => {
     }
 
     if (formCategories.length === 0) {
-      setFormError("Bu platform için önce kategori eklemelisin.");
+      setFormError("Bu platform için kategori bulunamadı.");
       return;
     }
 
@@ -1360,10 +1455,33 @@ const GamesPage = () => {
                       <select
                           className="h-12 cursor-pointer rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:border-violet-400/70"
                           disabled={categoriesLoading || formCategories.length === 0}
-                          onChange={(event) =>
-                              setGameField("categoryId", Number(event.target.value))
-                          }
-                          value={gameForm.categoryId ?? ""}
+                          onChange={(event) => {
+                            const selectedValue = event.target.value;
+                            const selectedCategory = formCategories.find(
+                                (category) =>
+                                    formCategoryOptionValue(category) === selectedValue
+                            );
+
+                            if (!selectedCategory) {
+                              setGameForm((currentForm) => ({
+                                ...currentForm,
+                                categoryId: null,
+                                genre: "",
+                              }));
+                              return;
+                            }
+
+                            setGameForm((currentForm) => ({
+                              ...currentForm,
+                              categoryId:
+                                  selectedCategory.id !== undefined &&
+                                  selectedCategory.id !== null
+                                      ? Number(selectedCategory.id)
+                                      : null,
+                              genre: selectedCategory.name,
+                            }));
+                          }}
+                          value={getSelectedFormCategoryValue(formCategories, gameForm)}
                       >
                         <option value="">
                           {categoriesLoading
@@ -1372,15 +1490,21 @@ const GamesPage = () => {
                         </option>
 
                         {formCategories.map((category) => (
-                            <option key={category.id} value={category.id}>
+                            <option
+                                key={formCategoryOptionValue(category)}
+                                value={formCategoryOptionValue(category)}
+                            >
                               {category.name}
+                              {category.id !== undefined && category.id !== null
+                                  ? " - Manuel"
+                                  : " - Harici"}
                             </option>
                         ))}
                       </select>
 
                       {!categoriesLoading && formCategories.length === 0 ? (
                           <span className="text-sm text-amber-200">
-                      Bu platform için önce kategori eklemelisin.
+                      Bu platform için kategori bulunamadı.
                     </span>
                       ) : null}
                     </label>
