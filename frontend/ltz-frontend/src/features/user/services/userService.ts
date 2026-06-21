@@ -7,11 +7,13 @@ import type {
   PrivacySettingsRequest,
   ConnectedAccountResponse,
   ConnectedAccountRequest,
+  ReviewClientResponse,
   AssignedBadgeResponse,
   BadgeCatalogItem,
   AssignBadgeRequest,
 } from "../types/user";
 import type { UserAuditLog } from "../types/audit";
+import type { SocialPostResponse } from "../../social/types/social.types";
 
 export const userService = {
   getProfile: (userId: string) =>
@@ -22,6 +24,12 @@ export const userService = {
 
   getMyProfile: () =>
     apiClient.get<UserProfileResponse>(USER_API_ENDPOINTS.me),
+
+  getUserReviews: (userId: number | string) =>
+    apiClient.get<ReviewClientResponse[]>(USER_API_ENDPOINTS.userReviews(userId)),
+
+  getUserPosts: (userId: number | string) =>
+    apiClient.get<SocialPostResponse[]>(USER_API_ENDPOINTS.userPosts(userId)),
 
   setupProfile: (request: UserProfileRequest) =>
     apiClient.post<UserProfileResponse>(USER_API_ENDPOINTS.setupProfile, request),

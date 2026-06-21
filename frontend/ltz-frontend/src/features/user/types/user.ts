@@ -6,6 +6,21 @@ export type ProfileSectionVisibility = {
   showGameLibrary: boolean;
 };
 
+export type ReviewClientResponse = {
+  id: number;
+  gameSource: string;
+  gameId: number;
+  externalGameId: string;
+  userId: number;
+  rating: number;
+  reviewText: string;
+  recommended: boolean;
+  playtimeHours: number;
+  platform: string;
+  likeCount: number;
+  createdAt: string;
+};
+
 export type AssignedBadgeResponse = {
   badgeKey: string;
   label: string;

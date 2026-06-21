@@ -1,4 +1,3 @@
-```gitignore
 # =========================
 # Java / Spring Boot
 # =========================
@@ -138,4 +137,3 @@ failsafe-reports/
 .agents/
 .claude/
 .postman/
-```

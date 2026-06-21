@@ -53,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.HEAD, "/api/social/media/images/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/social/media/videos/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/social/media/videos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/social/users/*/posts").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
