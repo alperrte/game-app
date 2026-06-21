@@ -245,6 +245,12 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+
+      SPRING_JPA_SHOW_SQL: true
+      SPRING_JPA_FORMAT_SQL: true
+      MANAGEMENT_HEALTH_SHOW_DETAILS: always
+      SPRINGDOC_API_DOCS_ENABLED: true
+      SPRINGDOC_SWAGGER_UI_ENABLED: true
     ports:
       - "${SERVER_PORT_REVIEW}:${SERVER_PORT_REVIEW}"
     restart: unless-stopped

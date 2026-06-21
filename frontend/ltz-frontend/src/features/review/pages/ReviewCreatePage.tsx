@@ -21,6 +21,8 @@ import { ReviewForm } from "../components/ReviewForm";
 
 const EXTERNAL_PAGE = 1;
 const EXTERNAL_PER_PAGE = 100;
+const MANUAL_PAGE = 0;
+const MANUAL_PER_PAGE = 100;
 const SEARCH_DEBOUNCE_MS = 450;
 
 type ApiErrorLike = {
@@ -186,7 +188,11 @@ export default function ReviewCreatePage() {
             try {
                 const trimmedQuery = debouncedQuery.trim();
 
-                const manualGamesPromise = getGamesByFilter({ source });
+                const manualGamesPromise = getGamesByFilter({
+                    source,
+                    page: MANUAL_PAGE,
+                    size: MANUAL_PER_PAGE,
+                });
 
                 const externalGamesPromise = trimmedQuery
                     ? searchExternalGames(source, trimmedQuery)
@@ -196,7 +202,7 @@ export default function ReviewCreatePage() {
                         EXTERNAL_PER_PAGE,
                     ).then((page) => page.items);
 
-                const [manualGames, externalGames] = await Promise.all([
+                const [manualGamesPage, externalGames] = await Promise.all([
                     manualGamesPromise,
                     externalGamesPromise,
                 ]);
@@ -205,7 +211,7 @@ export default function ReviewCreatePage() {
                     return;
                 }
 
-                const manualOptions = manualGames
+                const manualOptions = manualGamesPage.content
                     .filter((game) => isManualGameMatchedByQuery(game, debouncedQuery))
                     .map(toManualReviewOption);
 
