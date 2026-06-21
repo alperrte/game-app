@@ -495,8 +495,15 @@ const GamesPage = () => {
     setManualGamesError(null);
 
     try {
-      const results = await getGamesByFilter({ source: nextSource });
-      setManualGames(results.filter((game) => !isBlockedManualGame(game)));
+      const results = await getGamesByFilter({
+        source: nextSource,
+        page: 0,
+        size: 100,
+      });
+
+      setManualGames(
+          results.content.filter((game) => !isBlockedManualGame(game))
+      );
     } catch (manualGamesLoadError) {
       setManualGames([]);
       setManualGamesError(

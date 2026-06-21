@@ -121,8 +121,15 @@ services:
       database-init:
         condition: service_completed_successfully
     environment:
-      SERVER_PORT: ${SERVER_PORT_GAME}
+      SERVER_PORT_GAME: ${SERVER_PORT_GAME}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      EXTERNAL_API_RATE_LIMIT_ENABLED: true
+      EXTERNAL_API_RATE_LIMIT_MAX_REQUESTS: 60
+      EXTERNAL_API_RATE_LIMIT_WINDOW_SECONDS: 60
+
+      SPRINGDOC_API_DOCS_ENABLED: true
+      SPRINGDOC_SWAGGER_UI_ENABLED: true
 
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
@@ -134,6 +141,10 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION}
 
       STEAM_API_KEY: ${STEAM_API_KEY}
+
+      SPRING_JPA_SHOW_SQL: true
+      SPRING_JPA_FORMAT_SQL: true
+      MANAGEMENT_HEALTH_SHOW_DETAILS: always
     ports:
       - "${SERVER_PORT_GAME}:${SERVER_PORT_GAME}"
     restart: unless-stopped

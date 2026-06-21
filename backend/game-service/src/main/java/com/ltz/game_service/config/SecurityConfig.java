@@ -7,7 +7,10 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -29,7 +32,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
@@ -39,6 +44,8 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Swagger, actuator and error endpoints
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -47,14 +54,16 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
-                        // Public external game endpoints
-                        .requestMatchers(HttpMethod.GET, "/api/games/external/**").permitAll()
+                        // Public game read endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/games").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/games/**").permitAll()
 
-                        // Public platform read endpoints
-                        .requestMatchers(HttpMethod.GET, "/api/games/platforms").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/games/platforms/**").permitAll()
+                        // Public category read endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/game-categories").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/game-categories/**").permitAll()
 
                         // Protected game management endpoints - only ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/games").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/games/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/games/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/games/**").hasRole("ADMIN")
@@ -64,6 +73,11 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return new InMemoryUserDetailsManager();
     }
 
     @Bean

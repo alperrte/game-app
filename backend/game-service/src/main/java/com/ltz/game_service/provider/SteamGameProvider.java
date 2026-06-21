@@ -12,6 +12,8 @@ import com.ltz.game_service.dto.steam.SteamAppDetailsResponse;
 import com.ltz.game_service.dto.steam.SteamSearchResultsResponse;
 import com.ltz.game_service.dto.steam.SteamStoreSearchResponse;
 import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.exception.ExternalGameContentBlockedException;
+import com.ltz.game_service.exception.ExternalGameServiceUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -262,13 +264,13 @@ public class SteamGameProvider implements ExternalGameProvider {
     @Override
     public List<ExternalGameSearchResponse> searchGames(String query) {
         if (query == null || query.isBlank()) {
-            throw new RuntimeException("Arama metni boş olamaz.");
+            throw new IllegalArgumentException("Arama metni boş olamaz.");
         }
 
         SteamStoreSearchResponse searchResponse = fetchSteamStoreSearch(query);
 
         if (searchResponse == null || searchResponse.getItems() == null) {
-            throw new RuntimeException("Steam arama sonucu alınamadı.");
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, null);
         }
 
         return searchResponse.getItems()
@@ -364,13 +366,13 @@ public class SteamGameProvider implements ExternalGameProvider {
         SteamAppDetailsResponse steamResponse = fetchSteamGameDetail(externalId);
 
         if (steamResponse == null || !steamResponse.isSuccess() || steamResponse.getData() == null) {
-            throw new RuntimeException("Steam oyun detayı alınamadı. External ID: " + externalId);
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, null);
         }
 
         SteamAppDetailsResponse.SteamGameData data = steamResponse.getData();
 
         if (isBlockedAdultGameTitle(data.getName())) {
-            throw new RuntimeException("Bu oyun platform içerik filtresi nedeniyle gösterilemiyor.");
+            throw new ExternalGameContentBlockedException();
         }
 
         return new ExternalGameDetailResponse(
@@ -552,7 +554,7 @@ public class SteamGameProvider implements ExternalGameProvider {
     private List<ExternalGameSearchResponse> fetchSteamAppList() {
         try {
             if (steamApiKey == null || steamApiKey.isBlank()) {
-                throw new RuntimeException("Steam API key tanımlı değil. STEAM_API_KEY environment değişkenini ekleyin.");
+                throw new ExternalGameServiceUnavailableException(GameSource.STEAM, null);
             }
 
             String response = steamApiClient.get()
@@ -570,7 +572,7 @@ public class SteamGameProvider implements ExternalGameProvider {
                     .path("apps");
 
             if (!appsNode.isArray()) {
-                throw new RuntimeException("Steam app listesi beklenen formatta değil.");
+                throw new ExternalGameServiceUnavailableException(GameSource.STEAM, null);
             }
 
             List<ExternalGameSearchResponse> games = new ArrayList<>();
@@ -616,12 +618,18 @@ public class SteamGameProvider implements ExternalGameProvider {
                             Comparator.nullsLast(String::compareTo)
                     ))
                     .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (ExternalGameServiceUnavailableException exception) {
             if (!cachedSteamAppList.isEmpty()) {
                 return cachedSteamAppList;
             }
 
-            throw new RuntimeException("Steam app listesi alınamadı: " + e.getMessage(), e);
+            throw exception;
+        } catch (Exception exception) {
+            if (!cachedSteamAppList.isEmpty()) {
+                return cachedSteamAppList;
+            }
+
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, exception);
         }
     }
 
@@ -687,8 +695,8 @@ public class SteamGameProvider implements ExternalGameProvider {
                     totalItems,
                     totalPages
             );
-        } catch (Exception e) {
-            throw new RuntimeException("Steam kategori/tag oyunları alınamadı. Tag: " + tag, e);
+        } catch (Exception exception) {
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, exception);
         }
     }
 
@@ -709,7 +717,7 @@ public class SteamGameProvider implements ExternalGameProvider {
                     .findFirst()
                     .map(steamTag -> new SteamTagSearchParam("tags", steamTag.getExternalId()))
                     .orElseGet(() -> new SteamTagSearchParam("term", tag));
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return new SteamTagSearchParam("term", tag);
         }
     }
@@ -885,16 +893,22 @@ public class SteamGameProvider implements ExternalGameProvider {
             }
 
             if (tagsByExternalId.isEmpty()) {
-                throw new RuntimeException("Steam tag verisi beklenen formatta değil.");
+                throw new ExternalGameServiceUnavailableException(GameSource.STEAM, null);
             }
 
             return sortAndDeduplicateTags(new ArrayList<>(tagsByExternalId.values()));
-        } catch (Exception e) {
+        } catch (ExternalGameServiceUnavailableException exception) {
             if (!cachedSteamTags.isEmpty()) {
                 return cachedSteamTags;
             }
 
-            throw new RuntimeException("Steam tag listesi alınamadı: " + e.getMessage(), e);
+            throw exception;
+        } catch (Exception exception) {
+            if (!cachedSteamTags.isEmpty()) {
+                return cachedSteamTags;
+            }
+
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, exception);
         }
     }
 
@@ -1037,7 +1051,7 @@ public class SteamGameProvider implements ExternalGameProvider {
             String imageUrl = extractFirstSteamHeaderImageUrl(resultsHtml);
 
             return new SteamCategoryStats(gameCount, imageUrl);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return new SteamCategoryStats(null, null);
         }
     }
@@ -1183,8 +1197,8 @@ public class SteamGameProvider implements ExternalGameProvider {
             Integer totalCount = searchResultsResponse.getTotalCount();
 
             return totalCount != null && totalCount > 0 ? totalCount : null;
-        } catch (Exception e) {
-            throw new RuntimeException("Steam toplam arama sonucu alınamadı. Query: " + query, e);
+        } catch (Exception exception) {
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, exception);
         }
     }
 
@@ -1229,8 +1243,8 @@ public class SteamGameProvider implements ExternalGameProvider {
                     .body(String.class);
 
             return objectMapper.readValue(response, SteamStoreSearchResponse.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Steam store arama sonucu alınamadı.", e);
+        } catch (Exception exception) {
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, exception);
         }
     }
 
@@ -1245,12 +1259,14 @@ public class SteamGameProvider implements ExternalGameProvider {
             JsonNode appNode = rootNode.get(externalId);
 
             if (appNode == null || appNode.isNull()) {
-                throw new RuntimeException("Steam response içinde appId bulunamadı: " + externalId);
+                throw new ExternalGameServiceUnavailableException(GameSource.STEAM, null);
             }
 
             return objectMapper.treeToValue(appNode, SteamAppDetailsResponse.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Steam API isteği başarısız oldu. External ID: " + externalId, e);
+        } catch (ExternalGameServiceUnavailableException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ExternalGameServiceUnavailableException(GameSource.STEAM, exception);
         }
     }
 
@@ -1360,7 +1376,7 @@ public class SteamGameProvider implements ExternalGameProvider {
 
         try {
             return URLDecoder.decode(value, StandardCharsets.UTF_8);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return value;
         }
     }

@@ -83,6 +83,29 @@ export type GameFilters = {
   turkishLanguageSupport?: boolean;
 };
 
+export type PageRequest = {
+  page?: number;
+  size?: number;
+};
+
+export type PageResponse<T> = {
+  content: T[];
+  empty: boolean;
+  first: boolean;
+  last: boolean;
+  number: number;
+  numberOfElements: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
+export type GameListOptions = PageRequest & {
+  includeSystemRequirementOnly?: boolean;
+};
+
+export type GameFilterOptions = GameFilters & PageRequest;
+
 export type GameCategory = {
   id: number;
   source: GameSource;

@@ -5,6 +5,7 @@ import com.ltz.game_service.dto.response.GameResponse;
 import com.ltz.game_service.enums.GameSource;
 import com.ltz.game_service.service.GameService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,14 +23,16 @@ public class GameController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GameResponse>> getAllGames(
-            @RequestParam(defaultValue = "false") boolean includeSystemRequirementOnly
+    public ResponseEntity<Page<GameResponse>> getAllGames(
+            @RequestParam(defaultValue = "false") boolean includeSystemRequirementOnly,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(gameService.getAllGames(includeSystemRequirementOnly));
+        return ResponseEntity.ok(gameService.getAllGames(includeSystemRequirementOnly, page, size));
     }
 
     @GetMapping("/filter")
-    public ResponseEntity<List<GameResponse>> filterGames(
+    public ResponseEntity<Page<GameResponse>> filterGames(
             @RequestParam(required = false) GameSource source,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String title,
@@ -37,7 +40,9 @@ public class GameController {
             @RequestParam(required = false) String platform,
             @RequestParam(required = false) Boolean earlyAccess,
             @RequestParam(required = false) Boolean onSale,
-            @RequestParam(required = false) Boolean turkishLanguageSupport
+            @RequestParam(required = false) Boolean turkishLanguageSupport,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
         return ResponseEntity.ok(
                 gameService.filterGames(
@@ -48,7 +53,9 @@ public class GameController {
                         platform,
                         earlyAccess,
                         onSale,
-                        turkishLanguageSupport
+                        turkishLanguageSupport,
+                        page,
+                        size
                 )
         );
     }
