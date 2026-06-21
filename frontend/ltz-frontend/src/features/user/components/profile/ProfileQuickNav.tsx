@@ -1,12 +1,15 @@
 import { cn } from "../../../../utils/cn";
 
-export type ProfileNavSection = "wall" | "about" | "hardware" | "settings";
+export type ProfileNavSection = "wall" | "about" | "hardware" | "settings" | "reviews";
+
 
 const NAV_ITEMS: { id: ProfileNavSection; label: string }[] = [
   { id: "wall", label: "Duvar" },
   { id: "about", label: "Hakkında" },
+  { id: "reviews", label: "İncelemeler" },
   { id: "hardware", label: "Donanım" },
 ];
+
 
 type ProfileQuickNavProps = {
   activeSection: ProfileNavSection;

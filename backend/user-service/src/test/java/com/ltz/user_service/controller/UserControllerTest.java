@@ -22,6 +22,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import com.ltz.user_service.config.SecurityConfig;
+import com.ltz.user_service.client.ReviewServiceClient;
+import com.ltz.user_service.client.SocialServiceClient;
 
 import java.util.Collections;
 
@@ -33,7 +35,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, CustomAuthenticationEntryPoint.class, CustomAccessDeniedHandler.class})
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class, CustomAuthenticationEntryPoint.class,
+        CustomAccessDeniedHandler.class })
 class UserControllerTest {
 
     @Autowired
@@ -50,6 +53,12 @@ class UserControllerTest {
 
     @MockitoBean
     private AuthServiceClient authServiceClient;
+
+    @MockitoBean
+    private ReviewServiceClient reviewServiceClient;
+
+    @MockitoBean
+    private SocialServiceClient socialServiceClient;
 
     private UserProfileResponse userProfileResponse;
     private JwtUserPrincipal principal;
@@ -78,7 +87,8 @@ class UserControllerTest {
         when(userProfileService.getProfile("123")).thenReturn(userProfileResponse);
 
         mockMvc.perform(get("/api/users/profile/123")
-                        .with(authentication(new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList()))))
+                .with(authentication(
+                        new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList()))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value("123"))
                 .andExpect(jsonPath("$.username").value("gamer123"));
@@ -97,10 +107,11 @@ class UserControllerTest {
         mockAuthUser.setUsername("gamer123");
         mockAuthUser.setEmail("gamer123@example.com");
         mockAuthUser.setRole("ROLE_USER");
-        
+
         when(authServiceClient.getUserById(anyLong())).thenReturn(mockAuthUser);
         when(userProfileService.getProfile("123")).thenReturn(userProfileResponse);
-        when(userProfileService.createOrUpdateProfile(eq("123"), anyString(), anyString(), any(UserProfileRequest.class), any(ClientRequestContext.class)))
+        when(userProfileService.createOrUpdateProfile(eq("123"), anyString(), anyString(),
+                any(UserProfileRequest.class), any(ClientRequestContext.class)))
                 .thenReturn(userProfileResponse);
 
         UserProfileRequest request = new UserProfileRequest();
@@ -108,10 +119,10 @@ class UserControllerTest {
         request.setBio("Updated Bio");
 
         mockMvc.perform(put("/api/users/profile")
-                        .with(csrf())
-                        .with(authentication(new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList())))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                .with(csrf())
+                .with(authentication(new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList())))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
     }
 
@@ -125,10 +136,10 @@ class UserControllerTest {
         request.setBio(longBio.toString()); // 1100 characters
 
         mockMvc.perform(put("/api/users/profile")
-                        .with(csrf())
-                        .with(authentication(new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList())))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                .with(csrf())
+                .with(authentication(new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList())))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Bad Request"))
                 .andExpect(jsonPath("$.message").value("Validation failed"));

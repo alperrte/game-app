@@ -145,6 +145,7 @@ export const SOCIAL_API_ENDPOINTS = {
  */
 export const USER_API_ENDPOINTS = {
     profile: (userId: string) => `/api/users/profile/${userId}`,
+    userReviews: (userId: number | string) => `/api/users/profile/${userId}/reviews`,
 
     // Backward-compatible alias used by existing services.
     profileById: (userId: number | string) => `/api/users/profile/${userId}`,

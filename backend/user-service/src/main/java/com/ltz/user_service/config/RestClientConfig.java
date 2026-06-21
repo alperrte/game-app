@@ -11,18 +11,35 @@ public class RestClientConfig {
     @Value("${auth.service.url}")
     private String authServiceUrl;
 
+    @Value("${review.service.url}")
+    private String reviewServiceUrl;
+
+    @Value("${social.service.url}")
+    private String socialServiceUrl;
+
     @Value("${internal.secret}")
     private String internalSecret;
 
-    /*
-     * auth-service ile iletişim kurmak için kullanılan RestClient.
-     * X-Internal-Secret header'ı her istekte otomatik eklenir;
-     * auth-service'teki InternalSecretFilter bu değeri doğrular.
-     */
     @Bean
     public RestClient authServiceRestClient() {
         return RestClient.builder()
                 .baseUrl(authServiceUrl)
+                .defaultHeader("X-Internal-Secret", internalSecret)
+                .build();
+    }
+
+    @Bean
+    public RestClient reviewServiceRestClient() {
+        return RestClient.builder()
+                .baseUrl(reviewServiceUrl)
+                .defaultHeader("X-Internal-Secret", internalSecret)
+                .build();
+    }
+
+    @Bean
+    public RestClient socialServiceRestClient() {
+        return RestClient.builder()
+                .baseUrl(socialServiceUrl)
                 .defaultHeader("X-Internal-Secret", internalSecret)
                 .build();
     }

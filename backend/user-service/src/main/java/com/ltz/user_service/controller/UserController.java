@@ -21,6 +21,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.ltz.user_service.client.ReviewServiceClient;
+import com.ltz.user_service.dto.client.response.ReviewClientResponse;
+import com.ltz.user_service.client.SocialServiceClient;
+import com.ltz.user_service.dto.client.response.SocialClientResponse;
+import com.ltz.user_service.dto.client.response.SocialPostClientResponse;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,13 +43,19 @@ public class UserController {
     private final UserProfileService userProfileService;
     private final AuthServiceClient authServiceClient;
     private final HttpServletRequest httpServletRequest;
+    private final ReviewServiceClient reviewServiceClient;
+    private final SocialServiceClient socialServiceClient;
 
     public UserController(UserProfileService userProfileService,
-                          AuthServiceClient authServiceClient,
-                          HttpServletRequest httpServletRequest) {
+            AuthServiceClient authServiceClient,
+            HttpServletRequest httpServletRequest,
+            ReviewServiceClient reviewServiceClient,
+            SocialServiceClient socialServiceClient) {
         this.userProfileService = userProfileService;
         this.authServiceClient = authServiceClient;
         this.httpServletRequest = httpServletRequest;
+        this.reviewServiceClient = reviewServiceClient;
+        this.socialServiceClient = socialServiceClient;
     }
 
     /**
@@ -64,6 +75,14 @@ public class UserController {
     }
 
     /**
+     * 📝 Kullanıcının İncelemelerini Çekme (review-service üzerinden)
+     */
+    @GetMapping("/profile/{userId}/reviews")
+    public ResponseEntity<List<ReviewClientResponse>> getUserReviews(@PathVariable Long userId) {
+        return ResponseEntity.ok(reviewServiceClient.getReviewsByUserId(userId));
+    }
+
+    /**
      * 🔍 Profil Çekme (Kullanıcı Adı ile)
      */
     @GetMapping("/profile/username/{username}")
@@ -79,7 +98,8 @@ public class UserController {
         String userId = userId(principal);
         if (!userProfileService.profileExists(userId)) {
             UserInfoResponse authUser = authServiceClient.getUserById(principal.userId());
-            userProfileService.createOrUpdateProfile(userId, authUser.getUsername(), authUser.getEmail(), null, getClientContext());
+            userProfileService.createOrUpdateProfile(userId, authUser.getUsername(), authUser.getEmail(), null,
+                    getClientContext());
         }
         userProfileService.syncRoleFromJwt(userId, principal.role());
         userProfileService.touchLastSeenIfNeeded(userId);
@@ -94,12 +114,12 @@ public class UserController {
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String email,
-            @Valid @RequestBody(required = false) UserProfileRequest request
-    ) {
+            @Valid @RequestBody(required = false) UserProfileRequest request) {
         String uid = userId(principal);
         UserInfoResponse authUser = authServiceClient.getUserById(principal.userId());
         userProfileService.syncRoleFromJwt(uid, authUser.getRole());
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(uid, authUser.getUsername(), authUser.getEmail(), request, getClientContext()));
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(uid, authUser.getUsername(),
+                authUser.getEmail(), request, getClientContext()));
     }
 
     /**
@@ -108,19 +128,20 @@ public class UserController {
     @PutMapping("/profile")
     public ResponseEntity<UserProfileResponse> updateProfile(
             @AuthenticationPrincipal JwtUserPrincipal principal,
-            @Valid @RequestBody UserProfileRequest request
-    ) {
+            @Valid @RequestBody UserProfileRequest request) {
         String userId = userId(principal);
         UserInfoResponse authUser = authServiceClient.getUserById(principal.userId());
         userProfileService.syncRoleFromJwt(userId, authUser.getRole());
-        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, authUser.getUsername(), authUser.getEmail(), request, getClientContext()));
+        return ResponseEntity.ok(userProfileService.createOrUpdateProfile(userId, authUser.getUsername(),
+                authUser.getEmail(), request, getClientContext()));
     }
 
     /**
      * 👁️ Gizlilik Tercihleri Çekme
      */
     @GetMapping("/privacy")
-    public ResponseEntity<PrivacySettingsResponse> getPrivacySettings(@AuthenticationPrincipal JwtUserPrincipal principal) {
+    public ResponseEntity<PrivacySettingsResponse> getPrivacySettings(
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         return ResponseEntity.ok(userProfileService.getPrivacySettings(userId(principal)));
     }
 
@@ -130,16 +151,49 @@ public class UserController {
     @PutMapping("/privacy")
     public ResponseEntity<PrivacySettingsResponse> updatePrivacySettings(
             @AuthenticationPrincipal JwtUserPrincipal principal,
-            @Valid @RequestBody PrivacySettingsRequest request
-    ) {
-        return ResponseEntity.ok(userProfileService.updatePrivacySettings(userId(principal), request, getClientContext()));
+            @Valid @RequestBody PrivacySettingsRequest request) {
+        return ResponseEntity
+                .ok(userProfileService.updatePrivacySettings(userId(principal), request, getClientContext()));
+    }
+
+    /**
+     * 👥 Kullanıcının Arkadaşlar Listesini Çekme (social-service üzerinden)
+     */
+    @GetMapping("/profile/{userId}/friends")
+    public ResponseEntity<List<SocialClientResponse>> getUserFriends(@PathVariable Long userId) {
+        return ResponseEntity.ok(socialServiceClient.getFriendsByUserId(userId));
+    }
+
+    /**
+     * 📝 Kullanıcının Duvarındaki Gönderileri Çekme (social-service üzerinden)
+     */
+    @GetMapping("/profile/{userId}/posts")
+    public ResponseEntity<List<SocialPostClientResponse>> getUserPosts(@PathVariable Long userId) {
+        return ResponseEntity.ok(socialServiceClient.getPostsByUserId(userId));
+    }
+
+    /**
+     * 👥 Kullanıcının Takipçi ve Takip Ettiklerinin Özet Sayısını Çekme
+     */
+    @GetMapping("/profile/{userId}/social-stats")
+    public ResponseEntity<java.util.Map<String, Integer>> getUserSocialStats(@PathVariable Long userId) {
+        int friendsCount = socialServiceClient.getFriendsByUserId(userId).size();
+        int followersCount = socialServiceClient.getFollowersByUserId(userId).size();
+        int followingCount = socialServiceClient.getFollowingByUserId(userId).size();
+
+        java.util.Map<String, Integer> stats = java.util.Map.of(
+                "friendsCount", friendsCount,
+                "followersCount", followersCount,
+                "followingCount", followingCount);
+        return ResponseEntity.ok(stats);
     }
 
     /**
      * 🔗 Bağlı Hesapları Listeleme
      */
     @GetMapping("/connected-accounts")
-    public ResponseEntity<List<ConnectedAccountResponse>> getConnectedAccounts(@AuthenticationPrincipal JwtUserPrincipal principal) {
+    public ResponseEntity<List<ConnectedAccountResponse>> getConnectedAccounts(
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         return ResponseEntity.ok(userProfileService.getConnectedAccounts(userId(principal)));
     }
 
@@ -149,8 +203,7 @@ public class UserController {
     @PostMapping("/connected-accounts")
     public ResponseEntity<ConnectedAccountResponse> connectAccount(
             @AuthenticationPrincipal JwtUserPrincipal principal,
-            @Valid @RequestBody ConnectedAccountRequest request
-    ) {
+            @Valid @RequestBody ConnectedAccountRequest request) {
         return ResponseEntity.ok(userProfileService.connectAccount(userId(principal), request, getClientContext()));
     }
 
@@ -160,8 +213,7 @@ public class UserController {
     @DeleteMapping("/connected-accounts/{id}")
     public ResponseEntity<Void> disconnectAccount(
             @AuthenticationPrincipal JwtUserPrincipal principal,
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
         userProfileService.disconnectAccount(userId(principal), id, getClientContext());
         return ResponseEntity.noContent().build();
     }
@@ -197,10 +249,10 @@ public class UserController {
             }
 
             String userId = userId(principal);
-            String extension = originalFilename != null && originalFilename.contains(".") 
-                    ? originalFilename.substring(originalFilename.lastIndexOf(".")) 
+            String extension = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
                     : ".bin";
-            
+
             String newFilename = userId + "_" + type + "_" + System.currentTimeMillis() + extension;
             File destFile = new File(directory, newFilename);
             file.transferTo(destFile);
@@ -219,13 +271,13 @@ public class UserController {
                 throw new BadRequestException("Invalid upload type: " + type);
             }
 
-            UserProfileResponse updated = userProfileService.createOrUpdateProfile(userId, existing.getUsername(), existing.getEmail(), request, getClientContext());
+            UserProfileResponse updated = userProfileService.createOrUpdateProfile(userId, existing.getUsername(),
+                    existing.getEmail(), request, getClientContext());
             return ResponseEntity.ok(updated);
         } catch (IOException e) {
             throw new RuntimeException("Failed to save uploaded file locally.", e);
         }
     }
-
 
     @GetMapping("/audit-logs")
     public ResponseEntity<List<AuditLogResponse>> getMyAuditLogs(@AuthenticationPrincipal JwtUserPrincipal principal) {
@@ -237,11 +289,9 @@ public class UserController {
      */
     @PostMapping("/profiles/batch")
     public ResponseEntity<List<UserProfileResponse>> getProfilesBatch(
-            @Valid @RequestBody UserProfilesBatchRequest request
-    ) {
+            @Valid @RequestBody UserProfilesBatchRequest request) {
         return ResponseEntity.ok(userProfileService.getProfilesBatch(request.getUserIds()));
     }
-
 
     private ClientRequestContext getClientContext() {
         return ClientRequestContext.from(httpServletRequest);

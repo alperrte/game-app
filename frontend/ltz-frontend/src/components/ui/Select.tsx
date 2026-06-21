@@ -1,4 +1,4 @@
-import * as RadixSelect from "@radix-ui/react-select";
+import * as RadixSelect from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "../../utils/cn";
 
