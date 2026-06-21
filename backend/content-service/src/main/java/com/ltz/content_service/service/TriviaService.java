@@ -1,5 +1,6 @@
 package com.ltz.content_service.service;
 
+import com.ltz.content_service.service.client.OpenTdbClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ltz.content_service.exception.ResourceNotFoundException;
@@ -22,32 +23,49 @@ public class TriviaService {
 
     private final DailyTriviaRepository dailyTriviaRepository;
     private final UserTriviaAnswerRepository userTriviaAnswerRepository;
+    private final OpenTdbClient openTdbClient;
     private final ObjectMapper objectMapper;
 
+    @SuppressWarnings("unchecked")
     public Map<String, Object> getTodayTrivia(Long currentUserId) {
         LocalDate today = LocalDate.now();
         Optional<DailyTrivia> triviaOpt = dailyTriviaRepository.findByTriviaDate(today);
 
-        // Fallback default trivia if none exists in DB
-        DailyTrivia trivia = triviaOpt.orElseGet(() -> {
-            List<String> options = Arrays.asList(
-                    "Half-Life 2",
-                    "Doom (1993)",
-                    "Quake",
-                    "Wolfenstein 3D"
-            );
+        DailyTrivia trivia;
+        if (triviaOpt.isPresent()) {
+            trivia = triviaOpt.get();
+        } else {
+            Map<String, Object> apiTrivia = null;
             try {
-                return DailyTrivia.builder()
-                        .question("Which game pioneered the first-person shooter genre in 1992?")
-                        .optionsJson(objectMapper.writeValueAsString(options))
-                        .correctOptionIndex(3)
-                        .triviaDate(today)
-                        .build();
-            } catch (Exception e) {
-                log.error("Failed to create fallback trivia: ", e);
-                return null;
+                apiTrivia = openTdbClient.fetchRandomTrivia().block();
+            } catch (Exception ex) {
+                log.warn("Failed to fetch live trivia from OpenTDB: {}", ex.getMessage());
             }
-        });
+
+            if (apiTrivia != null && !apiTrivia.isEmpty()) {
+                try {
+                    String question = (String) apiTrivia.get("question");
+                    List<String> options = (List<String>) apiTrivia.get("options");
+                    int correctOptionIndex = (Integer) apiTrivia.get("correctOptionIndex");
+
+                    DailyTrivia newTrivia = DailyTrivia.builder()
+                            .question(question)
+                            .optionsJson(objectMapper.writeValueAsString(options))
+                            .correctOptionIndex(correctOptionIndex)
+                            .triviaDate(today)
+                            .build();
+
+                    trivia = dailyTriviaRepository.save(newTrivia);
+                    log.info("Saved new daily trivia fetched from OpenTDB for date: {}", today);
+                } catch (Exception e) {
+                    log.warn("Failed to save fetched daily trivia (possibly unique constraint violation): {}", e.getMessage());
+                    trivia = dailyTriviaRepository.findByTriviaDate(today)
+                            .orElseGet(() -> getFallbackTrivia(today));
+                }
+            } else {
+                trivia = getFallbackTrivia(today);
+            }
+        }
 
         if (trivia == null) {
             throw new ResourceNotFoundException("Daily trivia not available");
@@ -69,7 +87,6 @@ public class TriviaService {
 
         boolean hasAnswered = false;
         boolean wasCorrect = false;
-        Integer userChoice = null;
 
         if (currentUserId != null) {
             Optional<UserTriviaAnswer> answerOpt = userTriviaAnswerRepository.findByUserIdAndTriviaDate(currentUserId, today);
@@ -151,5 +168,26 @@ public class TriviaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Daily trivia not found with id: " + id));
         dailyTriviaRepository.delete(trivia);
         log.info("Deleted daily trivia id: {}", id);
+    }
+
+    private DailyTrivia getFallbackTrivia(LocalDate today) {
+        List<String> options = Arrays.asList(
+                "Half-Life 2",
+                "Doom (1993)",
+                "Quake",
+                "Wolfenstein 3D"
+        );
+        try {
+            DailyTrivia fallback = DailyTrivia.builder()
+                    .question("Which game pioneered the first-person shooter genre in 1992?")
+                    .optionsJson(objectMapper.writeValueAsString(options))
+                    .correctOptionIndex(3)
+                    .triviaDate(today)
+                    .build();
+            return dailyTriviaRepository.save(fallback);
+        } catch (Exception e) {
+            log.warn("Failed to create fallback trivia (possibly unique constraint violation): {}", e.getMessage());
+            return dailyTriviaRepository.findByTriviaDate(today).orElse(null);
+        }
     }
 }

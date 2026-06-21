@@ -1,5 +1,6 @@
 package com.ltz.content_service.controller;
 
+import com.ltz.content_service.model.dto.GamingHistoryRequest;
 import com.ltz.content_service.model.entity.GamingHistory;
 import com.ltz.content_service.service.HistoryService;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,15 @@ public class HistoryController {
     }
 
     @PostMapping("/admin")
-    public ResponseEntity<GamingHistory> createHistoryEvent(@RequestBody GamingHistory event) {
+    public ResponseEntity<GamingHistory> createHistoryEvent(@RequestBody GamingHistoryRequest request) {
+        GamingHistory event = GamingHistory.builder()
+                .eventDay(request.getEventDay())
+                .eventMonth(request.getEventMonth())
+                .eventYear(request.getEventYear())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .imageUrl(request.getImageUrl())
+                .build();
         GamingHistory created = historyService.createHistoryEvent(event);
         return ResponseEntity.ok(created);
     }
@@ -38,8 +47,16 @@ public class HistoryController {
     @PutMapping("/admin/{id}")
     public ResponseEntity<GamingHistory> updateHistoryEvent(
             @PathVariable Long id,
-            @RequestBody GamingHistory event
+            @RequestBody GamingHistoryRequest request
     ) {
+        GamingHistory event = GamingHistory.builder()
+                .eventDay(request.getEventDay())
+                .eventMonth(request.getEventMonth())
+                .eventYear(request.getEventYear())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .imageUrl(request.getImageUrl())
+                .build();
         GamingHistory updated = historyService.updateHistoryEvent(id, event);
         return ResponseEntity.ok(updated);
     }

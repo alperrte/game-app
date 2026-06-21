@@ -1,5 +1,6 @@
 package com.ltz.content_service.controller;
 
+import com.ltz.content_service.model.dto.SpotlightBannerRequest;
 import com.ltz.content_service.exception.ResourceNotFoundException;
 import com.ltz.content_service.model.entity.SpotlightBanner;
 import com.ltz.content_service.repository.SpotlightBannerRepository;
@@ -24,8 +25,16 @@ public class AdminCmsController {
     }
 
     @PostMapping("/admin/spotlight")
-    public ResponseEntity<SpotlightBanner> createBanner(@RequestBody SpotlightBanner banner) {
-        log.info("Creating spotlight banner: {}", banner.getTitle());
+    public ResponseEntity<SpotlightBanner> createBanner(@RequestBody SpotlightBannerRequest bannerRequest) {
+        log.info("Creating spotlight banner: {}", bannerRequest.getTitle());
+        SpotlightBanner banner = SpotlightBanner.builder()
+                .title(bannerRequest.getTitle())
+                .subtitle(bannerRequest.getSubtitle())
+                .imageUrl(bannerRequest.getImageUrl())
+                .targetUrl(bannerRequest.getTargetUrl())
+                .displayOrder(bannerRequest.getDisplayOrder())
+                .isActive(bannerRequest.isActive())
+                .build();
         SpotlightBanner created = spotlightBannerRepository.save(banner);
         return ResponseEntity.ok(created);
     }
@@ -33,7 +42,7 @@ public class AdminCmsController {
     @PutMapping("/admin/spotlight/{id}")
     public ResponseEntity<SpotlightBanner> updateBanner(
             @PathVariable Long id,
-            @RequestBody SpotlightBanner bannerDetails
+            @RequestBody SpotlightBannerRequest bannerDetails
     ) {
         SpotlightBanner banner = spotlightBannerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Spotlight banner not found with id: " + id));
