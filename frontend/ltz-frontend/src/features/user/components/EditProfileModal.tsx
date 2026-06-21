@@ -28,7 +28,7 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
   };
 
   // Form states
-  const [displayName, setDisplayName] = useState(profile.displayName || "");
+  const [displayName, setDisplayName] = useState((profile.displayName && profile.displayName.trim()) || profile.username || "");
   const [bio, setBio] = useState(profile.bio || "");
   const [gamerType, setGamerType] = useState(profile.gamerType || "CASUAL");
   const [categories, setCategories] = useState<string[]>(

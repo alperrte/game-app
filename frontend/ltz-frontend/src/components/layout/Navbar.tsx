@@ -45,6 +45,7 @@ import {
     ShieldOff,
     Sparkles,
     Swords,
+    Settings,
     UserPlus,
     UserRound,
 } from "lucide-react";
@@ -593,6 +594,14 @@ export function Navbar() {
     function handleOpenBlockedUsers() {
         setProfileMenuOpen(false);
         setBlockedUsersOpen(true);
+    }
+
+    function handleOpenSettings() {
+        if (!user?.username) {
+            return;
+        }
+        setProfileMenuOpen(false);
+        navigate(`/profile/${user.username}?settings=true`);
     }
 
     return (
@@ -1281,6 +1290,50 @@ export function Navbar() {
 
                                                 Engellenen
                                                 Kullanıcılar
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={
+                                                    handleOpenSettings
+                                                }
+                                                className="
+                                                    group flex w-full
+                                                    items-center gap-3
+                                                    rounded-xl
+                                                    px-3 py-2.5
+                                                    text-left
+                                                    text-sm
+                                                    font-semibold
+                                                    text-slate-300
+                                                    transition
+                                                    hover:bg-white/[0.05]
+                                                    hover:text-white
+                                                "
+                                            >
+                                                <span
+                                                    className="
+                                                        grid h-9 w-9
+                                                        place-items-center
+                                                        rounded-lg
+                                                        border
+                                                        border-white/10
+                                                        bg-white/[0.03]
+                                                        text-violet-300
+                                                    "
+                                                >
+                                                    <Settings
+                                                        size={
+                                                            17
+                                                        }
+                                                        strokeWidth={
+                                                            2.25
+                                                        }
+                                                    />
+                                                </span>
+
+                                                Ayarlar
                                             </button>
                                         </div>
                                     </div>

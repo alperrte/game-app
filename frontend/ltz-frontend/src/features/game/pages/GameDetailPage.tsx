@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ReviewSection } from "../../review/components/ReviewSection";
+import { ReviewRatingSummary } from "../../review/components/ReviewRatingSummary";
+import { reviewService } from "../../review/services/reviewService";
+import type { ReviewAverageRatingResponse } from "../../review/types/review.types";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { getExternalGameDetail } from "../services/externalGameService";
 import { gameService } from "../services/gameService";
@@ -406,6 +409,10 @@ const GameDetailPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
 
+  const [averageRating, setAverageRating] =
+      useState<ReviewAverageRatingResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
   useEffect(() => {
     if (routeError) {
       return;
@@ -445,6 +452,47 @@ const GameDetailPage = () => {
       active = false;
     };
   }, [backendGameId, externalId, isExternalRoute, routeError, source]);
+
+  useEffect(() => {
+    if (routeError || !game) {
+      setAverageRating(null);
+      setSummaryLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    const loadAverageRating = async () => {
+      setSummaryLoading(true);
+
+      try {
+        const data = isExternalDetailGame(game)
+            ? await reviewService.getExternalGameAverageRating(
+                game.source,
+                game.externalId,
+            )
+            : await reviewService.getGameAverageRating(game.id);
+
+        if (active) {
+          setAverageRating(data);
+        }
+      } catch {
+        if (active) {
+          setAverageRating(null);
+        }
+      } finally {
+        if (active) {
+          setSummaryLoading(false);
+        }
+      }
+    };
+
+    void loadAverageRating();
+
+    return () => {
+      active = false;
+    };
+  }, [game, routeError]);
 
   const genreTags = useMemo(() => splitTags(game?.genre ?? null), [game]);
 
@@ -545,18 +593,25 @@ const GameDetailPage = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/82 to-slate-950/35" />
 
               <div className="relative grid gap-8 xl:grid-cols-[460px_1fr_420px]">
-                {detailImageUrl ? (
-                    <img
-                        alt={game.title}
-                        className="aspect-[460/215] w-full rounded-2xl border border-white/15 bg-slate-950 object-contain shadow-2xl shadow-black/40"
-                        onError={() => setImageFailed(true)}
-                        src={detailImageUrl}
-                    />
-                ) : (
-                    <div className="grid aspect-[460/215] w-full place-items-center rounded-2xl border border-white/15 bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 text-sm text-slate-400">
-                      Kapak görseli yok
-                    </div>
-                )}
+                <div className="space-y-4">
+                  {detailImageUrl ? (
+                      <img
+                          alt={game.title}
+                          className="aspect-[460/215] w-full rounded-2xl border border-white/15 bg-slate-950 object-contain shadow-2xl shadow-black/40"
+                          onError={() => setImageFailed(true)}
+                          src={detailImageUrl}
+                      />
+                  ) : (
+                      <div className="grid aspect-[460/215] w-full place-items-center rounded-2xl border border-white/15 bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 text-sm text-slate-400">
+                        Kapak görseli yok
+                      </div>
+                  )}
+
+                  <ReviewRatingSummary
+                      averageRating={averageRating}
+                      loading={summaryLoading}
+                  />
+                </div>
 
                 <div className="flex min-h-[360px] flex-col justify-center">
                   <div className="mb-4 flex flex-wrap gap-2">

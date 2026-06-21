@@ -46,15 +46,18 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
+                        // Admin CMS & specific content admin endpoints
+                        .requestMatchers("/api/content/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/content/trivia/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/content/history/admin/**").hasRole("ADMIN")
+
                         // Publicly accessible content GET routes
+                        .requestMatchers(HttpMethod.GET, "/api/content/spotlight").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/content/news/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/content/deals/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/content/stats/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/content/history/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/content/trivia/**").permitAll()
-
-                        // Admin CMS endpoints
-                        .requestMatchers("/api/content/admin/**").hasRole("ADMIN")
 
                         // Reactions and any other content management
                         .anyRequest().authenticated()

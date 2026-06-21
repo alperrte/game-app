@@ -40,7 +40,7 @@ export function CurrentUserProfileProvider({ children }: { children: ReactNode }
     (data: UserProfileResponse) => {
       if (!user) return;
       setProfile(data);
-      setProfileReady(user.userId);
+      setProfileReady(String(user.userId));
     },
     [user],
   );
@@ -51,16 +51,11 @@ export function CurrentUserProfileProvider({ children }: { children: ReactNode }
       return;
     }
 
-    if (getProfileReadyUserId() !== user.userId) {
-      setProfile(null);
-      return;
-    }
-
     setLoading(true);
     try {
       const data = await userService.getMyProfile();
       setProfile(data);
-      setProfileReady(user.userId);
+      setProfileReady(String(user.userId));
     } catch (err) {
       setProfile(null);
       if (err instanceof ApiError && err.status === 404) {
@@ -73,16 +68,35 @@ export function CurrentUserProfileProvider({ children }: { children: ReactNode }
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
-      setProfile(null);
+      if (profile !== null) {
+        setTimeout(() => setProfile(null), 0);
+      }
       return;
     }
 
-    if (getProfileReadyUserId() === user.userId) {
-      void refresh();
+    // profile'ın zaten yüklü olup olmadığını ve doğru kullanıcıya ait olup olmadığını kontrol ediyoruz
+    const profileReadyId = getProfileReadyUserId();
+    const currentUserIdStr = String(user.userId);
+
+    if (profileReadyId === currentUserIdStr) {
+      // Eğer profil zaten güncelse ve state boşsa (örn. ilk açılışta veya cache'den) çekelim
+      if (profile === null) {
+        setTimeout(() => {
+          void refresh();
+        }, 0);
+      }
     } else {
-      setProfile(null);
+      // Başka bir kullanıcı giriş yaptıysa veya hazır değilse sıfırlayıp çekelim
+      setTimeout(() => {
+        setProfile(null);
+        void refresh();
+      }, 0);
     }
-  }, [isAuthenticated, user?.userId, refresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.userId, refresh]); // <-- Bağımlılıklardan profile ve tüm user nesnesi çıkarıldı (sadece userId eklendi)
+
+
+
 
   const value = useMemo<CurrentUserProfileContextValue>(
     () => ({
@@ -93,8 +107,9 @@ export function CurrentUserProfileProvider({ children }: { children: ReactNode }
       displayName: profile?.displayName?.trim() || profile?.username || user?.username || "Oyuncu",
       avatarUrl: profile?.avatarUrl ?? null,
     }),
-    [profile, loading, refresh, hydrateProfile, user?.username],
+    [profile, loading, refresh, hydrateProfile, user], // <-- user?.username yerine user yazdık
   );
+
 
   return (
     <CurrentUserProfileContext.Provider value={value}>

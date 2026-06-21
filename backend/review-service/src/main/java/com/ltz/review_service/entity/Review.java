@@ -62,6 +62,30 @@ public class Review {
     @Column(name = "review_text", nullable = false, length = 3000)
     private String reviewText;
 
+    @Size(max = 1500, message = "Grafik incelemesi en fazla 1500 karakter olabilir.")
+    @Column(name = "graphics_review", length = 1500)
+    private String graphicsReview;
+
+    @Size(max = 1500, message = "Oynanış incelemesi en fazla 1500 karakter olabilir.")
+    @Column(name = "gameplay_review", length = 1500)
+    private String gameplayReview;
+
+    @Size(max = 1500, message = "Hikaye incelemesi en fazla 1500 karakter olabilir.")
+    @Column(name = "story_review", length = 1500)
+    private String storyReview;
+
+    @Size(max = 1500, message = "Performans incelemesi en fazla 1500 karakter olabilir.")
+    @Column(name = "performance_review", length = 1500)
+    private String performanceReview;
+
+    @Size(max = 1500, message = "Artılar en fazla 1500 karakter olabilir.")
+    @Column(name = "pros", length = 1500)
+    private String pros;
+
+    @Size(max = 1500, message = "Eksiler en fazla 1500 karakter olabilir.")
+    @Column(name = "cons", length = 1500)
+    private String cons;
+
     @NotNull(message = "Olumlu/olumsuz değerlendirme boş olamaz.")
     @Column(name = "recommended", nullable = false)
     private Boolean recommended;

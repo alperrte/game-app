@@ -42,8 +42,34 @@ public class SteamClient {
         return getPlayerCount(730L);
     }
 
+    @SuppressWarnings("unchecked")
     public Mono<Long> getGlobalSteamPlayerCount() {
-        return Mono.just(18500000L);
+        return webClient.get()
+                .uri("https://store.steampowered.com/stats/userdata.json")
+                .retrieve()
+                .bodyToMono(java.util.List.class)
+                .map(responseList -> {
+                    try {
+                        if (responseList != null && !responseList.isEmpty()) {
+                            Map<String, Object> firstEntry = (Map<String, Object>) responseList.get(0);
+                            java.util.List<java.util.List<Number>> dataPoints = (java.util.List<java.util.List<Number>>) firstEntry.get("data");
+                            if (dataPoints != null && !dataPoints.isEmpty()) {
+                                java.util.List<Number> lastPoint = dataPoints.get(dataPoints.size() - 1);
+                                if (lastPoint != null && lastPoint.size() >= 2) {
+                                    return lastPoint.get(1).longValue();
+                                }
+                            }
+                        }
+                        return 18500000L;
+                    } catch (Exception e) {
+                        log.error("Error parsing global Steam player count from store.steampowered.com: ", e);
+                        return 18500000L;
+                    }
+                })
+                .onErrorResume(e -> {
+                    log.error("Error fetching global Steam player count: ", e);
+                    return Mono.just(18500000L);
+                });
     }
 
     @SuppressWarnings("unchecked")

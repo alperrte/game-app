@@ -9,8 +9,11 @@ import com.ltz.content_service.repository.LiveStatRepository;
 import com.ltz.content_service.service.StatsService;
 import com.ltz.content_service.service.client.EpicGamesClient;
 import com.ltz.content_service.service.client.GamerPowerClient;
+import com.ltz.content_service.service.client.IgdbClient;
+import com.ltz.content_service.service.client.PandaScoreClient;
 import com.ltz.content_service.service.client.SpeedrunClient;
 import com.ltz.content_service.service.client.SteamClient;
+import com.ltz.content_service.service.client.TwitchClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,6 +32,9 @@ public class StatsScheduler {
     private final EpicGamesClient epicGamesClient;
     private final GamerPowerClient gamerPowerClient;
     private final SpeedrunClient speedrunClient;
+    private final TwitchClient twitchClient;
+    private final IgdbClient igdbClient;
+    private final PandaScoreClient pandaScoreClient;
     private final ObjectMapper objectMapper;
 
     @Scheduled(cron = "0 */15 * * * *")
@@ -94,88 +100,15 @@ public class StatsScheduler {
             saveOrUpdateStat("steam_top_played", objectMapper.writeValueAsString(topPlayed));
 
             // Twitch Top 5 Categories
-            List<Map<String, Object>> twitchTop = new ArrayList<>();
-            twitchTop.add(Map.of("gameTitle", "Just Chatting", "viewers", 380000L));
-            twitchTop.add(Map.of("gameTitle", "Grand Theft Auto V", "viewers", 210000L));
-            twitchTop.add(Map.of("gameTitle", "League of Legends", "viewers", 175000L));
-            twitchTop.add(Map.of("gameTitle", "Valorant", "viewers", 135000L));
-            twitchTop.add(Map.of("gameTitle", "Counter-Strike 2", "viewers", 110000L));
-
+            List<Map<String, Object>> twitchTop = twitchClient.getTopCategories().block();
             saveOrUpdateStat("twitch_top_categories", objectMapper.writeValueAsString(twitchTop));
 
             // Twitch Live Streams
-            List<Map<String, Object>> liveStreams = new ArrayList<>();
-            liveStreams.add(Map.of(
-                    "broadcaster", "wtcN",
-                    "title", "CS2 FPL ve Dereceli Maçlar | !sub !discord",
-                    "gameName", "Counter-Strike 2",
-                    "viewers", 18500L,
-                    "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_wtcn-320x180.jpg",
-                    "streamUrl", "https://twitch.tv/wtcn"
-            ));
-            liveStreams.add(Map.of(
-                    "broadcaster", "Elraenn",
-                    "title", "Gıybet, Eğlence, GTA V Roleplay | !youtube !instagram",
-                    "gameName", "Grand Theft Auto V",
-                    "viewers", 34000L,
-                    "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_elraenn-320x180.jpg",
-                    "streamUrl", "https://twitch.tv/elraenn"
-            ));
-            liveStreams.add(Map.of(
-                    "broadcaster", "Shroud",
-                    "title", "Valorant Ranked with friends | !specs",
-                    "gameName", "Valorant",
-                    "viewers", 14200L,
-                    "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_shroud-320x180.jpg",
-                    "streamUrl", "https://twitch.tv/shroud"
-            ));
-            liveStreams.add(Map.of(
-                    "broadcaster", "Ninja",
-                    "title", "Fright Night & Fortnite Wins | !prime",
-                    "gameName", "Fortnite",
-                    "viewers", 8500L,
-                    "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_ninja-320x180.jpg",
-                    "streamUrl", "https://twitch.tv/ninja"
-            ));
+            List<Map<String, Object>> liveStreams = twitchClient.getLiveStreams().block();
             saveOrUpdateStat("twitch_live_streams", objectMapper.writeValueAsString(liveStreams));
 
-            // Game Release Calendar (Upcoming games) — Steam CDN kapakları (güvenilir fallback)
-            List<Map<String, Object>> upcomingReleases = new ArrayList<>();
-            upcomingReleases.add(Map.of(
-                    "gameTitle", "Grand Theft Auto VI",
-                    "releaseDate", "2026-10-25",
-                    "platforms", List.of("PS5", "Xbox Series X/S"),
-                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg",
-                    "description", "Grand Theft Auto serisinin en yeni ve en çok beklenen açık dünya aksiyon oyunu."
-            ));
-            upcomingReleases.add(Map.of(
-                    "gameTitle", "Monster Hunter Wilds",
-                    "releaseDate", "2026-02-28",
-                    "platforms", List.of("PC", "PS5", "Xbox Series X/S"),
-                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/2246340/header.jpg",
-                    "description", "Capcom'un efsanevi canavar avlama serisinin yeni nesil grafiklerle buluşan oyunu."
-            ));
-            upcomingReleases.add(Map.of(
-                    "gameTitle", "Death Stranding 2: On The Beach",
-                    "releaseDate", "2026-06-15",
-                    "platforms", List.of("PS5"),
-                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/1850570/header.jpg",
-                    "description", "Hideo Kojima imzalı ödüllü başyapıtın gizemli hikayesini devam ettiren macera."
-            ));
-            upcomingReleases.add(Map.of(
-                    "gameTitle", "Metroid Prime 4: Beyond",
-                    "releaseDate", "2026-08-20",
-                    "platforms", List.of("Nintendo Switch"),
-                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/412020/header.jpg",
-                    "description", "Samus Aran'in galaksiyi korumak için çıktığı birinci şahıs macera ve aksiyon."
-            ));
-            upcomingReleases.add(Map.of(
-                    "gameTitle", "The Witcher 4: Polaris",
-                    "releaseDate", "2026-12-10",
-                    "platforms", List.of("PC", "PS5", "Xbox Series X/S"),
-                    "imageUrl", "https://cdn.cloudflare.steamstatic.com/steam/apps/292030/header.jpg",
-                    "description", "Yeni bir Witcher efsanesinin kapılarını aralayan Unreal Engine 5 tabanlı RPG."
-            ));
+            // Game Release Calendar (Upcoming games)
+            List<Map<String, Object>> upcomingReleases = igdbClient.getUpcomingReleases().block();
             saveOrUpdateStat("upcoming_releases", objectMapper.writeValueAsString(upcomingReleases));
 
         } catch (Exception e) {
@@ -398,18 +331,41 @@ public class StatsScheduler {
         }
     }
 
-    @Scheduled(cron = "0 */30 * * * *")
+    @Scheduled(cron = "0 0 * * * *")
     public void generateOrUpdateEsportMatches() {
-        log.info("Simulating/updating esports matches in database...");
+        log.info("Fetching live esports matches from PandaScore...");
         try {
-            // Let's create or update some sample matches to keep the database active
-            createOrUpdateMatch("m_cs2_01", "PGL Major Copenhagen 2026", "Natus Vincere", "FaZe Clan", 1, 0, "CS2", MatchStatus.LIVE, LocalDateTime.now().minusMinutes(45));
-            createOrUpdateMatch("m_val_01", "VCT Champions 2026", "Fnatic", "Sentinels", 2, 1, "VALORANT", MatchStatus.FINISHED, LocalDateTime.now().minusHours(3));
-            createOrUpdateMatch("m_lol_01", "LCK Summer 2026", "T1", "Gen.G", 0, 0, "LOL", MatchStatus.UPCOMING, LocalDateTime.now().plusHours(2));
-            createOrUpdateMatch("m_dota_01", "The International 2026", "Team Spirit", "Gaimin Gladiators", 0, 0, "DOTA2", MatchStatus.UPCOMING, LocalDateTime.now().plusHours(5));
+            List<EsportMatch> liveMatches = pandaScoreClient.getUpcomingMatches().block();
+            if (liveMatches != null && !liveMatches.isEmpty()) {
+                for (EsportMatch m : liveMatches) {
+                    createOrUpdateMatch(
+                            m.getMatchId(),
+                            m.getTournamentName(),
+                            m.getTeamAName(),
+                            m.getTeamBName(),
+                            m.getTeamAScore(),
+                            m.getTeamBScore(),
+                            m.getGameName(),
+                            m.getStatus(),
+                            m.getMatchTime()
+                    );
+                }
+                log.info("Successfully loaded and saved {} live esports matches.", liveMatches.size());
+            } else {
+                log.warn("PandaScore returned empty matches, falling back to simulated matches.");
+                generateSimulatedMatches();
+            }
         } catch (Exception e) {
-            log.error("Error simulating esport matches: ", e);
+            log.warn("Failed to fetch live matches from PandaScore, using simulated fallback: {}", e.getMessage());
+            generateSimulatedMatches();
         }
+    }
+
+    private void generateSimulatedMatches() {
+        createOrUpdateMatch("m_cs2_01", "PGL Major Copenhagen 2026", "Natus Vincere", "FaZe Clan", 1, 0, "CS2", MatchStatus.LIVE, LocalDateTime.now().minusMinutes(45));
+        createOrUpdateMatch("m_val_01", "VCT Champions 2026", "Fnatic", "Sentinels", 2, 1, "VALORANT", MatchStatus.FINISHED, LocalDateTime.now().minusHours(3));
+        createOrUpdateMatch("m_lol_01", "LCK Summer 2026", "T1", "Gen.G", 0, 0, "LOL", MatchStatus.UPCOMING, LocalDateTime.now().plusHours(2));
+        createOrUpdateMatch("m_dota_01", "The International 2026", "Team Spirit", "Gaimin Gladiators", 0, 0, "DOTA2", MatchStatus.UPCOMING, LocalDateTime.now().plusHours(5));
     }
 
     private void createOrUpdateMatch(String matchId, String tournament, String teamA, String teamB, int scoreA, int scoreB, String game, MatchStatus status, LocalDateTime matchTime) {

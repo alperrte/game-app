@@ -28,6 +28,12 @@ const platformOptions = [
 const initialValues: ReviewFormValues = {
     rating: 0,
     reviewText: "",
+    graphicsReview: "",
+    gameplayReview: "",
+    storyReview: "",
+    performanceReview: "",
+    pros: "",
+    cons: "",
     recommended: true,
     playtimeHours: "",
     playtimeMinutes: "",
@@ -69,7 +75,8 @@ export function ReviewForm({
                     İnceleme yaz
                 </h3>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Oyunu puanla, deneyimini paylaş ve diğer oyunculara fikir ver.
+                    Oyunu puanla, deneyimini paylaş ve dilersen farklı başlıklarda
+                    detaylı görüşlerini ekle.
                 </p>
             </div>
 
@@ -242,12 +249,12 @@ export function ReviewForm({
 
             <label className="mt-4 block space-y-2">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                    İnceleme metni
+                    Genel inceleme metni
                 </span>
 
                 <textarea
                     rows={5}
-                    placeholder="Bu oyun hakkında ne düşünüyorsun?"
+                    placeholder="Bu oyun hakkında genel olarak ne düşünüyorsun?"
                     value={values.reviewText}
                     onChange={(event) =>
                         setValues((current) => ({
@@ -258,6 +265,134 @@ export function ReviewForm({
                     className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                 />
             </label>
+
+            <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+                <div className="mb-4">
+                    <h4 className="text-base font-semibold text-slate-950 dark:text-white">
+                        Detaylı konu başlıkları
+                    </h4>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        Bu alanlar opsiyoneldir. Sadece yorumlamak istediğin başlıkları
+                        doldurabilirsin.
+                    </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            Grafikler hakkında
+                        </span>
+
+                        <textarea
+                            rows={4}
+                            placeholder="Grafikler, sanat tasarımı, atmosfer..."
+                            value={values.graphicsReview}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    graphicsReview: event.target.value,
+                                }))
+                            }
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                    </label>
+
+                    <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            Oynanış hakkında
+                        </span>
+
+                        <textarea
+                            rows={4}
+                            placeholder="Kontroller, mekanikler, savaş sistemi..."
+                            value={values.gameplayReview}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    gameplayReview: event.target.value,
+                                }))
+                            }
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                    </label>
+
+                    <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            Hikaye hakkında
+                        </span>
+
+                        <textarea
+                            rows={4}
+                            placeholder="Senaryo, karakterler, anlatım..."
+                            value={values.storyReview}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    storyReview: event.target.value,
+                                }))
+                            }
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                    </label>
+
+                    <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            Performans / optimizasyon hakkında
+                        </span>
+
+                        <textarea
+                            rows={4}
+                            placeholder="FPS, optimizasyon, hatalar, akıcılık..."
+                            value={values.performanceReview}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    performanceReview: event.target.value,
+                                }))
+                            }
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                    </label>
+
+                    <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            Artılar
+                        </span>
+
+                        <textarea
+                            rows={4}
+                            placeholder="Oyunun beğendiğin yönleri..."
+                            value={values.pros}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    pros: event.target.value,
+                                }))
+                            }
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                    </label>
+
+                    <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            Eksiler
+                        </span>
+
+                        <textarea
+                            rows={4}
+                            placeholder="Oyunun eksik veya rahatsız eden yönleri..."
+                            value={values.cons}
+                            onChange={(event) =>
+                                setValues((current) => ({
+                                    ...current,
+                                    cons: event.target.value,
+                                }))
+                            }
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                        />
+                    </label>
+                </div>
+            </section>
 
             <div className="mt-5 flex justify-end">
                 <button

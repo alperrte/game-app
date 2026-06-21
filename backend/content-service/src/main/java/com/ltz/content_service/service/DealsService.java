@@ -31,9 +31,13 @@ public class DealsService {
     }
 
     public List<DealCompareResponse> searchAndCompareDeals(String title, Long currentUserId) {
-        List<DealCampaign> campaigns = (title == null || title.isBlank()) ?
+        List<DealCampaign> campaigns = (title == null || title.trim().isBlank()) ?
                 dealCampaignRepository.findAll() :
                 dealCampaignRepository.findByGameTitleContainingIgnoreCase(title);
+
+        if (campaigns.size() > 50) {
+            campaigns = campaigns.subList(0, 50);
+        }
 
         Map<String, List<DealCampaign>> campaignsByGame = campaigns.stream()
                 .collect(Collectors.groupingBy(DealCampaign::getGameTitle));

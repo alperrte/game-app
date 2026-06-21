@@ -1,5 +1,6 @@
 package com.ltz.content_service.controller;
 
+import com.ltz.content_service.model.dto.DailyTriviaRequest;
 import com.ltz.content_service.model.entity.DailyTrivia;
 import com.ltz.content_service.security.JwtUserPrincipal;
 import com.ltz.content_service.service.TriviaService;
@@ -38,7 +39,13 @@ public class TriviaController {
     }
 
     @PostMapping("/admin")
-    public ResponseEntity<DailyTrivia> createTrivia(@RequestBody DailyTrivia trivia) {
+    public ResponseEntity<DailyTrivia> createTrivia(@RequestBody DailyTriviaRequest triviaRequest) {
+        DailyTrivia trivia = DailyTrivia.builder()
+                .question(triviaRequest.getQuestion())
+                .optionsJson(triviaRequest.getOptionsJson())
+                .correctOptionIndex(triviaRequest.getCorrectOptionIndex())
+                .triviaDate(triviaRequest.getTriviaDate())
+                .build();
         DailyTrivia created = triviaService.createTrivia(trivia);
         return ResponseEntity.ok(created);
     }
@@ -46,8 +53,14 @@ public class TriviaController {
     @PutMapping("/admin/{id}")
     public ResponseEntity<DailyTrivia> updateTrivia(
             @PathVariable Long id,
-            @RequestBody DailyTrivia trivia
+            @RequestBody DailyTriviaRequest triviaRequest
     ) {
+        DailyTrivia trivia = DailyTrivia.builder()
+                .question(triviaRequest.getQuestion())
+                .optionsJson(triviaRequest.getOptionsJson())
+                .correctOptionIndex(triviaRequest.getCorrectOptionIndex())
+                .triviaDate(triviaRequest.getTriviaDate())
+                .build();
         DailyTrivia updated = triviaService.updateTrivia(id, trivia);
         return ResponseEntity.ok(updated);
     }

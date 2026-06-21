@@ -27,6 +27,11 @@ public class DealsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        if (size > 100) {
+            size = 100;
+        } else if (size <= 0) {
+            size = 20;
+        }
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "discountPercent"));
         Page<DealCampaign> deals = dealsService.getActiveDeals(minDiscount, pageable);
         return ResponseEntity.ok(deals);
