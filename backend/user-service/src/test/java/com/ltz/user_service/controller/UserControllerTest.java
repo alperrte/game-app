@@ -1,6 +1,8 @@
 package com.ltz.user_service.controller;
 
 import tools.jackson.databind.ObjectMapper;
+import com.ltz.user_service.client.AuthServiceClient;
+import com.ltz.user_service.dto.client.response.UserInfoResponse;
 import com.ltz.user_service.dto.request.UserProfileRequest;
 import com.ltz.user_service.dto.response.UserProfileResponse;
 import com.ltz.user_service.security.CustomAccessDeniedHandler;
@@ -46,6 +48,9 @@ class UserControllerTest {
     @MockitoBean
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuthServiceClient authServiceClient;
+
     private UserProfileResponse userProfileResponse;
     private JwtUserPrincipal principal;
 
@@ -87,6 +92,13 @@ class UserControllerTest {
 
     @Test
     void testUpdateProfile_Success() throws Exception {
+        UserInfoResponse mockAuthUser = new UserInfoResponse();
+        mockAuthUser.setUserId(123L);
+        mockAuthUser.setUsername("gamer123");
+        mockAuthUser.setEmail("gamer123@example.com");
+        mockAuthUser.setRole("ROLE_USER");
+        
+        when(authServiceClient.getUserById(anyLong())).thenReturn(mockAuthUser);
         when(userProfileService.getProfile("123")).thenReturn(userProfileResponse);
         when(userProfileService.createOrUpdateProfile(eq("123"), anyString(), anyString(), any(UserProfileRequest.class), any(ClientRequestContext.class)))
                 .thenReturn(userProfileResponse);
