@@ -5,26 +5,22 @@ export type ProfileNavSection = "wall" | "about" | "hardware" | "settings" | "re
 
 const NAV_ITEMS: { id: ProfileNavSection; label: string }[] = [
   { id: "wall", label: "Duvar" },
-  { id: "about", label: "Hakkında" },
   { id: "reviews", label: "İncelemeler" },
+  { id: "about", label: "Hakkında" },
   { id: "hardware", label: "Donanım" },
 ];
 
 
 type ProfileQuickNavProps = {
   activeSection: ProfileNavSection;
-  showSettings: boolean;
   showHardware: boolean;
   onSectionChange: (section: ProfileNavSection) => void;
-  onOpenSettings: () => void;
 };
 
 export function ProfileQuickNav({
   activeSection,
-  showSettings,
   showHardware,
   onSectionChange,
-  onOpenSettings,
 }: ProfileQuickNavProps) {
   const visibleItems = NAV_ITEMS.filter((item) => item.id !== "hardware" || showHardware);
 
@@ -45,20 +41,6 @@ export function ProfileQuickNav({
           {item.label}
         </button>
       ))}
-      {showSettings ? (
-        <button
-          className={cn(
-            "rounded-xl px-5 py-2.5 text-sm font-bold transition",
-            activeSection === "settings"
-              ? "bg-violet-600 text-white"
-              : "text-zinc-400 hover:bg-white/5 hover:text-white",
-          )}
-          onClick={onOpenSettings}
-          type="button"
-        >
-          Ayarlar
-        </button>
-      ) : null}
     </nav>
   );
 }

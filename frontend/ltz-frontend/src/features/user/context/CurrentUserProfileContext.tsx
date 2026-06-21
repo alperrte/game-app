@@ -51,11 +51,6 @@ export function CurrentUserProfileProvider({ children }: { children: ReactNode }
       return;
     }
 
-    if (getProfileReadyUserId() !== String(user.userId)) {
-      setProfile(null);
-      return;
-    }
-
     setLoading(true);
     try {
       const data = await userService.getMyProfile();

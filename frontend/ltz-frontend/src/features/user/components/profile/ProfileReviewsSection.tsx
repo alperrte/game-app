@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Star, ThumbsUp, ThumbsDown, MessageSquare, Clock, Gamepad2 } from "lucide-react";
+import { Star, ThumbsUp, ThumbsDown, Clock, Gamepad2 } from "lucide-react";
 import { userService } from "../../services/userService";
 import type { ReviewClientResponse } from "../../types/user";
 import { SectionPanel } from "./ProfilePrimitives";
 import { formatProfileDate } from "../../utils/profileHelpers";
+import { gameService } from "../../../game/services/gameService";
+import { getExternalGameDetail } from "../../../game/services/externalGameService";
 
 type ProfileReviewsSectionProps = {
     userId: string | number;
@@ -11,6 +13,7 @@ type ProfileReviewsSectionProps = {
 
 export function ProfileReviewsSection({ userId }: ProfileReviewsSectionProps) {
     const [reviews, setReviews] = useState<ReviewClientResponse[]>([]);
+    const [gameNames, setGameNames] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -23,8 +26,33 @@ export function ProfileReviewsSection({ userId }: ProfileReviewsSectionProps) {
                 const data = await userService.getUserReviews(userId);
                 if (active) {
                     setReviews(data);
+                    
+                    // Fetch game names asynchronously
+                    const namesMap: Record<string, string> = {};
+                    await Promise.all(data.map(async (review) => {
+                        const key = review.gameSource === "INTERNAL" 
+                            ? `INTERNAL_${review.gameId}` 
+                            : `${review.gameSource}_${review.externalGameId}`;
+                            
+                        try {
+                            if (review.gameSource === "INTERNAL" && review.gameId) {
+                                const game = await gameService.getGameById(review.gameId);
+                                namesMap[key] = game.title;
+                            } else if (review.gameSource && review.externalGameId) {
+                                const extGame = await getExternalGameDetail(review.gameSource as "STEAM" | "EPIC", review.externalGameId);
+                                namesMap[key] = extGame.title;
+                            }
+                        } catch {
+                            namesMap[key] = review.gameSource === "INTERNAL" 
+                                ? `Oyun #${review.gameId}` 
+                                : `Oyun #${review.externalGameId}`;
+                        }
+                    }));
+                    if (active) {
+                        setGameNames(namesMap);
+                    }
                 }
-            } catch (err) {
+            } catch {
                 if (active) {
                     setError("İncelemeler yüklenirken bir hata oluştu.");
                 }
@@ -68,25 +96,31 @@ export function ProfileReviewsSection({ userId }: ProfileReviewsSectionProps) {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {reviews.map((review) => (
-                        <div
-                            key={review.id}
-                            className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0a101c]/60 p-5 transition-all duration-300 hover:border-violet-500/30 hover:bg-[#0a101c]/80"
-                        >
-                            {/* Neon Parlama Efekti */}
-                            <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-40 w-40 rounded-full bg-violet-500/5 blur-3xl transition-all duration-300 group-hover:bg-violet-500/10" />
+                    {reviews.map((review) => {
+                        const gameKey = review.gameSource === "INTERNAL" 
+                            ? `INTERNAL_${review.gameId}` 
+                            : `${review.gameSource}_${review.externalGameId}`;
+                        const displayGameName = gameNames[gameKey] || (review.externalGameId ? `Oyun #${review.externalGameId}` : `Oyun #${review.gameId}`);
 
-                            <div className="flex flex-wrap items-start justify-between gap-4">
-                                {/* Sol Taraf: Oyun Adı ve İnceleme Tarihi */}
-                                <div>
-                                    <h4 className="text-base font-bold text-white flex items-center gap-2">
-                                        <Gamepad2 className="h-4 w-4 text-violet-400" />
-                                        {review.externalGameId ? `Oyun #${review.externalGameId}` : `Oyun #${review.gameId}`}
-                                    </h4>
-                                    <span className="mt-1 block text-xs text-zinc-500">
-                                        {formatProfileDate(review.createdAt)}
-                                    </span>
-                                </div>
+                        return (
+                            <div
+                                key={review.id}
+                                className="group relative overflow-hidden rounded-xl border border-white/5 bg-[#0a101c]/60 p-5 transition-all duration-300 hover:border-violet-500/30 hover:bg-[#0a101c]/80"
+                            >
+                                {/* Neon Parlama Efekti */}
+                                <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-40 w-40 rounded-full bg-violet-500/5 blur-3xl transition-all duration-300 group-hover:bg-violet-500/10" />
+
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    {/* Sol Taraf: Oyun Adı ve İnceleme Tarihi */}
+                                    <div>
+                                        <h4 className="text-base font-bold text-white flex items-center gap-2">
+                                            <Gamepad2 className="h-4 w-4 text-violet-400" />
+                                            {displayGameName}
+                                        </h4>
+                                        <span className="mt-1 block text-xs text-zinc-500">
+                                            {formatProfileDate(review.createdAt)}
+                                        </span>
+                                    </div>
 
                                 {/* Sağ Taraf: Puanlama ve Tavsiye */}
                                 <div className="flex items-center gap-3">
@@ -136,8 +170,9 @@ export function ProfileReviewsSection({ userId }: ProfileReviewsSectionProps) {
                                 )}
                             </div>
                         </div>
-                    ))}
-                </div>
+                    );
+                })}
+            </div>
             )}
         </SectionPanel>
     );

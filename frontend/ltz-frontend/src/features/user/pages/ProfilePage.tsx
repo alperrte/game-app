@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/authStore";
 import { useToast } from "../../../components/ui/toastContext";
 import { userService } from "../services/userService";
@@ -88,6 +88,7 @@ const isForbiddenError = (err: unknown) =>
 export const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const { showToast } = useToast();
   const {
@@ -297,6 +298,16 @@ export const ProfilePage: React.FC = () => {
       document.title = "LobbyTwoZero";
     };
   }, [profile]);
+
+  useEffect(() => {
+    if (searchParams.get("settings") === "true") {
+      const timer = setTimeout(() => {
+        setSettingsOpen(true);
+        setSearchParams({}, { replace: true });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!profile) return;
@@ -1162,6 +1173,7 @@ export const ProfilePage: React.FC = () => {
         isOwnProfile={isOwnProfile}
         lastSeenLabel={lastSeenLabel}
         onEditClick={() => setEditModalOpen(true)}
+        onSettingsClick={() => setSettingsOpen(true)}
         profile={profile}
         role={displayRole}
         socialActions={
@@ -1269,13 +1281,11 @@ export const ProfilePage: React.FC = () => {
 
       <ProfileQuickNav
         activeSection={settingsOpen ? "settings" : activeNavSection}
-        onOpenSettings={() => setSettingsOpen(true)}
         onSectionChange={(section) => {
           setSettingsOpen(false);
           switchNavSection(section);
         }}
         showHardware={hasHardware}
-        showSettings={isOwnProfile}
       />
 
       {!isOwnProfile && relationshipError ? (

@@ -29,6 +29,7 @@ export function ProfileHero({
   isOwnProfile,
   lastSeenLabel,
   onEditClick,
+  onSettingsClick,
   socialActions,
 }: ProfileHeroProps) {
   const hasCover = isImageValid(profile.coverUrl);
@@ -149,13 +150,22 @@ export function ProfileHero({
         </div>
 
         {isOwnProfile ? (
-          <button
-            className="mt-4 flex shrink-0 items-center gap-1.5 self-start rounded-xl border border-violet-500/30 bg-violet-500/10 px-5 py-2.5 text-sm font-bold text-violet-300 transition-colors hover:bg-violet-600 hover:text-white md:mt-2"
-            onClick={onEditClick}
-            type="button"
-          >
-            <Edit3 className="h-4 w-4" /> Profili Düzenle
-          </button>
+          <div className="mt-4 flex flex-row md:flex-col gap-2 shrink-0 self-start md:mt-2 w-full md:w-auto">
+            <button
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-5 py-2.5 text-sm font-bold text-violet-300 transition-colors hover:bg-violet-600 hover:text-white"
+              onClick={onEditClick}
+              type="button"
+            >
+              <Edit3 className="h-4 w-4" /> Profili Düzenle
+            </button>
+            <button
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white"
+              onClick={onSettingsClick}
+              type="button"
+            >
+              Ayarlar
+            </button>
+          </div>
         ) : null}
       </div>
     </div>
