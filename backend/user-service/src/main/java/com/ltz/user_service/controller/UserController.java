@@ -13,6 +13,7 @@ import com.ltz.user_service.dto.response.UserProfileResponse;
 import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.security.JwtUserPrincipal;
 import com.ltz.user_service.service.UserProfileService;
+import com.ltz.user_service.service.ProfileIntegrationService;
 import com.ltz.user_service.util.ClientRequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,11 +22,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.ltz.user_service.client.ReviewServiceClient;
 import com.ltz.user_service.dto.client.response.ReviewClientResponse;
-import com.ltz.user_service.client.SocialServiceClient;
 import com.ltz.user_service.dto.client.response.SocialClientResponse;
 import com.ltz.user_service.dto.client.response.SocialPostClientResponse;
+import com.ltz.user_service.dto.response.ProfileRelationshipResponse;
+import com.ltz.user_service.dto.response.ProfileSocialConnectionsResponse;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,19 +44,16 @@ public class UserController {
     private final UserProfileService userProfileService;
     private final AuthServiceClient authServiceClient;
     private final HttpServletRequest httpServletRequest;
-    private final ReviewServiceClient reviewServiceClient;
-    private final SocialServiceClient socialServiceClient;
+    private final ProfileIntegrationService profileIntegrationService;
 
     public UserController(UserProfileService userProfileService,
             AuthServiceClient authServiceClient,
             HttpServletRequest httpServletRequest,
-            ReviewServiceClient reviewServiceClient,
-            SocialServiceClient socialServiceClient) {
+            ProfileIntegrationService profileIntegrationService) {
         this.userProfileService = userProfileService;
         this.authServiceClient = authServiceClient;
         this.httpServletRequest = httpServletRequest;
-        this.reviewServiceClient = reviewServiceClient;
-        this.socialServiceClient = socialServiceClient;
+        this.profileIntegrationService = profileIntegrationService;
     }
 
     /**
@@ -79,7 +77,7 @@ public class UserController {
      */
     @GetMapping("/profile/{userId}/reviews")
     public ResponseEntity<List<ReviewClientResponse>> getUserReviews(@PathVariable Long userId) {
-        return ResponseEntity.ok(reviewServiceClient.getReviewsByUserId(userId));
+        return ResponseEntity.ok(profileIntegrationService.getReviews(userId));
     }
 
     /**
@@ -161,7 +159,7 @@ public class UserController {
      */
     @GetMapping("/profile/{userId}/friends")
     public ResponseEntity<List<SocialClientResponse>> getUserFriends(@PathVariable Long userId) {
-        return ResponseEntity.ok(socialServiceClient.getFriendsByUserId(userId));
+        return ResponseEntity.ok(profileIntegrationService.getSocialConnections(userId).getFriends());
     }
 
     /**
@@ -169,23 +167,19 @@ public class UserController {
      */
     @GetMapping("/profile/{userId}/posts")
     public ResponseEntity<List<SocialPostClientResponse>> getUserPosts(@PathVariable Long userId) {
-        return ResponseEntity.ok(socialServiceClient.getPostsByUserId(userId));
+        return ResponseEntity.ok(profileIntegrationService.getPosts(userId));
     }
 
-    /**
-     * 👥 Kullanıcının Takipçi ve Takip Ettiklerinin Özet Sayısını Çekme
-     */
-    @GetMapping("/profile/{userId}/social-stats")
-    public ResponseEntity<java.util.Map<String, Integer>> getUserSocialStats(@PathVariable Long userId) {
-        int friendsCount = socialServiceClient.getFriendsByUserId(userId).size();
-        int followersCount = socialServiceClient.getFollowersByUserId(userId).size();
-        int followingCount = socialServiceClient.getFollowingByUserId(userId).size();
+    @GetMapping("/profile/{userId}/social-connections")
+    public ResponseEntity<ProfileSocialConnectionsResponse> getSocialConnections(@PathVariable Long userId) {
+        return ResponseEntity.ok(profileIntegrationService.getSocialConnections(userId));
+    }
 
-        java.util.Map<String, Integer> stats = java.util.Map.of(
-                "friendsCount", friendsCount,
-                "followersCount", followersCount,
-                "followingCount", followingCount);
-        return ResponseEntity.ok(stats);
+    @GetMapping("/profile/{userId}/relationship")
+    public ResponseEntity<ProfileRelationshipResponse> getRelationship(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(profileIntegrationService.getRelationship(principal.userId(), userId));
     }
 
     /**

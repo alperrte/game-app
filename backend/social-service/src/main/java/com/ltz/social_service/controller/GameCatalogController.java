@@ -1,6 +1,6 @@
 package com.ltz.social_service.controller;
 
-import com.ltz.social_service.service.GameCatalogClient;
+import com.ltz.social_service.service.GameCatalogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GameCatalogController {
 
-    private final GameCatalogClient gameCatalogClient;
+    private final GameCatalogService gameCatalogService;
 
     @GetMapping("/games")
     public ResponseEntity<String> getGames(
@@ -27,7 +27,7 @@ public class GameCatalogController {
         return ResponseEntity
                 .ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(gameCatalogClient.getGames(queryParams, authorization));
+                .body(gameCatalogService.getGames(queryParams, authorization));
     }
 
     @GetMapping("/platforms")
@@ -37,6 +37,6 @@ public class GameCatalogController {
         return ResponseEntity
                 .ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(gameCatalogClient.getPlatforms(authorization));
+                .body(gameCatalogService.getPlatforms(authorization));
     }
 }

@@ -3,7 +3,9 @@ package com.ltz.social_service.controller;
 import com.ltz.social_service.dto.response.MediaUploadResponse;
 import com.ltz.social_service.enums.MediaAssetType;
 import com.ltz.social_service.security.JwtUserPrincipal;
+import com.ltz.social_service.security.JwtService;
 import com.ltz.social_service.service.MediaStorageService;
+import com.ltz.social_service.service.MediaAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -14,7 +16,6 @@ import org.springframework.http.HttpRange;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +32,6 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -52,8 +52,19 @@ public class MediaController {
             "video/webm",
             "video/ogg"
     );
+    private static final Set<String> ALLOWED_FILE_CONTENT_TYPES = Set.of(
+            MediaType.APPLICATION_PDF_VALUE,
+            MediaType.TEXT_PLAIN_VALUE,
+            "application/zip",
+            "application/x-7z-compressed",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    );
 
     private final MediaStorageService mediaStorageService;
+    private final MediaAccessService mediaAccessService;
+    private final JwtService jwtService;
 
     @Value("${app.media.upload-dir:uploads/social-images}")
     private String imageUploadDir;
@@ -61,11 +72,17 @@ public class MediaController {
     @Value("${app.media.video-upload-dir:uploads/social-videos}")
     private String videoUploadDir;
 
+    @Value("${app.media.file-upload-dir:uploads/social-files}")
+    private String fileUploadDir;
+
     @Value("${app.media.max-image-size-bytes:10485760}")
     private long maxImageSizeBytes;
 
     @Value("${app.media.max-video-size-bytes:52428800}")
     private long maxVideoSizeBytes;
+
+    @Value("${app.media.max-file-size-bytes:20971520}")
+    private long maxFileSizeBytes;
 
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
@@ -81,9 +98,9 @@ public class MediaController {
             throw new IllegalArgumentException("Görsel dosyası çok büyük. En fazla " + formatMegabytes(maxImageSizeBytes) + " yükleyebilirsin.");
         }
 
-        String contentType = file.getContentType();
+        String contentType = detectImageContentType(file);
 
-        if (contentType == null || !ALLOWED_IMAGE_CONTENT_TYPES.contains(contentType)) {
+        if (!ALLOWED_IMAGE_CONTENT_TYPES.contains(contentType)) {
             throw new IllegalArgumentException("Sadece JPG, PNG, WEBP veya GIF görseller yüklenebilir.");
         }
 
@@ -128,9 +145,9 @@ public class MediaController {
             throw new IllegalArgumentException("Video dosyası çok büyük. En fazla " + formatMegabytes(maxVideoSizeBytes) + " yükleyebilirsin.");
         }
 
-        String contentType = file.getContentType();
+        String contentType = detectVideoContentType(file);
 
-        if (contentType == null || !ALLOWED_VIDEO_CONTENT_TYPES.contains(contentType)) {
+        if (!ALLOWED_VIDEO_CONTENT_TYPES.contains(contentType)) {
             throw new IllegalArgumentException("Sadece MP4, WEBM veya OGG videolar yüklenebilir.");
         }
 
@@ -161,16 +178,80 @@ public class MediaController {
                 .build();
     }
 
+    @PostMapping(value = "/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public MediaUploadResponse uploadFile(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestPart("file") MultipartFile file
+    ) throws IOException {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Dosya boş olamaz.");
+        }
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new IllegalArgumentException(
+                    "Dosya çok büyük. En fazla " + formatMegabytes(maxFileSizeBytes) + " yükleyebilirsin."
+            );
+        }
+
+        String contentType = file.getContentType() == null
+                ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+                : file.getContentType();
+        if (!ALLOWED_FILE_CONTENT_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException(
+                    "Yalnızca PDF, TXT, ZIP, 7Z ve Office dosyaları yüklenebilir."
+            );
+        }
+
+        mediaStorageService.ensureUploadAllowed(principal.userId(), file.getSize());
+        String fileName = storeGenericFile(file, fileUploadDir);
+        String mediaUrl = "/api/social/media/files/" + fileName;
+
+        try {
+            mediaStorageService.createPendingMedia(
+                    principal.userId(),
+                    MediaAssetType.FILE,
+                    mediaUrl,
+                    fileName,
+                    contentType,
+                    file.getSize()
+            );
+        } catch (RuntimeException exception) {
+            mediaStorageService.deletePhysicalMediaByUrl(mediaUrl);
+            throw exception;
+        }
+
+        return MediaUploadResponse.builder()
+                .imageUrl(mediaUrl)
+                .fileName(fileName)
+                .contentType(contentType)
+                .mediaType(MediaAssetType.FILE.name())
+                .size(file.getSize())
+                .build();
+    }
+
     @GetMapping("/images/{fileName:.+}")
-    public ResponseEntity<Resource> getImage(@PathVariable String fileName) throws MalformedURLException {
+    public ResponseEntity<Resource> getImage(
+            @PathVariable String fileName,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String token
+    ) throws MalformedURLException {
+        if (!mediaAccessService.canAccess(fileName, resolveViewerUserId(principal, token))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return getMedia(imageUploadDir, fileName);
     }
 
     @GetMapping("/videos/{fileName:.+}")
     public ResponseEntity<?> getVideo(
             @PathVariable String fileName,
-            @RequestHeader HttpHeaders headers
+            @RequestHeader HttpHeaders headers,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String token
     ) throws IOException {
+        if (!mediaAccessService.canAccess(fileName, resolveViewerUserId(principal, token))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         Path uploadPath = Path.of(videoUploadDir).toAbsolutePath().normalize();
         Path filePath = uploadPath.resolve(fileName).normalize();
 
@@ -205,11 +286,23 @@ public class MediaController {
                 .body(resource);
     }
 
+    @GetMapping("/files/{fileName:.+}")
+    public ResponseEntity<Resource> getFile(
+            @PathVariable String fileName,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String token
+    ) throws MalformedURLException {
+        if (!mediaAccessService.canAccess(fileName, resolveViewerUserId(principal, token))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return getMedia(fileUploadDir, fileName);
+    }
+
     private static String storeFile(MultipartFile file, String uploadDir, String contentType) throws IOException {
         Path uploadPath = Path.of(uploadDir).toAbsolutePath().normalize();
         Files.createDirectories(uploadPath);
 
-        String extension = getExtension(file.getOriginalFilename(), contentType);
+        String extension = getExtension(contentType);
         String fileName = UUID.randomUUID() + extension;
         Path target = uploadPath.resolve(fileName).normalize();
 
@@ -219,6 +312,31 @@ public class MediaController {
 
         Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
 
+        return fileName;
+    }
+
+    private static String storeGenericFile(
+            MultipartFile file,
+            String uploadDir
+    ) throws IOException {
+        Path uploadPath = Path.of(uploadDir).toAbsolutePath().normalize();
+        Files.createDirectories(uploadPath);
+
+        String originalName = file.getOriginalFilename();
+        String extension = "";
+        if (originalName != null) {
+            int dotIndex = originalName.lastIndexOf('.');
+            if (dotIndex >= 0 && dotIndex < originalName.length() - 1) {
+                extension = originalName.substring(dotIndex)
+                        .replaceAll("[^A-Za-z0-9.]", "");
+            }
+        }
+        String fileName = UUID.randomUUID() + extension;
+        Path target = uploadPath.resolve(fileName).normalize();
+        if (!target.startsWith(uploadPath)) {
+            throw new IllegalArgumentException("Geçersiz dosya yolu.");
+        }
+        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
         return fileName;
     }
 
@@ -265,7 +383,7 @@ public class MediaController {
         }
     }
 
-    private static String getExtension(String originalFileName, String contentType) {
+    private static String getExtension(String contentType) {
         if (contentType.startsWith("video/")) {
             return switch (contentType) {
                 case "video/mp4" -> ".mp4";
@@ -273,12 +391,6 @@ public class MediaController {
                 case "video/ogg" -> ".ogg";
                 default -> ".bin";
             };
-        }
-
-        String extension = StringUtils.getFilenameExtension(originalFileName);
-
-        if (extension != null && !extension.isBlank()) {
-            return "." + extension.toLowerCase(Locale.ROOT);
         }
 
         return switch (contentType) {
@@ -290,9 +402,65 @@ public class MediaController {
         };
     }
 
+    private static String detectImageContentType(MultipartFile file) throws IOException {
+        byte[] header = file.getInputStream().readNBytes(12);
+        if (startsWith(header, 0xFF, 0xD8, 0xFF)) return MediaType.IMAGE_JPEG_VALUE;
+        if (startsWith(header, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)) {
+            return MediaType.IMAGE_PNG_VALUE;
+        }
+        if (startsWithAscii(header, "GIF87a") || startsWithAscii(header, "GIF89a")) {
+            return MediaType.IMAGE_GIF_VALUE;
+        }
+        if (header.length >= 12
+                && asciiAt(header, 0, "RIFF")
+                && asciiAt(header, 8, "WEBP")) {
+            return "image/webp";
+        }
+        return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+    }
+
+    private static String detectVideoContentType(MultipartFile file) throws IOException {
+        byte[] header = file.getInputStream().readNBytes(16);
+        if (header.length >= 8 && asciiAt(header, 4, "ftyp")) return "video/mp4";
+        if (startsWith(header, 0x1A, 0x45, 0xDF, 0xA3)) return "video/webm";
+        if (startsWithAscii(header, "OggS")) return "video/ogg";
+        return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+    }
+
+    private static boolean startsWith(byte[] source, int... expected) {
+        if (source.length < expected.length) return false;
+        for (int index = 0; index < expected.length; index++) {
+            if ((source[index] & 0xFF) != expected[index]) return false;
+        }
+        return true;
+    }
+
+    private static boolean startsWithAscii(byte[] source, String expected) {
+        return asciiAt(source, 0, expected);
+    }
+
+    private static boolean asciiAt(byte[] source, int offset, String expected) {
+        if (source.length < offset + expected.length()) return false;
+        for (int index = 0; index < expected.length(); index++) {
+            if (source[offset + index] != (byte) expected.charAt(index)) return false;
+        }
+        return true;
+    }
+
     private static String formatMegabytes(long bytes) {
         long megabytes = bytes / 1024 / 1024;
         return megabytes + " MB";
+    }
+
+    private Long resolveViewerUserId(
+            JwtUserPrincipal principal,
+            String token
+    ) {
+        if (principal != null) return principal.userId();
+        if (token != null && jwtService.validateToken(token)) {
+            return jwtService.getUserId(token);
+        }
+        return null;
     }
 
     private static MediaType detectMediaType(Path filePath) {

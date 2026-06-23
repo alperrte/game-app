@@ -1,5 +1,7 @@
 package com.ltz.social_service.dto.response;
 
+import com.ltz.social_service.enums.MediaAssetType;
+import com.ltz.social_service.enums.MessageType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -20,6 +22,9 @@ public class MessageResponse {
     private Long replyToMessageId;
     private Long replyToSenderUserId;
     private String replyToContent;
+    private MessageType messageType;
+    private String mediaUrl;
+    private MediaAssetType mediaType;
     private List<MessageReactionResponse> reactions;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

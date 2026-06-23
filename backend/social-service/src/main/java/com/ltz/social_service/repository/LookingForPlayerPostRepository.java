@@ -2,18 +2,22 @@ package com.ltz.social_service.repository;
 
 import com.ltz.social_service.entity.LookingForPlayerPost;
 import com.ltz.social_service.enums.LookingForPlayerStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
 
 public interface LookingForPlayerPostRepository extends JpaRepository<LookingForPlayerPost, Long> {
 
-    List<LookingForPlayerPost> findByUserIdOrderByCreatedAtDesc(Long userId);
+    Page<LookingForPlayerPost> findByUserId(Long userId, Pageable pageable);
 
-    List<LookingForPlayerPost> findByGameIdAndStatusOrderByCreatedAtDesc(
+    Page<LookingForPlayerPost> findByGameIdAndStatus(
             Long gameId,
-            LookingForPlayerStatus status
+            LookingForPlayerStatus status,
+            Pageable pageable
     );
 
-    List<LookingForPlayerPost> findByStatusOrderByCreatedAtDesc(LookingForPlayerStatus status);
+    Page<LookingForPlayerPost> findByStatus(
+            LookingForPlayerStatus status,
+            Pageable pageable
+    );
 }

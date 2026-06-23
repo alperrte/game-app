@@ -108,7 +108,7 @@ export default function HubPage() {
                 setError(
                     getErrorMessage(
                         loadError,
-                        "LTZ Corner verileri yüklenemedi.",
+                        "Oyun Merkezi verileri yüklenemedi.",
                     ),
                 );
             } finally {

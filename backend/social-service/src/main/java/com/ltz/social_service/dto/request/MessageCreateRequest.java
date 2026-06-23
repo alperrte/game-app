@@ -1,6 +1,5 @@
 package com.ltz.social_service.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -15,9 +14,11 @@ public class MessageCreateRequest {
 
     private Long senderUserId;
 
-    @NotBlank(message = "Message content is required")
     @Size(max = 1000, message = "Message content can be at most 1000 characters")
     private String content;
 
     private Long replyToMessageId;
+
+    @Size(max = 1000, message = "Media URL can be at most 1000 characters")
+    private String mediaUrl;
 }

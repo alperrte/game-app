@@ -1,5 +1,7 @@
 package com.ltz.social_service.entity;
 
+import com.ltz.social_service.enums.MediaAssetType;
+import com.ltz.social_service.enums.MessageType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,6 +41,17 @@ public class Message {
     @Column(name = "reply_to_message_id")
     private Long replyToMessageId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 20)
+    private MessageType messageType;
+
+    @Column(name = "media_url", length = 1000)
+    private String mediaUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "media_type", length = 20)
+    private MediaAssetType mediaType;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -55,6 +68,9 @@ public class Message {
 
         if (this.isDeleted == null) {
             this.isDeleted = false;
+        }
+        if (this.messageType == null) {
+            this.messageType = MessageType.TEXT;
         }
     }
 

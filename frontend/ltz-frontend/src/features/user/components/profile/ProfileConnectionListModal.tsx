@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, X } from "lucide-react";
+import { Loader2, Search, UserMinus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { UserAvatar } from "../UserAvatar";
@@ -11,6 +11,9 @@ type ProfileConnectionListModalProps = {
   title: string;
   identities: Map<number, ProfileIdentity>;
   onClose: () => void;
+  canRemove?: boolean;
+  onRemove?: (userId: number) => Promise<void>;
+  removingUserId?: number | null;
 };
 
 export function ProfileConnectionListModal({
@@ -18,6 +21,9 @@ export function ProfileConnectionListModal({
   title,
   identities,
   onClose,
+  canRemove = false,
+  onRemove,
+  removingUserId = null,
 }: ProfileConnectionListModalProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -96,26 +102,46 @@ export function ProfileConnectionListModal({
           {filtered.length ? (
             <div className="space-y-2">
               {filtered.map((identity) => (
-                <button
-                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-left transition hover:border-violet-500/40"
+                <div
+                  className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"
                   key={identity.userId}
-                  onClick={() => {
-                    onClose();
-                    navigate(`/profile/${identity.username}`);
-                  }}
-                  type="button"
                 >
-                  <UserAvatar
-                    avatarUrl={identity.avatarUrl}
-                    className="h-10 w-10"
-                    imageClassName="h-10 w-10 rounded-full border border-white/15 object-cover"
-                    name={identity.displayName}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">{identity.displayName}</p>
-                    <p className="truncate text-xs text-zinc-500">@{identity.username}</p>
-                  </div>
-                </button>
+                  <button
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-90"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/profile/${identity.username}`);
+                    }}
+                    type="button"
+                  >
+                    <UserAvatar
+                      avatarUrl={identity.avatarUrl}
+                      className="h-10 w-10"
+                      imageClassName="h-10 w-10 rounded-full border border-white/15 object-cover"
+                      name={identity.displayName}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-white">{identity.displayName}</p>
+                      <p className="truncate text-xs text-zinc-500">@{identity.username}</p>
+                    </div>
+                  </button>
+                  {canRemove && onRemove ? (
+                    <button
+                      aria-label={`${identity.displayName} arkadaşlıktan çıkar`}
+                      className="rounded-lg p-2 text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                      disabled={removingUserId === identity.userId}
+                      onClick={() => void onRemove(identity.userId)}
+                      title="Arkadaşlıktan çıkar"
+                      type="button"
+                    >
+                      {removingUserId === identity.userId ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserMinus className="h-4 w-4" />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
               ))}
             </div>
           ) : (

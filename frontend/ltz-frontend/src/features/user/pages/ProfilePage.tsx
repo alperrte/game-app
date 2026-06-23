@@ -14,12 +14,21 @@ import { formatProfileDate, getYouTubeVideoId } from "../utils/profileHelpers";
 import { buildProfileBadges, mergeAssignedBadges } from "../utils/badges";
 import { normalizeRole } from "../utils/roleStyles";
 import { useProfileIdentities } from "../hooks/useProfileIdentities";
-import { SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
+import { STORAGE_KEYS } from "../../../lib/constants";
 import { socialService } from "../../social/services/socialService";
+import { useChatWidget } from "../../social/context/ChatWidgetContext";
 import { socialProfileService, type RelationshipSnapshot } from "../../social/services/socialProfileService";
 import { gameService } from "../../game/services/gameService";
 import type { Game, GameSystemRequirement } from "../../game/types/gameTypes";
-import type { ChatRoomResponse, SocialComment, SocialPost, SocialUser } from "../../social/types/social.types";
+import type {
+  ChatRoomResponse,
+  SocialComment,
+  SocialPost,
+  SocialPostUpdateRequest,
+  SocialUser,
+  PostVisibility,
+} from "../../social/types/social.types";
+import { toUiPostVisibility } from "../../social/types/social.types";
 import { ProfileHero } from "../components/profile/ProfileHero";
 import { ProfileStatRibbon, SectionPanel, ProfileSkeleton } from "../components/profile/ProfilePrimitives";
 import { ProfileQuickNav, type ProfileNavSection } from "../components/profile/ProfileQuickNav";
@@ -86,6 +95,7 @@ const isForbiddenError = (err: unknown) =>
     ("response" in err && (err as { response?: { status?: number } }).response?.status === 403));
 
 export const ProfilePage: React.FC = () => {
+  const { openChat: openChatWidget } = useChatWidget();
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -146,6 +156,7 @@ export const ProfilePage: React.FC = () => {
   const [gameRequirements, setGameRequirements] = useState<Map<number, GameSystemRequirement>>(new Map());
   const [relationshipBusyAction, setRelationshipBusyAction] = useState<string | null>(null);
   const [busyPostId, setBusyPostId] = useState<number | string | null>(null);
+  const [removingFriendUserId, setRemovingFriendUserId] = useState<number | null>(null);
   const [chatState, setChatState] = useState<ChatState>({
     open: false,
     room: null,
@@ -351,15 +362,10 @@ export const ProfilePage: React.FC = () => {
       setSocialDataLoading(true);
       setSocialError(null);
       try {
-        const [followers, following, friends] = await Promise.all([
-          visibility.showFollowerList
-            ? socialService.getFollowers(profileUserId)
-            : Promise.resolve([]),
-          visibility.showFollowerList
-            ? socialService.getFollowing(profileUserId)
-            : Promise.resolve([]),
-          visibility.showFriendList ? socialService.getFriends(profileUserId) : Promise.resolve([]),
-        ]);
+        const connections = await socialProfileService.getConnections(profileUserId);
+        const followers = visibility.showFollowerList ? connections.followers : [];
+        const following = visibility.showFollowerList ? connections.following : [];
+        const friends = visibility.showFriendList ? connections.friends : [];
         if (!active) return;
         const nextSummary = {
           followers: followers.map((item) => item.followerUserId),
@@ -435,7 +441,8 @@ export const ProfilePage: React.FC = () => {
               avatarUrl: authorAvatar ? getImageUrl(authorAvatar) : "",
             },
             createdAt: formatProfileDate(item.createdAt),
-            visibility: "public",
+            createdAtRaw: item.createdAt,
+            visibility: toUiPostVisibility(item.visibility),
             content: item.content,
             media: item.imageUrl
               ? [{ url: getImageUrl(item.imageUrl), alt: "Gönderi görseli", type: item.mediaType === "VIDEO" ? "video" : "image" }]
@@ -446,6 +453,8 @@ export const ProfilePage: React.FC = () => {
               shares: 0,
             },
             likedByMe: item.likedByCurrentUser,
+            poll: item.poll,
+            updatedAt: item.updatedAt,
             followedByMe: isOwnProfile ? false : (relationship?.isFollowing ?? false),
             friendStatus: isOwnProfile
               ? undefined
@@ -454,6 +463,11 @@ export const ProfilePage: React.FC = () => {
                 : (pendingRequest ? "pending" : "none")),
             pendingFriendRequestId,
             savedByMe: savedPostIdsRef.current.has(String(item.id)),
+            rawMediaUrls: item.media?.length
+              ? item.media.map((mediaItem) => mediaItem.url)
+              : item.imageUrl
+                ? [item.imageUrl]
+                : [],
             source: "backend",
           };
         });
@@ -471,6 +485,21 @@ export const ProfilePage: React.FC = () => {
               ? profile.avatarUrl
               : identityMap.get(item.userId)?.avatarUrl;
 
+            const details = [
+              `Platform: ${item.platform}`,
+              item.preferredRole ? `Rol: ${item.preferredRole}` : null,
+              item.playerLevel ? `Seviye: ${item.playerLevel}` : null,
+              item.microphoneRequired ? "Mikrofon gerekli" : null,
+              item.playTime
+                ? `Oyun zamanı: ${new Intl.DateTimeFormat("tr-TR", {
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  month: "long",
+                }).format(new Date(item.playTime))}`
+                : null,
+            ].filter(Boolean);
+
             return {
               id: `lfp-${item.id}`,
               authorUserId: item.userId,
@@ -481,7 +510,9 @@ export const ProfilePage: React.FC = () => {
               },
               createdAt: formatProfileDate(item.createdAt),
               visibility: "public",
-              content: `LFP: ${item.title}\n${item.description || ""}`,
+              content: [`İlan: ${item.title}`, item.description, details.join(" · ")]
+                .filter(Boolean)
+                .join("\n"),
               media: [],
               reactions: {
                 likes: 0,
@@ -498,6 +529,8 @@ export const ProfilePage: React.FC = () => {
               pendingFriendRequestId,
               savedByMe: savedPostIdsRef.current.has(`lfp-${item.id}`),
               source: "lookingForPlayer",
+              lookingForPlayerPostId: item.id,
+              lookingForPlayerStatus: item.status,
             };
           });
         if (active) setPosts([...convertedPosts, ...lfpPosts]);
@@ -521,7 +554,7 @@ export const ProfilePage: React.FC = () => {
       try {
         const result = await gameService.filterGames({ genre: category || undefined });
         if (!active) return;
-        const top = result.slice(0, 8);
+        const top = result.content.slice(0, 8);
         setGames(top);
         const reqEntries = await Promise.all(
           top.map(async (game) => {
@@ -586,7 +619,7 @@ export const ProfilePage: React.FC = () => {
         targetUserId: profileUserId,
         targetUsername: profile.username,
       });
-      navigate(SOCIAL_ROUTES.chatRoom(room.id));
+      openChatWidget(room.id);
     } catch (error) {
       showToast(getErrorMessage(error, "Sohbet başlatılamadı."), "error");
     } finally {
@@ -913,8 +946,11 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleCreatePost = useCallback(
-    async (content: string) => {
-      await socialService.createPost({ content });
+    async (payload: { content: string; visibility?: PostVisibility }) => {
+      await socialService.createPost({
+        content: payload.content,
+        visibility: payload.visibility ?? "PUBLIC",
+      });
       setPostsRefreshKey((value) => value + 1);
       showToast("Duvar gönderin paylaşıldı.", "success");
     },
@@ -934,6 +970,185 @@ export const ProfilePage: React.FC = () => {
       setBusyPostId(null);
     }
   };
+
+  const handleUpdatePost = async (
+    postId: number | string,
+    request: SocialPostUpdateRequest,
+  ) => {
+    if (typeof postId !== "number") return;
+    setBusyPostId(postId);
+    try {
+      const updatedPost = await socialService.updatePost(postId, request);
+      const rawMediaUrls = updatedPost.media?.length
+        ? updatedPost.media.map((mediaItem) => mediaItem.url)
+        : updatedPost.imageUrl
+          ? [updatedPost.imageUrl]
+          : [];
+
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+              ...post,
+              content: updatedPost.content,
+              createdAt: formatProfileDate(updatedPost.createdAt),
+              createdAtRaw: updatedPost.createdAt,
+              media: updatedPost.media?.length
+                ? updatedPost.media.map((mediaItem) => ({
+                  url: getImageUrl(mediaItem.url),
+                  alt: "GÃ¶nderi medyasÄ±",
+                  type: mediaItem.mediaType === "VIDEO" ? "video" : "image",
+                }))
+                : updatedPost.imageUrl
+                  ? [{
+                    url: getImageUrl(updatedPost.imageUrl),
+                    alt: "GÃ¶nderi gÃ¶rseli",
+                    type: updatedPost.mediaType === "VIDEO" ? "video" : "image",
+                  }]
+                  : [],
+              rawMediaUrls,
+              updatedAt: updatedPost.updatedAt,
+              visibility: toUiPostVisibility(updatedPost.visibility),
+            }
+            : post,
+        ),
+      );
+      showToast("GÃ¶nderi gÃ¼ncellendi.", "success");
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "GÃ¶nderi gÃ¼ncellenemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  };
+
+  const handleUpdateComment = async (
+    postId: number | string,
+    commentId: number,
+    content: string,
+    parentCommentId?: number | null,
+  ) => {
+    if (typeof postId !== "number") return;
+    setBusyPostId(postId);
+    try {
+      const updatedComment = await socialService.updateComment(commentId, {
+        content,
+      });
+
+      const updateCommentInPost = (
+        post: SocialPost,
+        updater: (comment: SocialComment) => SocialComment,
+      ): SocialPost => {
+        if (!parentCommentId) {
+          return {
+            ...post,
+            comments: (post.comments ?? []).map((comment) =>
+              comment.id === commentId ? updater(comment) : comment,
+            ),
+          };
+        }
+
+        return {
+          ...post,
+          comments: (post.comments ?? []).map((comment) =>
+            comment.id === parentCommentId
+              ? {
+                ...comment,
+                replies: (comment.replies ?? []).map((reply) =>
+                  reply.id === commentId ? updater(reply) : reply,
+                ),
+              }
+              : comment,
+          ),
+        };
+      };
+
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? updateCommentInPost(post, (comment) => ({
+              ...updatedComment,
+              author: comment.author,
+              likedByMe: comment.likedByMe,
+              likeCount: comment.likeCount,
+              replies: comment.replies,
+            }))
+            : post,
+        ),
+      );
+      showToast("Yorum gÃ¼ncellendi.", "success");
+    } catch (error) {
+      setPostsError(getErrorMessage(error, "Yorum gÃ¼ncellenemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  };
+
+  const handleCloseLookingForPlayerPost = useCallback(
+    async (postId: number) => {
+      setBusyPostId(`lfp-${postId}`);
+      try {
+        await socialService.closeLookingForPlayerPost(postId);
+        setPosts((current) =>
+          current.filter((post) => post.lookingForPlayerPostId !== postId),
+        );
+        showToast("İlan kapatıldı.", "success");
+      } catch (error) {
+        setPostsError(getErrorMessage(error, "İlan kapatılamadı."));
+      } finally {
+        setBusyPostId(null);
+      }
+    },
+    [showToast],
+  );
+
+  const handleCancelLookingForPlayerPost = useCallback(
+    async (postId: number) => {
+      setBusyPostId(`lfp-${postId}`);
+      try {
+        await socialService.cancelLookingForPlayerPost(postId);
+        setPosts((current) =>
+          current.filter((post) => post.lookingForPlayerPostId !== postId),
+        );
+        showToast("İlan iptal edildi.", "success");
+      } catch (error) {
+        setPostsError(getErrorMessage(error, "İlan iptal edilemedi."));
+      } finally {
+        setBusyPostId(null);
+      }
+    },
+    [showToast],
+  );
+
+  const handleRemoveFriend = useCallback(
+    async (friendUserId: number) => {
+      if (!currentUserId) return;
+      setRemovingFriendUserId(friendUserId);
+      try {
+        await socialService.removeFriend(currentUserId, friendUserId);
+        setSocialSummary((current) => ({
+          ...current,
+          friends: current.friends.filter((userId) => userId !== friendUserId),
+        }));
+        setSocialIdentityGroups((current) => {
+          const nextFriends = new Map(current.friends);
+          nextFriends.delete(friendUserId);
+          return { ...current, friends: nextFriends };
+        });
+        setConnectionModal((current) => {
+          if (!current || current.title !== "Arkadaşlar") return current;
+          const nextGroup = new Map(current.group);
+          nextGroup.delete(friendUserId);
+          return { ...current, group: nextGroup };
+        });
+        showToast("Arkadaşlık kaldırıldı.", "success");
+      } catch (error) {
+        showToast(getErrorMessage(error, "Arkadaşlık kaldırılamadı."), "error");
+      } finally {
+        setRemovingFriendUserId(null);
+      }
+    },
+    [currentUserId, showToast],
+  );
 
   const handleToggleFollowAuthor = async (
     authorUserId: number,
@@ -1015,7 +1230,7 @@ export const ProfilePage: React.FC = () => {
         targetUserId: post.authorUserId,
         targetUsername: post.author.username,
       });
-      navigate(SOCIAL_ROUTES.chatRoom(room.id));
+      openChatWidget(room.id);
     } catch (error) {
       setPostsError(getErrorMessage(error, "Sohbet başlatılamadı."));
     }
@@ -1223,6 +1438,22 @@ export const ProfilePage: React.FC = () => {
                   setRelationshipBusyAction(null);
                 }
               }}
+              onRejectFriendRequest={async () => {
+                if (!profileUserId || !relationship || !currentUserId) return;
+                setRelationshipBusyAction("reject-friend");
+                try {
+                  const incoming = await socialService.getIncomingFriendRequests(currentUserId);
+                  const request = incoming.find((item) => item.senderUserId === profileUserId);
+                  if (request) {
+                    await socialService.rejectFriendRequest(request.id);
+                  }
+                  setRelationship((prev) =>
+                    prev ? { ...prev, hasIncomingRequestFromTarget: false } : prev,
+                  );
+                } finally {
+                  setRelationshipBusyAction(null);
+                }
+              }}
               onToggleBlock={async () => {
                 if (!profileUserId || !relationship || !currentUserId) return;
                 setRelationshipBusyAction("block");
@@ -1330,12 +1561,16 @@ export const ProfilePage: React.FC = () => {
               onLoadPostLikes={handleLoadPostLikes}
               onSendFriendRequest={handleSendFriendRequest}
               onCancelFriendRequest={handleCancelFriendRequest}
+              onCloseLookingForPlayerPost={handleCloseLookingForPlayerPost}
+              onCancelLookingForPlayerPost={handleCancelLookingForPlayerPost}
               onShare={handleSharePost}
               onStartChat={handleStartChat}
               onToggleCommentLike={handleToggleCommentLike}
               onToggleFollowAuthor={handleToggleFollowAuthor}
               onToggleLike={handleToggleLike}
               onToggleSave={handleToggleSave}
+              onUpdateComment={handleUpdateComment}
+              onUpdatePost={handleUpdatePost}
               posts={posts}
               postsError={postsError}
               postsLoading={postsLoading}
@@ -1392,9 +1627,12 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       <ProfileConnectionListModal
+        canRemove={isOwnProfile && connectionModal?.title === "Arkadaşlar"}
         identities={connectionModal?.group ?? new Map()}
         onClose={() => setConnectionModal(null)}
+        onRemove={handleRemoveFriend}
         open={Boolean(connectionModal)}
+        removingUserId={removingFriendUserId}
         title={connectionModal?.title ?? ""}
       />
 

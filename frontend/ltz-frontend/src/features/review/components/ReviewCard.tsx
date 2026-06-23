@@ -8,7 +8,7 @@ type ReviewCardProps = {
     likedByCurrentUser?: boolean;
     canDelete?: boolean;
     onToggleLike: (review: ReviewResponse) => Promise<void>;
-    onDelete: (review: ReviewResponse) => Promise<void>;
+    onDelete: (review: ReviewResponse) => Promise<void> | void;
     onReport: (review: ReviewResponse) => void;
 };
 
