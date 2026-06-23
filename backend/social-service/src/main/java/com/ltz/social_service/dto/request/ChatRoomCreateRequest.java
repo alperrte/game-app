@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class ChatRoomCreateRequest {
@@ -15,6 +17,9 @@ public class ChatRoomCreateRequest {
 
     @NotNull(message = "Room type is required")
     private ChatRoomType roomType;
+
+    @Size(max = 49, message = "A chat room can have at most 50 members")
+    private List<Long> participantUserIds;
 
     private Long createdByUserId;
 }

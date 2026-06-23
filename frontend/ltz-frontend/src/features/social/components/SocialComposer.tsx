@@ -27,12 +27,24 @@ import {
 } from "../../../components/ui/EmojiPickerPopover";
 import type { Game } from "../../game/types/gameTypes";
 import type { GamePlatform } from "../../game/types/gameTypes";
+import type { Community } from "../../community/types/community.types";
 import type {
   ComposerMediaType,
   ComposerSubmitPayload,
   LookingForPlayerCreateRequest,
+  PostVisibility,
   SocialUser,
 } from "../types/social.types";
+
+const VISIBILITY_OPTIONS: Array<{
+  value: PostVisibility;
+  label: string;
+}> = [
+  { value: "PUBLIC", label: "Herkes görebilir" },
+  { value: "FOLLOWERS_ONLY", label: "Yalnızca takipçilerim" },
+  { value: "FRIENDS", label: "Yalnızca arkadaşlarım" },
+  { value: "PRIVATE", label: "Yalnızca ben" },
+];
 
 type ComposerMode = "post" | "poll" | "game" | "listing";
 
@@ -70,6 +82,7 @@ interface SelectedMedia {
 interface SocialComposerProps {
   games: Game[];
   platforms: GamePlatform[];
+  communities: Community[];
   user: SocialUser;
   isSubmitting?: boolean;
   onCreateLookingForPlayer: (
@@ -82,6 +95,7 @@ interface SocialComposerProps {
 export function SocialComposer({
                                  games,
                                  platforms,
+                                 communities,
                                  user,
                                  isSubmitting = false,
                                  onCreateLookingForPlayer,
@@ -89,6 +103,9 @@ export function SocialComposer({
                                  uploadProgress = null,
                                }: SocialComposerProps) {
   const [content, setContent] = useState("");
+  const [selectedCommunityId, setSelectedCommunityId] = useState("");
+  const [selectedVisibility, setSelectedVisibility] =
+    useState<PostVisibility>("PUBLIC");
   const [mode, setMode] = useState<ComposerMode>("post");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [previewModalIndex, setPreviewModalIndex] = useState<number | null>(null);
@@ -103,6 +120,7 @@ export function SocialComposer({
   const [fileAccept, setFileAccept] = useState("image/*");
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState<PollOption[]>(createDefaultPollOptions);
+  const [pollDurationMinutes, setPollDurationMinutes] = useState(1440);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [listingForm, setListingForm] = useState({
     gameId: "",
@@ -467,9 +485,12 @@ export function SocialComposer({
     setMode("post");
     setPollQuestion("");
     setPollOptions(createDefaultPollOptions());
+    setPollDurationMinutes(1440);
     setPollOptionEmojiOpenId(null);
     setDraggedPollOptionId(null);
     setSelectedGameId("");
+    setSelectedCommunityId("");
+    setSelectedVisibility("PUBLIC");
     setListingForm({
       gameId: "",
       title: "",
@@ -497,13 +518,7 @@ export function SocialComposer({
           .filter(Boolean);
       if (!pollQuestion.trim() || options.length < 2) return "";
 
-      return [
-        `Anket: ${pollQuestion.trim()}`,
-        trimmedContent,
-        ...options.map((option, index) => `${index + 1}. ${option}`),
-      ]
-          .filter(Boolean)
-          .join("\n");
+      return trimmedContent || pollQuestion.trim();
     }
 
     if (mode === "game") {
@@ -590,6 +605,20 @@ export function SocialComposer({
 
     await onSubmit({
       content: postContent,
+      communityId: selectedCommunityId
+        ? Number(selectedCommunityId)
+        : undefined,
+      visibility: selectedVisibility,
+      poll:
+        mode === "poll"
+          ? {
+              question: pollQuestion.trim(),
+              options: pollOptions
+                .map((option) => option.value.trim())
+                .filter(Boolean),
+              durationMinutes: pollDurationMinutes,
+            }
+          : undefined,
       mediaFile: selectedMedia[0]?.file,
       mediaFiles: selectedMedia.map((media) => ({
         file: media.file,
@@ -612,6 +641,33 @@ export function SocialComposer({
           <div className="flex-1 border-l border-white/10 pl-4">
             {mode !== "listing" && (
                 <div className="relative">
+                  <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                    <select
+                        className="h-10 w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm text-zinc-200 outline-none focus:border-violet-400/60"
+                        onChange={(event) => setSelectedCommunityId(event.target.value)}
+                        value={selectedCommunityId}
+                    >
+                      <option value="">Genel akışta paylaş</option>
+                      {communities.map((community) => (
+                          <option key={community.id} value={community.id}>
+                            {community.name} topluluğunda paylaş
+                          </option>
+                      ))}
+                    </select>
+                    <select
+                        className="h-10 w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm text-zinc-200 outline-none focus:border-violet-400/60"
+                        onChange={(event) =>
+                          setSelectedVisibility(event.target.value as PostVisibility)
+                        }
+                        value={selectedVisibility}
+                    >
+                      {VISIBILITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                      ))}
+                    </select>
+                  </div>
               <textarea
                   className="min-h-16 w-full resize-none rounded-md border border-transparent bg-transparent px-3 py-2 pr-11 text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.03] focus:border-violet-400/40 focus:bg-white/[0.04]"
                   maxLength={2000}
@@ -633,6 +689,7 @@ export function SocialComposer({
                   </button>
                   {emojiOpen && (
                       <EmojiPickerPopover
+                          className="absolute right-0 top-11 z-[140] grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
                           emojis={DEFAULT_EMOJIS}
                           onClose={() => setEmojiOpen(false)}
                           onSelect={addEmojiToContent}
@@ -658,6 +715,22 @@ export function SocialComposer({
                       placeholder="Anket sorusu"
                       value={pollQuestion}
                   />
+                  <label className="grid gap-1 text-xs font-semibold text-zinc-400">
+                    Anket süresi
+                    <select
+                        className="h-10 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none focus:border-violet-400/60"
+                        onChange={(event) =>
+                          setPollDurationMinutes(Number(event.target.value))
+                        }
+                        value={pollDurationMinutes}
+                    >
+                      <option value={60}>1 saat</option>
+                      <option value={360}>6 saat</option>
+                      <option value={1440}>1 gün</option>
+                      <option value={4320}>3 gün</option>
+                      <option value={10080}>7 gün</option>
+                    </select>
+                  </label>
                   {pollOptions.map((option, index) => (
                       <div
                           className="relative flex gap-2"
@@ -712,7 +785,7 @@ export function SocialComposer({
                         </button>
                         {pollOptionEmojiOpenId === option.id && (
                             <EmojiPickerPopover
-                                className="absolute right-12 top-11 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                                className="absolute right-12 top-11 z-[140] grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
                                 emojis={DEFAULT_EMOJIS}
                                 onClose={() => setPollOptionEmojiOpenId(null)}
                                 onSelect={(emoji) => addEmojiToPollOption(option.id, emoji)}
@@ -741,6 +814,7 @@ export function SocialComposer({
                   ))}
                   <button
                       className="w-fit cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-white/[0.06]"
+                      disabled={pollOptions.length >= 4}
                       onClick={() =>
                           setPollOptions((currentOptions) => [
                             ...currentOptions,
@@ -749,12 +823,19 @@ export function SocialComposer({
                       }
                       type="button"
                   >
-                    Seçenek ekle
+                    {pollOptions.length >= 4
+                      ? "En fazla 4 seçenek"
+                      : "Seçenek ekle"}
                   </button>
                 </div>
             )}
 
             {mode === "game" && (
+                <>
+                  <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+                    Oyun paylaşımı metin gönderisi olarak kaydedilir; seçilen oyun başlık
+                    satırında gösterilir.
+                  </p>
                 <button
                     className="mt-3 flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/55 px-3 py-2 text-left text-sm text-white outline-none transition hover:border-violet-300/35 hover:bg-white/[0.04]"
                     onClick={() => openPicker("game")}
@@ -770,6 +851,7 @@ export function SocialComposer({
                   </span>
                   <Search className="h-4 w-4 shrink-0 text-violet-200" />
                 </button>
+                </>
             )}
 
             {mode === "listing" && (

@@ -5,7 +5,9 @@ import type { Game, GameFilters, GamePlatform } from "../../game/types/gameTypes
 import type {
   BlockUserRequest,
   ChatRoomCreateRequest,
+  ChatRoomMemberResponse,
   ChatRoomResponse,
+  ChatRoomUpdateRequest,
   DirectChatRoomCreateRequest,
   FollowCreateRequest,
   FollowResponse,
@@ -18,13 +20,20 @@ import type {
   MessageResponse,
   SocialComment,
   SocialCommentCreateRequest,
+  SocialCommentUpdateRequest,
   SocialCommentLikeResponse,
   SocialMediaUploadResponse,
   SocialPostCreateRequest,
+  SocialPostUpdateRequest,
   SocialPostLikeResponse,
   SocialPostResponse,
   UserBlockResponse,
 } from "../types/social.types";
+
+type PaginationParams = {
+  page?: number;
+  size?: number;
+};
 
 const socialGameClient = {
   getGames: (options: { includeSystemRequirementOnly?: boolean } = {}) =>
@@ -86,16 +95,70 @@ export const socialService = {
     return data;
   },
 
-  getPublicPosts: () =>
-    apiClient.get<SocialPostResponse[]>(SOCIAL_API_ENDPOINTS.publicPosts),
+  uploadFile: async (
+    file: File,
+    onUploadProgress?: (event: AxiosProgressEvent) => void,
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
 
-  getPostsByUser: (userId: number | string) =>
-    apiClient.get<SocialPostResponse[]>(SOCIAL_API_ENDPOINTS.userPosts(userId)),
+    const { data } = await axiosClient.post<SocialMediaUploadResponse>(
+      SOCIAL_API_ENDPOINTS.fileUploads,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress,
+      },
+    );
+
+    return data;
+  },
+
+  getPublicPosts: (pagination: PaginationParams = {}) =>
+    apiClient.get<SocialPostResponse[]>(
+      SOCIAL_API_ENDPOINTS.publicPosts,
+      pagination,
+    ),
+
+  getPostById: (postId: number | string) =>
+    apiClient.get<SocialPostResponse>(SOCIAL_API_ENDPOINTS.postById(postId)),
+
+  getCommunityPosts: (
+    communityId?: number,
+    pagination: PaginationParams = {},
+  ) =>
+    apiClient.get<SocialPostResponse[]>(
+      SOCIAL_API_ENDPOINTS.communityPosts,
+      { ...pagination, communityId },
+    ),
+
+  getPostsByUser: (
+    userId: number | string,
+    pagination: PaginationParams = {},
+  ) =>
+    apiClient.get<SocialPostResponse[]>(
+      SOCIAL_API_ENDPOINTS.userPosts(userId),
+      pagination,
+    ),
 
   createPost: (request: SocialPostCreateRequest) =>
     apiClient.post<SocialPostResponse, SocialPostCreateRequest>(
       SOCIAL_API_ENDPOINTS.posts,
       request,
+    ),
+
+  updatePost: (postId: number | string, request: SocialPostUpdateRequest) =>
+    apiClient.put<SocialPostResponse, SocialPostUpdateRequest>(
+      SOCIAL_API_ENDPOINTS.postById(postId),
+      request,
+    ),
+
+  votePoll: (postId: number | string, optionId: number) =>
+    apiClient.post<import("../types/social.types").PostPoll, { optionId: number }>(
+      SOCIAL_API_ENDPOINTS.postPollVotes(postId),
+      { optionId },
     ),
 
   deletePost: (postId: number | string) =>
@@ -107,20 +170,39 @@ export const socialService = {
       {},
     ),
 
-  getPostLikes: (postId: number | string) =>
+  getPostLikes: (
+    postId: number | string,
+    pagination: PaginationParams = {},
+  ) =>
     apiClient.get<SocialPostLikeResponse[]>(
       SOCIAL_API_ENDPOINTS.postLikes(postId),
+      pagination,
     ),
 
   unlikePost: (postId: number | string) =>
     apiClient.delete(SOCIAL_API_ENDPOINTS.postLikes(postId)),
 
-  getComments: (postId: number | string) =>
-    apiClient.get<SocialComment[]>(SOCIAL_API_ENDPOINTS.postComments(postId)),
+  getComments: (
+    postId: number | string,
+    pagination: PaginationParams = {},
+  ) =>
+    apiClient.get<SocialComment[]>(
+      SOCIAL_API_ENDPOINTS.postComments(postId),
+      pagination,
+    ),
 
   addComment: (postId: number | string, request: SocialCommentCreateRequest) =>
     apiClient.post<SocialComment, SocialCommentCreateRequest>(
       SOCIAL_API_ENDPOINTS.postComments(postId),
+      request,
+    ),
+
+  updateComment: (
+    commentId: number | string,
+    request: SocialCommentUpdateRequest,
+  ) =>
+    apiClient.put<SocialComment, SocialCommentUpdateRequest>(
+      SOCIAL_API_ENDPOINTS.commentById(commentId),
       request,
     ),
 
@@ -225,6 +307,57 @@ export const socialService = {
       SOCIAL_API_ENDPOINTS.chatRoomById(chatRoomId),
     ),
 
+  updateChatRoom: (
+    chatRoomId: number | string,
+    request: ChatRoomUpdateRequest,
+  ) =>
+    apiClient.put<ChatRoomResponse, ChatRoomUpdateRequest>(
+      SOCIAL_API_ENDPOINTS.chatRoomById(chatRoomId),
+      request,
+    ),
+
+  getChatRoomMembers: (chatRoomId: number | string) =>
+    apiClient.get<ChatRoomMemberResponse[]>(
+      SOCIAL_API_ENDPOINTS.chatRoomMembers(chatRoomId),
+    ),
+
+  addChatRoomMember: (
+    chatRoomId: number | string,
+    userId: number,
+  ) =>
+    apiClient.post<ChatRoomMemberResponse, { userId: number }>(
+      SOCIAL_API_ENDPOINTS.chatRoomMembers(chatRoomId),
+      { userId },
+    ),
+
+  removeChatRoomMember: (
+    chatRoomId: number | string,
+    userId: number | string,
+  ) =>
+    apiClient.delete(SOCIAL_API_ENDPOINTS.chatRoomMember(chatRoomId, userId)),
+
+  updateChatRoomMemberRole: (
+    chatRoomId: number | string,
+    userId: number | string,
+    role: "ADMIN" | "MEMBER",
+  ) =>
+    apiClient.put<ChatRoomMemberResponse, { role: "ADMIN" | "MEMBER" }>(
+      SOCIAL_API_ENDPOINTS.chatRoomMemberRole(chatRoomId, userId),
+      { role },
+    ),
+
+  transferChatRoomOwnership: (
+    chatRoomId: number | string,
+    userId: number,
+  ) =>
+    apiClient.put<ChatRoomResponse, { userId: number }>(
+      SOCIAL_API_ENDPOINTS.chatRoomOwnership(chatRoomId),
+      { userId },
+    ),
+
+  leaveChatRoom: (chatRoomId: number | string) =>
+    apiClient.delete(SOCIAL_API_ENDPOINTS.chatRoomMembership(chatRoomId)),
+
   getUserChatRooms: (userId: number | string) =>
     apiClient.get<ChatRoomResponse[]>(
       SOCIAL_API_ENDPOINTS.userChatRooms(userId),
@@ -242,10 +375,37 @@ export const socialService = {
       { emoji },
     ),
 
-  getChatRoomMessages: (chatRoomId: number | string) =>
+  getChatRoomMessages: (
+    chatRoomId: number | string,
+    pagination: PaginationParams = {},
+  ) =>
     apiClient.get<MessageResponse[]>(
       SOCIAL_API_ENDPOINTS.chatRoomMessages(chatRoomId),
+      pagination,
     ),
+
+  searchChatRoomMessages: (
+    chatRoomId: number | string,
+    query: string,
+    pagination: PaginationParams = {},
+  ) =>
+    apiClient.get<MessageResponse[]>(
+      SOCIAL_API_ENDPOINTS.chatRoomMessageSearch(chatRoomId),
+      { ...pagination, query },
+    ),
+
+  pinMessage: (chatRoomId: number | string, messageId: number | string) =>
+    apiClient.put<ChatRoomResponse, Record<string, never>>(
+      SOCIAL_API_ENDPOINTS.pinChatMessage(chatRoomId, messageId),
+      {},
+    ),
+
+  unpinMessage: async (chatRoomId: number | string) => {
+    const { data } = await axiosClient.delete<ChatRoomResponse>(
+      SOCIAL_API_ENDPOINTS.pinnedChatMessage(chatRoomId),
+    );
+    return data;
+  },
 
   markChatRoomAsRead: (chatRoomId: number | string) =>
     apiClient.post<void, Record<string, never>>(
@@ -268,19 +428,28 @@ export const socialService = {
       request,
     ),
 
-  getOpenLookingForPlayerPosts: () =>
+  getOpenLookingForPlayerPosts: (pagination: PaginationParams = {}) =>
     apiClient.get<LookingForPlayerPostResponse[]>(
       SOCIAL_API_ENDPOINTS.openLookingForPlayer,
+      pagination,
     ),
 
-  getLookingForPlayerPostsByUser: (userId: number | string) =>
+  getLookingForPlayerPostsByUser: (
+    userId: number | string,
+    pagination: PaginationParams = {},
+  ) =>
     apiClient.get<LookingForPlayerPostResponse[]>(
       SOCIAL_API_ENDPOINTS.userLookingForPlayer(userId),
+      pagination,
     ),
 
-  getOpenLookingForPlayerPostsByGame: (gameId: number | string) =>
+  getOpenLookingForPlayerPostsByGame: (
+    gameId: number | string,
+    pagination: PaginationParams = {},
+  ) =>
     apiClient.get<LookingForPlayerPostResponse[]>(
       SOCIAL_API_ENDPOINTS.gameOpenLookingForPlayer(gameId),
+      pagination,
     ),
 
   closeLookingForPlayerPost: (postId: number | string) =>

@@ -15,7 +15,12 @@ public interface MediaAssetRepository extends JpaRepository<MediaAsset, Long> {
 
     Optional<MediaAsset> findByUrl(String url);
 
+    Optional<MediaAsset> findByFileName(String fileName);
+
     List<MediaAsset> findByPostIdAndStatusOrderByIdAsc(Long postId, MediaAssetStatus status);
+
+    List<MediaAsset> findByCommunityEventId(Long communityEventId);
+    List<MediaAsset> findByCommunityId(Long communityId);
 
     List<MediaAsset> findByStatusAndCreatedAtBefore(MediaAssetStatus status, LocalDateTime createdAt);
 

@@ -4,6 +4,7 @@ import com.ltz.social_service.enums.PostVisibility;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,6 +15,8 @@ import java.util.List;
 public class PostCreateRequest {
 
     private Long userId;
+
+    private Long communityId;
 
     @NotBlank(message = "Post content is required")
     @Size(max = 2000, message = "Post content can be at most 2000 characters")
@@ -26,4 +29,7 @@ public class PostCreateRequest {
     private List<@Size(max = 500, message = "Media url can be at most 500 characters") String> mediaUrls;
 
     private PostVisibility visibility;
+
+    @Valid
+    private PostPollCreateRequest poll;
 }

@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { Loader2, Send } from "lucide-react";
 
-import type { SocialPost, SocialUser } from "../../../social/types/social.types";
+import type {
+  PostVisibility,
+  SocialPost,
+  SocialPostUpdateRequest,
+  SocialUser,
+} from "../../../social/types/social.types";
 import { SocialPostCard } from "../../../social/components/SocialPostCard";
 import { SectionPanel, ProfileSkeleton } from "./ProfilePrimitives";
 import { UserAvatar } from "../UserAvatar";
@@ -15,7 +20,10 @@ type ProfileWallSectionProps = {
   currentUserName?: string;
   currentUserAvatarUrl?: string | null;
   busyPostId: number | string | null;
-  onCreatePost: (content: string) => Promise<void>;
+  onCreatePost: (payload: {
+    content: string;
+    visibility?: PostVisibility;
+  }) => Promise<void>;
   onAddComment: (postId: number | string, content: string) => Promise<void>;
   onAddReply: (
     postId: number | string,
@@ -30,6 +38,16 @@ type ProfileWallSectionProps = {
     parentCommentId?: number | null,
   ) => Promise<void>;
   onDeletePost: (postId: number | string) => Promise<void>;
+  onUpdatePost: (
+    postId: number | string,
+    request: SocialPostUpdateRequest,
+  ) => Promise<void>;
+  onUpdateComment: (
+    postId: number | string,
+    commentId: number,
+    content: string,
+    parentCommentId?: number | null,
+  ) => Promise<void>;
   onToggleFollowAuthor: (authorUserId: number, followedByMe: boolean) => Promise<void>;
   onLoadComments: (postId: number | string) => Promise<void>;
   onLoadPostLikes: (post: SocialPost) => Promise<SocialUser[]>;
@@ -45,6 +63,8 @@ type ProfileWallSectionProps = {
   ) => Promise<void>;
   onToggleSave: (postId: number | string) => void;
   onToggleLike: (postId: number | string, likedByMe: boolean) => Promise<void>;
+  onCloseLookingForPlayerPost?: (postId: number) => Promise<void>;
+  onCancelLookingForPlayerPost?: (postId: number) => Promise<void>;
 };
 
 export function ProfileWallSection({
@@ -62,6 +82,8 @@ export function ProfileWallSection({
   onBlockAuthor,
   onDeleteComment,
   onDeletePost,
+  onUpdatePost,
+  onUpdateComment,
   onToggleFollowAuthor,
   onLoadComments,
   onLoadPostLikes,
@@ -72,8 +94,12 @@ export function ProfileWallSection({
   onToggleCommentLike,
   onToggleSave,
   onToggleLike,
+  onCloseLookingForPlayerPost,
+  onCancelLookingForPlayerPost,
 }: ProfileWallSectionProps) {
   const [composerText, setComposerText] = useState("");
+  const [selectedVisibility, setSelectedVisibility] =
+    useState<PostVisibility>("PUBLIC");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -81,8 +107,9 @@ export function ProfileWallSection({
     if (!trimmed || submitting) return;
     setSubmitting(true);
     try {
-      await onCreatePost(trimmed);
+      await onCreatePost({ content: trimmed, visibility: selectedVisibility });
       setComposerText("");
+      setSelectedVisibility("PUBLIC");
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +130,18 @@ export function ProfileWallSection({
               name={currentUserName ?? "Sen"}
             />
             <div className="flex-1 border-l border-white/10 pl-4">
+              <select
+                className="mb-3 h-10 w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 text-sm text-zinc-200 outline-none focus:border-violet-400/60"
+                onChange={(event) =>
+                  setSelectedVisibility(event.target.value as PostVisibility)
+                }
+                value={selectedVisibility}
+              >
+                <option value="PUBLIC">Herkes görebilir</option>
+                <option value="FOLLOWERS_ONLY">Yalnızca takipçilerim</option>
+                <option value="FRIENDS">Yalnızca arkadaşlarım</option>
+                <option value="PRIVATE">Yalnızca ben</option>
+              </select>
               <textarea
                 className="min-h-20 w-full resize-none rounded-md border border-transparent bg-transparent px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.03] focus:border-violet-400/40 focus:bg-white/[0.04]"
                 maxLength={2000}
@@ -111,7 +150,15 @@ export function ProfileWallSection({
                 value={composerText}
               />
               <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                <p className="text-xs text-zinc-500">Gönderiler herkese açık akışta da görünebilir.</p>
+                <p className="text-xs text-zinc-500">
+                  {selectedVisibility === "PUBLIC"
+                    ? "Gönderi herkese açık akışta görünebilir."
+                    : selectedVisibility === "FOLLOWERS_ONLY"
+                      ? "Gönderi yalnızca takipçilerine görünür."
+                    : selectedVisibility === "FRIENDS"
+                      ? "Gönderi yalnızca arkadaşlarına görünür."
+                      : "Gönderi yalnızca sana görünür."}
+                </p>
                 <button
                   className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-violet-500 disabled:opacity-50 disabled:hover:translate-y-0"
                   disabled={submitting || !composerText.trim()}
@@ -154,12 +201,16 @@ export function ProfileWallSection({
               }}
               onSendFriendRequest={onSendFriendRequest}
               onCancelFriendRequest={onCancelFriendRequest}
+              onCloseLookingForPlayerPost={onCloseLookingForPlayerPost}
+              onCancelLookingForPlayerPost={onCancelLookingForPlayerPost}
               onShare={onShare}
               onStartChat={onStartChat}
               onToggleFollowAuthor={onToggleFollowAuthor}
               onToggleCommentLike={onToggleCommentLike}
               onToggleSave={onToggleSave}
               onToggleLike={onToggleLike}
+              onUpdateComment={onUpdateComment}
+              onUpdatePost={onUpdatePost}
               post={post}
             />
           ))}

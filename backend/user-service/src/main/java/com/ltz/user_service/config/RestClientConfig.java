@@ -3,7 +3,10 @@ package com.ltz.user_service.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Configuration
 public class RestClientConfig {
@@ -22,25 +25,33 @@ public class RestClientConfig {
 
     @Bean
     public RestClient authServiceRestClient() {
-        return RestClient.builder()
-                .baseUrl(authServiceUrl)
-                .defaultHeader("X-Internal-Secret", internalSecret)
-                .build();
+        return serviceClient(authServiceUrl);
     }
 
     @Bean
     public RestClient reviewServiceRestClient() {
-        return RestClient.builder()
-                .baseUrl(reviewServiceUrl)
-                .defaultHeader("X-Internal-Secret", internalSecret)
-                .build();
+        return serviceClient(reviewServiceUrl);
     }
 
     @Bean
     public RestClient socialServiceRestClient() {
+        return serviceClient(socialServiceUrl);
+    }
+
+    private RestClient serviceClient(String baseUrl) {
         return RestClient.builder()
-                .baseUrl(socialServiceUrl)
+                .baseUrl(baseUrl)
                 .defaultHeader("X-Internal-Secret", internalSecret)
+                .defaultRequest(request -> {
+                    var attributes = RequestContextHolder.getRequestAttributes();
+                    if (attributes instanceof ServletRequestAttributes servletAttributes) {
+                        String authorization = servletAttributes.getRequest()
+                                .getHeader(HttpHeaders.AUTHORIZATION);
+                        if (authorization != null && !authorization.isBlank()) {
+                            request.header(HttpHeaders.AUTHORIZATION, authorization);
+                        }
+                    }
+                })
                 .build();
     }
 }

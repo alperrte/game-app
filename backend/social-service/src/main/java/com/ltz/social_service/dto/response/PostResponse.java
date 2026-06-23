@@ -13,6 +13,8 @@ public class PostResponse {
 
     private Long id;
     private Long userId;
+    private Long communityId;
+    private String communityName;
     private String content;
     private String imageUrl;
     private String mediaType;
@@ -24,4 +26,5 @@ public class PostResponse {
     private Long likeCount;
     private Long commentCount;
     private Boolean likedByCurrentUser;
+    private PostPollResponse poll;
 }

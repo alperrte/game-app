@@ -7,6 +7,9 @@ CREATE TABLE messages (
     read_at DATETIME2 NULL,
     is_deleted BIT NOT NULL DEFAULT 0,
     reply_to_message_id BIGINT NULL,
+    message_type VARCHAR(20) NOT NULL DEFAULT 'TEXT',
+    media_url NVARCHAR(1000) NULL,
+    media_type VARCHAR(20) NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     updated_at DATETIME2 NULL,
     CONSTRAINT fk_messages_chat_room
@@ -16,7 +19,25 @@ CREATE TABLE messages (
     CONSTRAINT fk_messages_reply_to
         FOREIGN KEY (reply_to_message_id)
             REFERENCES messages(id)
-            ON DELETE NO ACTION
+            ON DELETE NO ACTION,
+    CONSTRAINT chk_message_type
+        CHECK (message_type IN ('TEXT', 'IMAGE', 'VIDEO', 'FILE', 'SYSTEM')),
+    CONSTRAINT chk_message_media_type
+        CHECK (media_type IS NULL OR media_type IN ('IMAGE', 'VIDEO', 'FILE')),
+    CONSTRAINT chk_message_media_payload
+        CHECK (
+            (
+                message_type IN ('TEXT', 'SYSTEM')
+                AND media_url IS NULL
+                AND media_type IS NULL
+            )
+            OR
+            (
+                message_type IN ('IMAGE', 'VIDEO', 'FILE')
+                AND media_url IS NOT NULL
+                AND media_type = message_type
+            )
+        )
 );
 
 CREATE INDEX ix_messages_chat_room_id

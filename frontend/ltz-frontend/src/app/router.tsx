@@ -24,7 +24,12 @@ import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequire
 import ReviewCreatePage from "../features/review/pages/ReviewCreatePage";
 
 import SocialFeedPage from "../features/social/pages/SocialFeedPage";
-import MessagesPage from "../features/social/pages/MessagesPage";
+import { ChatRouteLauncher } from "../features/social/components/ChatRouteLauncher";
+import CommunitiesPage from "../features/community/pages/CommunitiesPage";
+import CommunityDetailPage from "../features/community/pages/CommunityDetailPage";
+import EventsPage from "../features/community/pages/EventsPage";
+import ExplorePage from "../features/social/pages/ExplorePage";
+import PostDetailPage from "../features/social/pages/PostDetailPage";
 
 import HubPage from "../features/content/pages/HubPage";
 import DealsPage from "../features/content/pages/DealsPage";
@@ -89,12 +94,37 @@ export function AppRouter() {
 
             <Route
                 path={SOCIAL_ROUTES.messages}
-                element={<MessagesPage />}
+                element={<ChatRouteLauncher />}
             />
 
             <Route
                 path={SOCIAL_ROUTES.chatRoom(":roomId")}
-                element={<MessagesPage />}
+                element={<ChatRouteLauncher />}
+            />
+
+            <Route
+                path={SOCIAL_ROUTES.explore}
+                element={<ExplorePage />}
+            />
+
+            <Route
+                path={SOCIAL_ROUTES.postDetail(":postId")}
+                element={<PostDetailPage />}
+            />
+
+            <Route
+                path={SOCIAL_ROUTES.communities}
+                element={<CommunitiesPage />}
+            />
+
+            <Route
+                path={`${SOCIAL_ROUTES.communities}/:communityId`}
+                element={<CommunityDetailPage />}
+            />
+
+            <Route
+                path={SOCIAL_ROUTES.events}
+                element={<EventsPage />}
             />
 
             {/* Oyun listeleme ve oluşturma */}
@@ -163,7 +193,7 @@ export function AppRouter() {
                 element={<GameDetailPage />}
             />
 
-            {/* LTZ Corner / content-service */}
+            {/* Oyun Merkezi / content-service */}
             <Route path={CONTENT_ROUTES.hub} element={<HubPage />} />
             <Route path={CONTENT_ROUTES.deals} element={<DealsPage />} />
             <Route path={CONTENT_ROUTES.news} element={<NewsPage />} />

@@ -6,6 +6,8 @@ import com.ltz.social_service.entity.LookingForPlayerPost;
 import com.ltz.social_service.enums.LookingForPlayerStatus;
 import com.ltz.social_service.repository.LookingForPlayerPostRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,25 +38,34 @@ public class LookingForPlayerService {
     }
 
     @Transactional(readOnly = true)
-    public List<LookingForPlayerPostResponse> getOpenPosts() {
-        return lookingForPlayerPostRepository.findByStatusOrderByCreatedAtDesc(LookingForPlayerStatus.OPEN)
+    public List<LookingForPlayerPostResponse> getOpenPosts(int page, int size) {
+        return lookingForPlayerPostRepository.findByStatus(
+                        LookingForPlayerStatus.OPEN,
+                        newestFirst(page, size))
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<LookingForPlayerPostResponse> getPostsByUser(Long userId) {
-        return lookingForPlayerPostRepository.findByUserIdOrderByCreatedAtDesc(userId)
+    public List<LookingForPlayerPostResponse> getPostsByUser(Long userId, int page, int size) {
+        return lookingForPlayerPostRepository.findByUserId(userId, newestFirst(page, size))
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<LookingForPlayerPostResponse> getOpenPostsByGame(Long gameId) {
+    public List<LookingForPlayerPostResponse> getOpenPostsByGame(
+            Long gameId,
+            int page,
+            int size
+    ) {
         return lookingForPlayerPostRepository
-                .findByGameIdAndStatusOrderByCreatedAtDesc(gameId, LookingForPlayerStatus.OPEN)
+                .findByGameIdAndStatus(
+                        gameId,
+                        LookingForPlayerStatus.OPEN,
+                        newestFirst(page, size))
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -85,6 +96,10 @@ public class LookingForPlayerService {
         if (!post.getUserId().equals(currentUserId)) {
             throw new IllegalStateException("Only the post owner can update this looking for player post");
         }
+    }
+
+    private PageRequest newestFirst(int page, int size) {
+        return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     private LookingForPlayerPostResponse toResponse(LookingForPlayerPost post) {

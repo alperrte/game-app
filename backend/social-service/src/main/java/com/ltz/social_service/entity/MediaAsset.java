@@ -38,6 +38,18 @@ public class MediaAsset {
     @Column(name = "post_id")
     private Long postId;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
+    @Column(name = "community_event_id")
+    private Long communityEventId;
+
+    @Column(name = "message_id")
+    private Long messageId;
+
+    @Column(name = "chat_room_id")
+    private Long chatRoomId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "media_type", nullable = false, length = 20)
     private MediaAssetType mediaType;

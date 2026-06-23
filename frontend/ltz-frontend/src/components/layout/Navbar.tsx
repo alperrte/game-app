@@ -2,12 +2,12 @@
  * Uygulamanın genel, sabit üst navigasyonu.
  *
  * Navbar sırası:
- * Logo | Akış | Sohbet | Oyunlar | İncelemeler | Sistem Gereksinimleri | LTZ Corner
+ * Logo | Akış | Sohbet | Oyunlar | İncelemeler | Sistem Gereksinimleri | Oyun Merkezi
  * | Kullanıcı Profili | Çıkış Yap
  *
  * - GameNavbar kullanılmaz.
  * - Sosyal özellikler ortak Navbar içinde yönetilir.
- * - Oyun sayfaları ve LTZ Corner modülleri dropdown altında gruplanır.
+ * - Oyun sayfaları ve Oyun Merkezi modülleri dropdown altında gruplanır.
  * - Profil dropdown içinde profil ve arkadaşlık istekleri bulunur.
  * - Bekleyen arkadaşlık isteği sayısı badge olarak gösterilir.
  * - Scroll sırasında navbar küçülür.
@@ -28,8 +28,10 @@ import {
 import {
     Brain,
     Building2,
+    CalendarDays,
     ChevronDown,
     Code2,
+    Compass,
     Cpu,
     Gamepad2,
     Gift,
@@ -37,7 +39,6 @@ import {
     Home,
     LayoutGrid,
     LogOut,
-    MessageCircle,
     MessageSquareText,
     MonitorSmartphone,
     Newspaper,
@@ -48,6 +49,7 @@ import {
     Settings,
     UserPlus,
     UserRound,
+    Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -89,9 +91,19 @@ const mainNavItems: NavItem[] = [
         icon: Home,
     },
     {
-        label: "Sohbet",
-        href: "/messages",
-        icon: MessageCircle,
+        label: "Keşfet",
+        href: "/explore",
+        icon: Compass,
+    },
+    {
+        label: "Topluluklar",
+        href: "/communities",
+        icon: Users,
+    },
+    {
+        label: "Etkinlikler",
+        href: "/events",
+        icon: CalendarDays,
     },
 ];
 
@@ -693,10 +705,7 @@ export function Navbar() {
                         "
                     >
                         {mainNavItems.map((item) =>
-                            renderNavLink(
-                                item,
-                                activeHref,
-                            ),
+                            renderNavLink(item, activeHref),
                         )}
 
                         {/* Oyunlar dropdown */}
@@ -828,7 +837,7 @@ export function Navbar() {
                             activeHref,
                         )}
 
-                        {/* LTZ Corner dropdown */}
+                        {/* Oyun Merkezi dropdown */}
                         <div
                             ref={contentMenuRef}
                             className="relative shrink-0"
@@ -885,7 +894,7 @@ export function Navbar() {
                                         }
                                     />
 
-                                    <span>LTZ Corner</span>
+                                    <span>Oyun Merkezi</span>
                                 </NavLink>
 
                                 <button
@@ -893,7 +902,7 @@ export function Navbar() {
                                     aria-expanded={
                                         isContentMenuOpen
                                     }
-                                    aria-label="LTZ Corner menüsünü aç veya kapat"
+                                    aria-label="Oyun Merkezi menüsünü aç veya kapat"
                                     className="
                                         mr-1 grid h-7 w-7
                                         place-items-center

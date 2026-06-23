@@ -1,10 +1,15 @@
 package com.ltz.social_service.controller;
 
 import com.ltz.social_service.dto.request.ChatRoomCreateRequest;
+import com.ltz.social_service.dto.request.ChatRoomMemberAddRequest;
+import com.ltz.social_service.dto.request.ChatRoomMemberRoleRequest;
+import com.ltz.social_service.dto.request.ChatRoomOwnershipTransferRequest;
+import com.ltz.social_service.dto.request.ChatRoomUpdateRequest;
 import com.ltz.social_service.dto.request.DirectChatRoomCreateRequest;
 import com.ltz.social_service.dto.request.MessageCreateRequest;
 import com.ltz.social_service.dto.request.MessageReactionRequest;
 import com.ltz.social_service.dto.response.ChatRoomResponse;
+import com.ltz.social_service.dto.response.ChatRoomMemberResponse;
 import com.ltz.social_service.dto.response.MessageResponse;
 import com.ltz.social_service.security.JwtUserPrincipal;
 import com.ltz.social_service.service.ChatService;
@@ -16,10 +21,12 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -64,6 +71,88 @@ public class ChatController {
         return chatService.getChatRoomById(chatRoomId, principal.userId());
     }
 
+    @PutMapping("/chat-rooms/{chatRoomId}")
+    public ChatRoomResponse updateChatRoom(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody ChatRoomUpdateRequest request
+    ) {
+        return chatService.updateChatRoom(chatRoomId, principal.userId(), request);
+    }
+
+    @GetMapping("/chat-rooms/{chatRoomId}/members")
+    public List<ChatRoomMemberResponse> getChatRoomMembers(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return chatService.getChatRoomMembers(chatRoomId, principal.userId());
+    }
+
+    @PostMapping("/chat-rooms/{chatRoomId}/members")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ChatRoomMemberResponse addChatRoomMember(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody ChatRoomMemberAddRequest request
+    ) {
+        return chatService.addChatRoomMember(
+                chatRoomId,
+                principal.userId(),
+                request.getUserId()
+        );
+    }
+
+    @DeleteMapping("/chat-rooms/{chatRoomId}/members/{memberUserId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeChatRoomMember(
+            @PathVariable Long chatRoomId,
+            @PathVariable Long memberUserId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        chatService.removeChatRoomMember(
+                chatRoomId,
+                principal.userId(),
+                memberUserId
+        );
+    }
+
+    @PutMapping("/chat-rooms/{chatRoomId}/members/{memberUserId}/role")
+    public ChatRoomMemberResponse updateChatRoomMemberRole(
+            @PathVariable Long chatRoomId,
+            @PathVariable Long memberUserId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody ChatRoomMemberRoleRequest request
+    ) {
+        return chatService.updateMemberRole(
+                chatRoomId,
+                principal.userId(),
+                memberUserId,
+                request.getRole()
+        );
+    }
+
+    @PutMapping("/chat-rooms/{chatRoomId}/ownership")
+    public ChatRoomResponse transferChatRoomOwnership(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody ChatRoomOwnershipTransferRequest request
+    ) {
+        return chatService.transferOwnership(
+                chatRoomId,
+                principal.userId(),
+                request.getUserId()
+        );
+    }
+
+    @DeleteMapping("/chat-rooms/{chatRoomId}/membership")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leaveChatRoom(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        chatService.leaveGroup(chatRoomId, principal.userId());
+    }
+
     @GetMapping("/users/{userId}/chat-rooms")
     public List<ChatRoomResponse> getChatRoomsForUser(
             @PathVariable Long userId,
@@ -89,9 +178,48 @@ public class ChatController {
     @GetMapping("/chat-rooms/{chatRoomId}/messages")
     public List<MessageResponse> getMessagesByChatRoom(
             @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size
+    ) {
+        return chatService.getMessagesByChatRoom(
+                chatRoomId,
+                principal.userId(),
+                Math.max(0, page),
+                Math.max(1, Math.min(size, 100)));
+    }
+
+    @GetMapping("/chat-rooms/{chatRoomId}/messages/search")
+    public List<MessageResponse> searchMessages(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size
+    ) {
+        return chatService.searchMessages(
+                chatRoomId,
+                principal.userId(),
+                query,
+                Math.max(0, page),
+                Math.max(1, Math.min(size, 100)));
+    }
+
+    @PutMapping("/chat-rooms/{chatRoomId}/pinned-message/{messageId}")
+    public ChatRoomResponse pinMessage(
+            @PathVariable Long chatRoomId,
+            @PathVariable Long messageId,
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-        return chatService.getMessagesByChatRoom(chatRoomId, principal.userId());
+        return chatService.pinMessage(chatRoomId, messageId, principal.userId());
+    }
+
+    @DeleteMapping("/chat-rooms/{chatRoomId}/pinned-message")
+    public ChatRoomResponse unpinMessage(
+            @PathVariable Long chatRoomId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return chatService.unpinMessage(chatRoomId, principal.userId());
     }
 
     @PostMapping("/chat-rooms/{chatRoomId}/read")

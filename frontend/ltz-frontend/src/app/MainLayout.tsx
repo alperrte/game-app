@@ -1,6 +1,8 @@
 import { Outlet, useLocation } from "react-router-dom";
 
 import { Navbar } from "../components/layout/Navbar";
+import { FloatingChatWidget } from "../features/social/components/FloatingChatWidget";
+import { ChatWidgetProvider } from "../features/social/context/ChatWidgetContext";
 
 /*
  * MainLayout: Giriş sonrası ana uygulama ekranlarının ortak kabuğu.
@@ -13,6 +15,7 @@ export function MainLayout() {
   const location = useLocation();
 
   return (
+    <ChatWidgetProvider>
       <div className="min-h-screen bg-ltz-bg text-white">
         <Navbar />
 
@@ -22,7 +25,9 @@ export function MainLayout() {
         >
           <Outlet />
         </div>
+        <FloatingChatWidget />
       </div>
+    </ChatWidgetProvider>
   );
 }
 
