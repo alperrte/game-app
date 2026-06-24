@@ -37,8 +37,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
 
         /*
-         * Header yoksa veya Bearer ile başlamıyorsa isteği devam ettirir.
-         * Şu an endpointler public olduğu için token zorunlu değil.
+         * Header yoksa veya Bearer ile başlamıyorsa SecurityContext boş kalır.
+         * Spring Security .anyRequest().authenticated() kuralı 401 döndürür.
          */
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);

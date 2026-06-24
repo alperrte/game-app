@@ -310,6 +310,78 @@ export const CONTENT_API_ENDPOINTS = {
 } as const;
 
 /*
+ * Hardware-service frontend route adresleri.
+ */
+export const HARDWARE_ROUTES = {
+    center: "/hardware",
+    mySystem: "/hardware/my-system",
+    components: "/hardware/components",
+    fpsReports: "/hardware/fps-reports",
+    reviews: "/hardware/reviews",
+    deals: "/hardware/deals",
+} as const;
+
+/*
+ * Hardware-service endpoint path'leri (Gateway üzerinden).
+ * Tüm path'ler /api/hardware/** altında; Gateway bu prefix'i
+ * hardware-service'e yönlendirir.
+ */
+export const HARDWARE_API_ENDPOINTS = {
+    /* Kullanıcı donanım profili ─ GET/POST/PUT/DELETE */
+    userHardware: (userId: number | string) =>
+        `/api/hardware/users/${userId}`,
+
+    /* Bileşen kataloğu */
+    components: "/api/hardware/components",
+    componentsActive: "/api/hardware/components/active",
+    componentById: (id: number | string) =>
+        `/api/hardware/components/${id}`,
+    componentsSearch: "/api/hardware/components/search",
+
+    /* Kampanyalar */
+    deals: "/api/hardware/deals",
+    dealsActive: "/api/hardware/deals/active",
+    dealById: (id: number | string) =>
+        `/api/hardware/deals/${id}`,
+    dealsByComponent: (componentId: number | string) =>
+        `/api/hardware/deals/components/${componentId}`,
+    dealsByStore: (storeName: string) =>
+        `/api/hardware/deals/stores/${storeName}`,
+
+    /* Donanım incelemeleri */
+    reviewById: (reviewId: number | string) =>
+        `/api/hardware/reviews/${reviewId}`,
+    reviewsByComponent: (componentId: number | string) =>
+        `/api/hardware/reviews/components/${componentId}`,
+    reviewsByUser: (userId: number | string) =>
+        `/api/hardware/reviews/users/${userId}`,
+    reviewsByType: (reviewType: string) =>
+        `/api/hardware/reviews/type/${reviewType}`,
+    createReview: (userId: number | string) =>
+        `/api/hardware/users/${userId}/reviews`,
+    updateReview: (userId: number | string, reviewId: number | string) =>
+        `/api/hardware/users/${userId}/reviews/${reviewId}`,
+    deleteReview: (userId: number | string, reviewId: number | string) =>
+        `/api/hardware/users/${userId}/reviews/${reviewId}`,
+
+    /* FPS / Performans raporları */
+    performanceReportById: (reportId: number | string) =>
+        `/api/hardware/performance-reports/${reportId}`,
+    performanceReportsByUser: (userId: number | string) =>
+        `/api/hardware/performance-reports/users/${userId}`,
+    performanceReportsByGame: (gameId: number | string) =>
+        `/api/hardware/performance-reports/games/${gameId}`,
+    createPerformanceReport: (userId: number | string) =>
+        `/api/hardware/users/${userId}/performance-reports`,
+
+    /* Markalar */
+    brands: "/api/hardware/brands",
+    brandsActive: "/api/hardware/brands/active",
+    brandById: (id: number | string) =>
+        `/api/hardware/brands/${id}`,
+} as const;
+
+/*
  * Form doğrulama kuralları (backend RegisterRequest ile uyumlu).
  */
 export const VALIDATION = {

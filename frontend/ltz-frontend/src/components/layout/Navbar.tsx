@@ -32,19 +32,24 @@ import {
     Code2,
     Cpu,
     Gamepad2,
+    Gauge,
     Gift,
     History,
     Home,
     LayoutGrid,
     LogOut,
+    MemoryStick,
     MessageCircle,
     MessageSquareText,
+    MonitorCog,
     MonitorSmartphone,
     Newspaper,
     Percent,
     ShieldOff,
     Sparkles,
+    Star,
     Swords,
+    Tag,
     Settings,
     UserPlus,
     UserRound,
@@ -54,6 +59,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "../ui/Button";
 import {
     CONTENT_ROUTES,
+    HARDWARE_ROUTES,
     ROUTES,
 } from "../../lib/constants";
 import { getRefreshToken } from "../../lib/token";
@@ -173,12 +179,46 @@ const contentCornerItems: NavItem[] = [
     },
 ];
 
+const hardwareServiceItems: NavItem[] = [
+    {
+        label: "Hardware Center",
+        href: HARDWARE_ROUTES.center,
+        icon: MonitorCog,
+    },
+    {
+        label: "Sistemim",
+        href: HARDWARE_ROUTES.mySystem,
+        icon: Cpu,
+    },
+    {
+        label: "Bileşenler",
+        href: HARDWARE_ROUTES.components,
+        icon: MemoryStick,
+    },
+    {
+        label: "FPS Raporları",
+        href: HARDWARE_ROUTES.fpsReports,
+        icon: Gauge,
+    },
+    {
+        label: "Donanım İncelemeleri",
+        href: HARDWARE_ROUTES.reviews,
+        icon: Star,
+    },
+    {
+        label: "Kampanyalar",
+        href: HARDWARE_ROUTES.deals,
+        icon: Tag,
+    },
+];
+
 const allNavItems: NavItem[] = [
     ...mainNavItems,
     ...gameServiceItems,
     reviewsItem,
     systemRequirementsItem,
     ...contentCornerItems,
+    ...hardwareServiceItems,
 ];
 
 /*
@@ -229,6 +269,13 @@ function isContentCornerPath(pathname: string): boolean {
     );
 }
 
+function isHardwareServicePath(pathname: string): boolean {
+    return (
+        pathname === HARDWARE_ROUTES.center ||
+        pathname.startsWith(`${HARDWARE_ROUTES.center}/`)
+    );
+}
+
 function renderNavDropdownPanel(
     items: NavItem[],
     activeHref: string,
@@ -267,7 +314,8 @@ function renderNavDropdownPanel(
                     const Icon = item.icon;
                     const exactMatch =
                         item.href === CONTENT_ROUTES.hub ||
-                        item.href === "/games";
+                        item.href === "/games" ||
+                        item.href === HARDWARE_ROUTES.center;
 
                     return (
                         <NavLink
@@ -402,6 +450,7 @@ export function Navbar() {
 
     const gameMenuRef = useRef<HTMLDivElement | null>(null);
     const contentMenuRef = useRef<HTMLDivElement | null>(null);
+    const hardwareMenuRef = useRef<HTMLDivElement | null>(null);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -411,6 +460,9 @@ export function Navbar() {
         useState(false);
 
     const [isContentMenuOpen, setIsContentMenuOpen] =
+        useState(false);
+
+    const [isHardwareMenuOpen, setIsHardwareMenuOpen] =
         useState(false);
 
     const [profileMenuOpen, setProfileMenuOpen] =
@@ -435,6 +487,10 @@ export function Navbar() {
         isGameServiceDropdownPath(location.pathname);
 
     const contentCornerActive = isContentCornerPath(
+        location.pathname,
+    );
+
+    const hardwareServiceActive = isHardwareServicePath(
         location.pathname,
     );
 
@@ -520,6 +576,13 @@ export function Navbar() {
             }
 
             if (
+                hardwareMenuRef.current &&
+                !hardwareMenuRef.current.contains(clickedNode)
+            ) {
+                setIsHardwareMenuOpen(false);
+            }
+
+            if (
                 profileMenuRef.current &&
                 !profileMenuRef.current.contains(clickedNode)
             ) {
@@ -547,6 +610,7 @@ export function Navbar() {
         Promise.resolve().then(() => {
             setIsGameMenuOpen(false);
             setIsContentMenuOpen(false);
+            setIsHardwareMenuOpen(false);
             setProfileMenuOpen(false);
         });
     }, [location.pathname]);
@@ -786,6 +850,10 @@ export function Navbar() {
                                             false,
                                         );
 
+                                        setIsHardwareMenuOpen(
+                                            false,
+                                        );
+
                                         setIsGameMenuOpen(
                                             (current) =>
                                                 !current,
@@ -914,6 +982,10 @@ export function Navbar() {
                                             false,
                                         );
 
+                                        setIsHardwareMenuOpen(
+                                            false,
+                                        );
+
                                         setIsContentMenuOpen(
                                             (current) =>
                                                 !current,
@@ -948,6 +1020,131 @@ export function Navbar() {
                                 )
                                 : null}
                         </div>
+
+                        {/* Donanım dropdown */}
+                        <div
+                            ref={hardwareMenuRef}
+                            className="relative shrink-0"
+                        >
+                            <div
+                                className={`
+                                    group relative flex h-9
+                                    shrink-0 items-center
+                                    overflow-hidden rounded-full
+                                    border
+                                    text-[11px] font-semibold
+                                    transition-[color,background-color,border-color,box-shadow,transform]
+                                    duration-200
+                                    2xl:text-[13px]
+                                    ${
+                                    hardwareServiceActive
+                                        ? `
+                                                border-violet-400/40
+                                                bg-violet-500/15
+                                                text-white
+                                                shadow-[0_0_18px_-4px_rgba(139,92,246,0.6),inset_0_0_14px_-6px_rgba(168,85,247,0.8)]
+                                              `
+                                        : `
+                                                border-transparent
+                                                text-slate-400
+                                                hover:-translate-y-0.5
+                                                hover:border-white/10
+                                                hover:bg-white/[0.04]
+                                                hover:text-white
+                                              `
+                                }
+                                `}
+                            >
+                                <NavLink
+                                    to={HARDWARE_ROUTES.center}
+                                    end
+                                    className="
+                                        flex h-full items-center
+                                        gap-1.5 whitespace-nowrap
+                                        pl-2.5 pr-1
+                                        2xl:gap-2 2xl:pl-3.5
+                                    "
+                                >
+                                    <MonitorCog
+                                        size={16}
+                                        strokeWidth={2.25}
+                                        className={
+                                            hardwareServiceActive
+                                                ? "text-violet-200"
+                                                : `
+                                                    text-slate-500
+                                                    transition-colors
+                                                    group-hover:text-slate-200
+                                                  `
+                                        }
+                                    />
+
+                                    <span>Donanım</span>
+                                </NavLink>
+
+                                <button
+                                    type="button"
+                                    aria-expanded={
+                                        isHardwareMenuOpen
+                                    }
+                                    aria-label="Donanım menüsünü aç veya kapat"
+                                    className="
+                                        mr-1 grid h-7 w-7
+                                        place-items-center
+                                        rounded-full
+                                        text-slate-400
+                                        transition
+                                        hover:bg-white/10
+                                        hover:text-white
+                                    "
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+
+                                        setProfileMenuOpen(
+                                            false,
+                                        );
+                                        setIsGameMenuOpen(
+                                            false,
+                                        );
+                                        setIsContentMenuOpen(
+                                            false,
+                                        );
+
+                                        setIsHardwareMenuOpen(
+                                            (current) =>
+                                                !current,
+                                        );
+                                    }}
+                                >
+                                    <ChevronDown
+                                        size={14}
+                                        strokeWidth={2.4}
+                                        className={`
+                                            transition-transform
+                                            duration-200
+                                            ${
+                                            isHardwareMenuOpen
+                                                ? "rotate-180"
+                                                : ""
+                                        }
+                                        `}
+                                    />
+                                </button>
+                            </div>
+
+                            {isHardwareMenuOpen
+                                ? renderNavDropdownPanel(
+                                    hardwareServiceItems,
+                                    activeHref,
+                                    "HARDWARE SERVICE",
+                                    () =>
+                                        setIsHardwareMenuOpen(
+                                            false,
+                                        ),
+                                )
+                                : null}
+                        </div>
                     </nav>
 
                     {/* Kullanıcı alanı */}
@@ -968,6 +1165,9 @@ export function Navbar() {
                                             false,
                                         );
                                         setIsContentMenuOpen(
+                                            false,
+                                        );
+                                        setIsHardwareMenuOpen(
                                             false,
                                         );
 

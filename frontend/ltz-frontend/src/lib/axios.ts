@@ -96,12 +96,8 @@ axiosClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // 403 Forbidden - token geçersiz veya kullanıcı engellenmiş olabilir
+    // 403 Forbidden: yetki reddidir; oturum sadece refresh başarısızsa temizlenir.
     if (status === 403 && originalRequest && !isAuthEndpoint(originalRequest.url)) {
-      clearAuth();
-      if (window.location.pathname !== ROUTES.login) {
-        window.location.href = ROUTES.login;
-      }
       return Promise.reject(error);
     }
 

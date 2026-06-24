@@ -67,13 +67,8 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        /*
-                         * Hardware endpointleri test için public.
-                         * JWT filter yine çalışır.
-                         */
-                        .requestMatchers("/api/hardware/**").permitAll()
-
                         .requestMatchers(
+                                "/error",
                                 "/actuator/health",
                                 "/actuator/info"
                         ).permitAll()

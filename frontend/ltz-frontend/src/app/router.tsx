@@ -8,7 +8,7 @@ import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 
 import { useAuthStore } from "../store/authStore";
-import { CONTENT_ROUTES, GAME_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
+import { CONTENT_ROUTES, GAME_ROUTES, HARDWARE_ROUTES, ROUTES, SOCIAL_ROUTES } from "../lib/constants";
 import { ProfilePage } from "../features/user/pages/ProfilePage";
 
 import GamesPage from "../features/game/pages/GamesPage";
@@ -33,6 +33,9 @@ import EsportsPage from "../features/content/pages/EsportsPage";
 import FreeGamesPage from "../features/content/pages/FreeGamesPage";
 import TriviaPage from "../features/content/pages/TriviaPage";
 import HistoryPage from "../features/content/pages/HistoryPage";
+
+import HardwareCenterPage from "../features/hardware/pages/HardwareCenterPage";
+import MySystemPage from "../features/hardware/pages/MySystemPage";
 
 /*
  * Giriş yapılmamışsa login sayfasına yönlendiren koruma.
@@ -171,6 +174,17 @@ export function AppRouter() {
             <Route path={CONTENT_ROUTES.free} element={<FreeGamesPage />} />
             <Route path={CONTENT_ROUTES.trivia} element={<TriviaPage />} />
             <Route path={CONTENT_ROUTES.history} element={<HistoryPage />} />
+
+            {/* Hardware-service */}
+            <Route
+                path={HARDWARE_ROUTES.center}
+                element={<HardwareCenterPage />}
+            />
+
+            <Route
+                path={HARDWARE_ROUTES.mySystem}
+                element={<MySystemPage />}
+            />
 
             {/* Kullanıcı profili */}
             <Route
