@@ -12,4 +12,5 @@ public interface UserAssignedBadgeRepository extends JpaRepository<UserAssignedB
     Optional<UserAssignedBadge> findByUserIdAndBadgeKey(String userId, String badgeKey);
 
     void deleteByUserIdAndBadgeKey(String userId, String badgeKey);
+    List<UserAssignedBadge> findAllByUserIdIn(List<String> userIds);
 }

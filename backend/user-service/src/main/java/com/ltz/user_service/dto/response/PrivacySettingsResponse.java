@@ -1,5 +1,6 @@
 package com.ltz.user_service.dto.response;
 
+import com.ltz.user_service.entity.Visibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,10 +12,11 @@ import lombok.NoArgsConstructor;
 @Builder
 public class PrivacySettingsResponse {
     private String userId;
-    private String profileVisibility;
-    private String gameLibraryVisibility;
-    private String hardwareVisibility;
-    private String friendListVisibility;
-    private String followerListVisibility;
-    private String lastSeenVisibility;
+    private Visibility profileVisibility;
+    private Visibility gameLibraryVisibility;
+    private Visibility hardwareVisibility;
+    private Visibility friendListVisibility;
+    private Visibility followerListVisibility;
+    private Visibility lastSeenVisibility;
 }
+

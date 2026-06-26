@@ -27,27 +27,33 @@ public class PrivacySettings {
 
     @Column(name = "profile_visibility", nullable = false, length = 50)
     @Builder.Default
-    private String profileVisibility = "PUBLIC";
+    @Enumerated(EnumType.STRING)
+    private Visibility profileVisibility = Visibility.PUBLIC;
 
     @Column(name = "game_library_visibility", nullable = false, length = 50)
     @Builder.Default
-    private String gameLibraryVisibility = "PUBLIC";
+    @Enumerated(EnumType.STRING)
+    private Visibility gameLibraryVisibility = Visibility.PUBLIC;
 
     @Column(name = "hardware_visibility", nullable = false, length = 50)
     @Builder.Default
-    private String hardwareVisibility = "PUBLIC";
+    @Enumerated(EnumType.STRING)
+    private Visibility hardwareVisibility = Visibility.PUBLIC;
 
     @Column(name = "friend_list_visibility", nullable = false, length = 50)
     @Builder.Default
-    private String friendListVisibility = "PUBLIC";
+    @Enumerated(EnumType.STRING)
+    private Visibility friendListVisibility = Visibility.PUBLIC;
 
     @Column(name = "follower_list_visibility", nullable = false, length = 50)
     @Builder.Default
-    private String followerListVisibility = "PUBLIC";
+    @Enumerated(EnumType.STRING)
+    private Visibility followerListVisibility = Visibility.PUBLIC;
 
     @Column(name = "last_seen_visibility", nullable = false, length = 50)
     @Builder.Default
-    private String lastSeenVisibility = "PUBLIC";
+    @Enumerated(EnumType.STRING)
+    private Visibility lastSeenVisibility = Visibility.PUBLIC;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

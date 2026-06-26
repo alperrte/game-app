@@ -13,6 +13,8 @@ import com.ltz.user_service.dto.response.UserProfileResponse;
 import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.security.JwtUserPrincipal;
 import com.ltz.user_service.service.UserProfileService;
+import com.ltz.user_service.service.PrivacySettingsService;
+import com.ltz.user_service.service.ConnectedAccountService;
 import com.ltz.user_service.service.ProfileIntegrationService;
 import com.ltz.user_service.util.ClientRequestContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,19 +40,26 @@ import java.util.List;
  * user-service'in REST API kapısıdır. Frontend (React) ile doğrudan haberleşir.
  */
 @RestController
+
 @RequestMapping("/api/users")
 public class UserController {
 
     private final UserProfileService userProfileService;
+    private final PrivacySettingsService privacySettingsService;
+    private final ConnectedAccountService connectedAccountService;
     private final AuthServiceClient authServiceClient;
     private final HttpServletRequest httpServletRequest;
     private final ProfileIntegrationService profileIntegrationService;
 
     public UserController(UserProfileService userProfileService,
+            PrivacySettingsService privacySettingsService,
+            ConnectedAccountService connectedAccountService,
             AuthServiceClient authServiceClient,
             HttpServletRequest httpServletRequest,
             ProfileIntegrationService profileIntegrationService) {
         this.userProfileService = userProfileService;
+        this.privacySettingsService = privacySettingsService;
+        this.connectedAccountService = connectedAccountService;
         this.authServiceClient = authServiceClient;
         this.httpServletRequest = httpServletRequest;
         this.profileIntegrationService = profileIntegrationService;
@@ -140,7 +149,7 @@ public class UserController {
     @GetMapping("/privacy")
     public ResponseEntity<PrivacySettingsResponse> getPrivacySettings(
             @AuthenticationPrincipal JwtUserPrincipal principal) {
-        return ResponseEntity.ok(userProfileService.getPrivacySettings(userId(principal)));
+        return ResponseEntity.ok(privacySettingsService.getPrivacySettings(userId(principal)));
     }
 
     /**
@@ -151,7 +160,7 @@ public class UserController {
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @Valid @RequestBody PrivacySettingsRequest request) {
         return ResponseEntity
-                .ok(userProfileService.updatePrivacySettings(userId(principal), request, getClientContext()));
+                .ok(privacySettingsService.updatePrivacySettings(userId(principal), request, getClientContext()));
     }
 
     /**
@@ -188,7 +197,7 @@ public class UserController {
     @GetMapping("/connected-accounts")
     public ResponseEntity<List<ConnectedAccountResponse>> getConnectedAccounts(
             @AuthenticationPrincipal JwtUserPrincipal principal) {
-        return ResponseEntity.ok(userProfileService.getConnectedAccounts(userId(principal)));
+        return ResponseEntity.ok(connectedAccountService.getConnectedAccounts(userId(principal)));
     }
 
     /**
@@ -198,7 +207,7 @@ public class UserController {
     public ResponseEntity<ConnectedAccountResponse> connectAccount(
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @Valid @RequestBody ConnectedAccountRequest request) {
-        return ResponseEntity.ok(userProfileService.connectAccount(userId(principal), request, getClientContext()));
+        return ResponseEntity.ok(connectedAccountService.connectAccount(userId(principal), request, getClientContext()));
     }
 
     /**
@@ -208,7 +217,7 @@ public class UserController {
     public ResponseEntity<Void> disconnectAccount(
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long id) {
-        userProfileService.disconnectAccount(userId(principal), id, getClientContext());
+        connectedAccountService.disconnectAccount(userId(principal), id, getClientContext());
         return ResponseEntity.noContent().build();
     }
 
