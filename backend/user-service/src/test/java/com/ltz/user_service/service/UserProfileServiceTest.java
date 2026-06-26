@@ -1,15 +1,9 @@
 package com.ltz.user_service.service;
 
-import com.ltz.user_service.dto.request.ConnectedAccountRequest;
-import com.ltz.user_service.dto.request.PrivacySettingsRequest;
 import com.ltz.user_service.dto.request.UserProfileRequest;
-import com.ltz.user_service.dto.response.ConnectedAccountResponse;
-import com.ltz.user_service.dto.response.PrivacySettingsResponse;
 import com.ltz.user_service.dto.response.UserProfileResponse;
-import com.ltz.user_service.entity.ConnectedAccount;
 import com.ltz.user_service.entity.PrivacySettings;
 import com.ltz.user_service.entity.UserProfile;
-import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.exception.ResourceNotFoundException;
 import com.ltz.user_service.repository.ConnectedAccountRepository;
 import com.ltz.user_service.repository.PrivacySettingsRepository;
@@ -53,8 +47,6 @@ class UserProfileServiceTest {
     private UserProfileService userProfileService;
 
     private UserProfile userProfile;
-    private PrivacySettings privacySettings;
-    private ConnectedAccount connectedAccount;
 
     @BeforeEach
     void setUp() {
@@ -70,23 +62,6 @@ class UserProfileServiceTest {
                 .gamerType("HARDCORE")
                 .favoriteCategories("RPG")
                 .profileThemeUrl("theme.gif")
-                .build();
-
-        privacySettings = PrivacySettings.builder()
-                .id(1L)
-                .userId("user123")
-                .profileVisibility("PUBLIC")
-                .gameLibraryVisibility("PUBLIC")
-                .hardwareVisibility("PUBLIC")
-                .friendListVisibility("PUBLIC")
-                .build();
-
-        connectedAccount = ConnectedAccount.builder()
-                .id(1L)
-                .userId("user123")
-                .platformName("STEAM")
-                .platformUserId("steamId123")
-                .platformUsername("steamUser")
                 .build();
     }
 
@@ -125,55 +100,5 @@ class UserProfileServiceTest {
         verify(privacySettingsRepository, times(1)).save(any(PrivacySettings.class));
         verify(auditLogService, times(1)).log(eq("user123"), eq("CREATE_PROFILE"), anyString(), eq(TEST_CONTEXT));
     }
-
-    @Test
-    void testUpdatePrivacySettings() {
-        when(privacySettingsRepository.findByUserId("user123")).thenReturn(Optional.of(privacySettings));
-        when(privacySettingsRepository.save(any(PrivacySettings.class))).thenReturn(privacySettings);
-
-        PrivacySettingsRequest request = new PrivacySettingsRequest();
-        request.setProfileVisibility("PRIVATE");
-
-        PrivacySettingsResponse response = userProfileService.updatePrivacySettings("user123", request, TEST_CONTEXT);
-
-        assertNotNull(response);
-        verify(privacySettingsRepository, times(1)).save(any(PrivacySettings.class));
-        verify(auditLogService, times(1)).log(eq("user123"), eq("UPDATE_PRIVACY"), anyString(), eq(TEST_CONTEXT));
-    }
-
-    @Test
-    void testConnectAccount_NewLink() {
-        when(connectedAccountRepository.findByUserIdAndPlatformName("user123", "STEAM")).thenReturn(Optional.empty());
-        when(connectedAccountRepository.save(any(ConnectedAccount.class))).thenReturn(connectedAccount);
-
-        ConnectedAccountRequest request = new ConnectedAccountRequest();
-        request.setPlatformName("Steam");
-        request.setPlatformUserId("steamId123");
-        request.setPlatformUsername("steamUser");
-
-        ConnectedAccountResponse response = userProfileService.connectAccount("user123", request, TEST_CONTEXT);
-
-        assertNotNull(response);
-        assertEquals("STEAM", response.getPlatformName());
-        verify(connectedAccountRepository, times(1)).save(any(ConnectedAccount.class));
-        verify(auditLogService, times(1)).log(eq("user123"), eq("CONNECT_ACCOUNT"), anyString(), eq(TEST_CONTEXT));
-    }
-
-    @Test
-    void testDisconnectAccount_Success() {
-        when(connectedAccountRepository.findById(1L)).thenReturn(Optional.of(connectedAccount));
-
-        userProfileService.disconnectAccount("user123", 1L, TEST_CONTEXT);
-
-        verify(connectedAccountRepository, times(1)).delete(connectedAccount);
-        verify(auditLogService, times(1)).log(eq("user123"), eq("DISCONNECT_ACCOUNT"), anyString(), eq(TEST_CONTEXT));
-    }
-
-    @Test
-    void testDisconnectAccount_Unauthorized() {
-        when(connectedAccountRepository.findById(1L)).thenReturn(Optional.of(connectedAccount));
-
-        assertThrows(BadRequestException.class, () -> userProfileService.disconnectAccount("other_user", 1L, TEST_CONTEXT));
-        verify(connectedAccountRepository, never()).delete(any(ConnectedAccount.class));
-    }
 }
+

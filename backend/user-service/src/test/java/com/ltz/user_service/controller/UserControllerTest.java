@@ -12,6 +12,8 @@ import com.ltz.user_service.security.JwtService;
 import com.ltz.user_service.security.JwtUserPrincipal;
 import com.ltz.user_service.service.UserProfileService;
 import com.ltz.user_service.service.ProfileIntegrationService;
+import com.ltz.user_service.service.PrivacySettingsService;
+import com.ltz.user_service.service.ConnectedAccountService;
 import com.ltz.user_service.util.ClientRequestContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,12 @@ class UserControllerTest {
 
     @MockitoBean
     private UserProfileService userProfileService;
+
+    @MockitoBean
+    private PrivacySettingsService privacySettingsService;
+
+    @MockitoBean
+    private ConnectedAccountService connectedAccountService;
 
     @MockitoBean
     private JwtService jwtService;
