@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, { useMemo, useEffect, useRef, useCallback, useReducer } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/authStore";
 import { useToast } from "../../../components/ui/toastContext";
@@ -94,6 +94,131 @@ const isForbiddenError = (err: unknown) =>
   (("status" in err && (err as { status: number }).status === 403) ||
     ("response" in err && (err as { response?: { status?: number } }).response?.status === 403));
 
+type ProfileState = {
+  profile: UserProfileResponse | null;
+  loading: boolean;
+  isRestricted: boolean;
+  settingsOpen: boolean;
+  settingsTab: SettingsPanelTab;
+  activeNavSection: ProfileNavSection;
+  connectionModal: { title: string; group: Map<number, ProfileIdentity> } | null;
+  postsRefreshKey: number;
+  editModalOpen: boolean;
+  relationship: RelationshipSnapshot | null;
+  relationshipError: string | null;
+  socialSummary: SocialSummary;
+  socialDataLoading: boolean;
+  socialError: string | null;
+  socialIdentityGroups: {
+    followers: Map<number, ProfileIdentity>;
+    following: Map<number, ProfileIdentity>;
+    friends: Map<number, ProfileIdentity>;
+  };
+  posts: SocialPost[];
+  postsLoading: boolean;
+  postsError: string | null;
+  games: Game[];
+  gamesLoading: boolean;
+  gameRequirements: Map<number, GameSystemRequirement>;
+  relationshipBusyAction: string | null;
+  busyPostId: number | string | null;
+  removingFriendUserId: number | null;
+  chatState: ChatState;
+  savedPostIds: Set<string>;
+};
+
+type ProfileAction =
+  | { type: "UPDATE_STATE"; payload: Partial<ProfileState> }
+  | { type: "UPDATE_STATE_DYNAMIC"; payload: (state: ProfileState) => Partial<ProfileState> }
+  | { type: "UPDATE_CHAT_STATE"; payload: Partial<ChatState> | ((prev: ChatState) => ChatState) }
+  | { type: "UPDATE_POSTS"; payload: SocialPost[] | ((prev: SocialPost[]) => SocialPost[]) }
+  | { type: "UPDATE_SAVED_POST_IDS"; payload: Set<string> | ((prev: Set<string>) => Set<string>) };
+
+function profileReducer(state: ProfileState, action: ProfileAction): ProfileState {
+  switch (action.type) {
+    case "UPDATE_STATE":
+      return { ...state, ...action.payload };
+    case "UPDATE_STATE_DYNAMIC":
+      return { ...state, ...action.payload(state) };
+    case "UPDATE_CHAT_STATE":
+      return {
+        ...state,
+        chatState: typeof action.payload === "function"
+          ? action.payload(state.chatState)
+          : { ...state.chatState, ...action.payload },
+      };
+    case "UPDATE_POSTS":
+      return {
+        ...state,
+        posts: typeof action.payload === "function"
+          ? action.payload(state.posts)
+          : action.payload,
+      };
+    case "UPDATE_SAVED_POST_IDS":
+      return {
+        ...state,
+        savedPostIds: typeof action.payload === "function"
+          ? action.payload(state.savedPostIds)
+          : action.payload,
+      };
+    default:
+      return state;
+  }
+}
+
+const getInitialState = (currentUserId: string | number | undefined): ProfileState => {
+  let savedIds = new Set<string>();
+  try {
+    const key = `${STORAGE_KEYS.savedSocialPosts}:${currentUserId ?? "guest"}`;
+    const rawValue = localStorage.getItem(key);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    if (Array.isArray(parsedValue)) {
+      savedIds = new Set(parsedValue.filter((v) => typeof v === "string"));
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    profile: null,
+    loading: true,
+    isRestricted: false,
+    settingsOpen: false,
+    settingsTab: "privacy",
+    activeNavSection: "wall",
+    connectionModal: null,
+    postsRefreshKey: 0,
+    editModalOpen: false,
+    relationship: null,
+    relationshipError: null,
+    socialSummary: { followers: [], following: [], friends: [] },
+    socialDataLoading: false,
+    socialError: null,
+    socialIdentityGroups: {
+      followers: new Map(),
+      following: new Map(),
+      friends: new Map(),
+    },
+    posts: [],
+    postsLoading: false,
+    postsError: null,
+    games: [],
+    gamesLoading: false,
+    gameRequirements: new Map(),
+    relationshipBusyAction: null,
+    busyPostId: null,
+    removingFriendUserId: null,
+    chatState: {
+      open: false,
+      room: null,
+      messages: [],
+      text: "",
+      loading: false,
+    },
+    savedPostIds: savedIds,
+  };
+};
+
 export const ProfilePage: React.FC = () => {
   const { openChat: openChatWidget } = useChatWidget();
   const { username } = useParams<{ username: string }>();
@@ -108,12 +233,42 @@ export const ProfilePage: React.FC = () => {
     hydrateProfile,
   } = useCurrentUserProfile();
 
-  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isRestricted, setIsRestricted] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsPanelTab>("privacy");
-  const [activeNavSection, setActiveNavSection] = useState<ProfileNavSection>("wall");
+  const [state, dispatch] = useReducer(profileReducer, null, () => getInitialState(currentUser?.userId));
+  const {
+    profile,
+    loading,
+    isRestricted,
+    settingsOpen,
+    settingsTab,
+    activeNavSection,
+    connectionModal,
+    postsRefreshKey,
+    editModalOpen,
+    relationship,
+    relationshipError,
+    socialSummary,
+    socialDataLoading,
+    socialError,
+    socialIdentityGroups,
+    posts,
+    postsLoading,
+    postsError,
+    games,
+    gamesLoading,
+    gameRequirements,
+    relationshipBusyAction,
+    busyPostId,
+    removingFriendUserId,
+    chatState,
+    savedPostIds,
+  } = state;
+
+  const setLoading = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { loading: val } }), []);
+  const setProfile = useCallback((val: UserProfileResponse | null) => dispatch({ type: "UPDATE_STATE", payload: { profile: val } }), []);
+  const setIsRestricted = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { isRestricted: val } }), []);
+  const setSettingsOpen = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { settingsOpen: val } }), []);
+  const setSettingsTab = useCallback((val: SettingsPanelTab) => dispatch({ type: "UPDATE_STATE", payload: { settingsTab: val } }), []);
+  const setActiveNavSection = useCallback((val: ProfileNavSection) => dispatch({ type: "UPDATE_STATE", payload: { activeNavSection: val } }), []);
 
   const switchNavSection = useCallback((section: ProfileNavSection) => {
     setActiveNavSection(section);
@@ -123,47 +278,63 @@ export const ProfilePage: React.FC = () => {
         block: "start",
       });
     });
+  }, [setActiveNavSection]);
+
+  const setConnectionModal = useCallback((val: typeof connectionModal | ((prev: typeof connectionModal) => typeof connectionModal)) => {
+    dispatch({
+      type: "UPDATE_STATE_DYNAMIC",
+      payload: (currentState) => ({
+        connectionModal: typeof val === "function" ? val(currentState.connectionModal) : val,
+      }),
+    });
   }, []);
-  const [connectionModal, setConnectionModal] = useState<{
-    title: string;
-    group: Map<number, ProfileIdentity>;
-  } | null>(null);
-  const [postsRefreshKey, setPostsRefreshKey] = useState(0);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [relationship, setRelationship] = useState<RelationshipSnapshot | null>(null);
-  const [relationshipError, setRelationshipError] = useState<string | null>(null);
-  const [socialSummary, setSocialSummary] = useState<SocialSummary>({
-    followers: [],
-    following: [],
-    friends: [],
-  });
-  const [socialDataLoading, setSocialDataLoading] = useState(false);
-  const [socialError, setSocialError] = useState<string | null>(null);
-  const [socialIdentityGroups, setSocialIdentityGroups] = useState<{
-    followers: Awaited<ReturnType<typeof resolveIdentities>>;
-    following: Awaited<ReturnType<typeof resolveIdentities>>;
-    friends: Awaited<ReturnType<typeof resolveIdentities>>;
-  }>({
-    followers: new Map(),
-    following: new Map(),
-    friends: new Map(),
-  });
-  const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [postsLoading, setPostsLoading] = useState(false);
-  const [postsError, setPostsError] = useState<string | null>(null);
-  const [games, setGames] = useState<Game[]>([]);
-  const [gamesLoading, setGamesLoading] = useState(false);
-  const [gameRequirements, setGameRequirements] = useState<Map<number, GameSystemRequirement>>(new Map());
-  const [relationshipBusyAction, setRelationshipBusyAction] = useState<string | null>(null);
-  const [busyPostId, setBusyPostId] = useState<number | string | null>(null);
-  const [removingFriendUserId, setRemovingFriendUserId] = useState<number | null>(null);
-  const [chatState, setChatState] = useState<ChatState>({
-    open: false,
-    room: null,
-    messages: [],
-    text: "",
-    loading: false,
-  });
+  const setPostsRefreshKey = useCallback((val: number | ((prev: number) => number)) => {
+    dispatch({
+      type: "UPDATE_STATE_DYNAMIC",
+      payload: (currentState) => ({
+        postsRefreshKey: typeof val === "function" ? val(currentState.postsRefreshKey) : val,
+      }),
+    });
+  }, []);
+  const setEditModalOpen = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { editModalOpen: val } }), []);
+  const setRelationship = useCallback((val: RelationshipSnapshot | null | ((prev: RelationshipSnapshot | null) => RelationshipSnapshot | null)) => {
+    dispatch({
+      type: "UPDATE_STATE_DYNAMIC",
+      payload: (currentState) => ({
+        relationship: typeof val === "function" ? val(currentState.relationship) : val,
+      }),
+    });
+  }, []);
+  const setRelationshipError = useCallback((val: string | null) => dispatch({ type: "UPDATE_STATE", payload: { relationshipError: val } }), []);
+  const setSocialSummary = useCallback((val: SocialSummary | ((prev: SocialSummary) => SocialSummary)) => {
+    dispatch({
+      type: "UPDATE_STATE_DYNAMIC",
+      payload: (currentState) => ({
+        socialSummary: typeof val === "function" ? val(currentState.socialSummary) : val,
+      }),
+    });
+  }, []);
+  const setSocialDataLoading = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { socialDataLoading: val } }), []);
+  const setSocialError = useCallback((val: string | null) => dispatch({ type: "UPDATE_STATE", payload: { socialError: val } }), []);
+  const setSocialIdentityGroups = useCallback((val: typeof socialIdentityGroups | ((prev: typeof socialIdentityGroups) => typeof socialIdentityGroups)) => {
+    dispatch({
+      type: "UPDATE_STATE_DYNAMIC",
+      payload: (currentState) => ({
+        socialIdentityGroups: typeof val === "function" ? val(currentState.socialIdentityGroups) : val,
+      }),
+    });
+  }, []);
+  const setPosts = useCallback((val: SocialPost[] | ((prev: SocialPost[]) => SocialPost[])) => dispatch({ type: "UPDATE_POSTS", payload: val }), []);
+  const setPostsLoading = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { postsLoading: val } }), []);
+  const setPostsError = useCallback((val: string | null) => dispatch({ type: "UPDATE_STATE", payload: { postsError: val } }), []);
+  const setGames = useCallback((val: Game[]) => dispatch({ type: "UPDATE_STATE", payload: { games: val } }), []);
+  const setGamesLoading = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { gamesLoading: val } }), []);
+  const setGameRequirements = useCallback((val: Map<number, GameSystemRequirement>) => dispatch({ type: "UPDATE_STATE", payload: { gameRequirements: val } }), []);
+  const setRelationshipBusyAction = useCallback((val: string | null) => dispatch({ type: "UPDATE_STATE", payload: { relationshipBusyAction: val } }), []);
+  const setBusyPostId = useCallback((val: number | string | null) => dispatch({ type: "UPDATE_STATE", payload: { busyPostId: val } }), []);
+  const setRemovingFriendUserId = useCallback((val: number | null) => dispatch({ type: "UPDATE_STATE", payload: { removingFriendUserId: val } }), []);
+  const setChatState = useCallback((val: ChatState | ((prev: ChatState) => ChatState)) => dispatch({ type: "UPDATE_CHAT_STATE", payload: val }), []);
+  const setSavedPostIds = useCallback((val: Set<string> | ((prev: Set<string>) => Set<string>)) => dispatch({ type: "UPDATE_SAVED_POST_IDS", payload: val }), []);
 
   const targetUsername = username || currentUser?.username;
   const currentUsername = currentUser?.username;
@@ -175,20 +346,11 @@ export const ProfilePage: React.FC = () => {
 
   const savedPostStorageKey = `${STORAGE_KEYS.savedSocialPosts}:${currentUserId ?? "guest"}`;
 
-  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(() => {
-    try {
-      const key = `${STORAGE_KEYS.savedSocialPosts}:${currentUser?.userId ?? "guest"}`;
-      const rawValue = localStorage.getItem(key);
-      const parsedValue = rawValue ? JSON.parse(rawValue) : [];
-      if (Array.isArray(parsedValue)) {
-        return new Set(parsedValue.filter((v) => typeof v === "string"));
-      }
-    } catch {
-      // ignore
-    }
-    return new Set<string>();
-  });
   const savedPostIdsRef = useRef<Set<string>>(savedPostIds);
+  useEffect(() => {
+    savedPostIdsRef.current = savedPostIds;
+  }, [savedPostIds]);
+
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(() => {
@@ -206,16 +368,14 @@ export const ProfilePage: React.FC = () => {
           if (isSame) return prev;
           return nextSet;
         });
-        savedPostIdsRef.current = nextSet;
       } catch {
         setSavedPostIds(new Set<string>());
-        savedPostIdsRef.current = new Set<string>();
       }
     });
     return () => {
       active = false;
     };
-  }, [savedPostStorageKey]);
+  }, [savedPostStorageKey, setSavedPostIds]);
 
   const musicVideoId = profile ? getYouTubeVideoId(profile.profileMusicUrl) : null;
   const {
@@ -229,16 +389,20 @@ export const ProfilePage: React.FC = () => {
     suspended: editModalOpen,
   });
 
-  const handleProfileUpdated = (updated: UserProfileResponse) => {
+  const handleProfileUpdated = useCallback((updated: UserProfileResponse) => {
     setProfile(updated);
     void refreshCurrentUserProfile();
-  };
+  }, [setProfile, refreshCurrentUserProfile]);
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditModalOpen(false);
+  }, [setEditModalOpen]);
 
   const editModal =
     editModalOpen && profile ? (
       <EditProfileModal
         profile={profile}
-        onClose={() => setEditModalOpen(false)}
+        onClose={handleCloseEditModal}
         onSaveSuccess={handleProfileUpdated}
       />
     ) : null;
@@ -300,7 +464,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [targetUsername, isOwnProfile, currentUsername, showToast, hydrateProfile]);
+  }, [targetUsername, isOwnProfile, currentUsername, showToast, hydrateProfile, setLoading, setProfile, setIsRestricted]);
 
   useEffect(() => {
     if (!profile) return;
@@ -318,10 +482,15 @@ export const ProfilePage: React.FC = () => {
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, setSettingsOpen]);
+
+  const profileDisplayName = profile?.displayName;
+  const profileUsername = profile?.username;
+  const profileAvatarUrl = profile?.avatarUrl;
+  const profileFavoriteCategories = profile?.favoriteCategories;
 
   useEffect(() => {
-    if (!profile) return;
+    if (!Number.isFinite(profileUserId)) return;
     let active = true;
     void Promise.resolve().then(async () => {
       if (!currentUserId || isOwnProfile || !Number.isFinite(profileUserId)) {
@@ -348,7 +517,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [profileUserId, currentUserId, isOwnProfile, profile]);
+  }, [profileUserId, currentUserId, isOwnProfile, setRelationship, setRelationshipError, setRelationshipBusyAction]);
 
   const visibility = profile?.sectionVisibility ?? DEFAULT_VISIBILITY;
   const displayRole = isOwnProfile
@@ -356,7 +525,7 @@ export const ProfilePage: React.FC = () => {
     : profile?.role ?? "USER";
 
   useEffect(() => {
-    if (!profile || !Number.isFinite(profileUserId)) return;
+    if (!Number.isFinite(profileUserId)) return;
     let active = true;
     void Promise.resolve().then(async () => {
       setSocialDataLoading(true);
@@ -394,10 +563,10 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [profileUserId, profile, resolveIdentities, visibility.showFollowerList, visibility.showFriendList]);
+  }, [profileUserId, resolveIdentities, visibility.showFollowerList, visibility.showFriendList, setSocialDataLoading, setSocialError, setSocialSummary, setSocialIdentityGroups]);
 
   useEffect(() => {
-    if (!profile || !Number.isFinite(profileUserId)) return;
+    if (!Number.isFinite(profileUserId)) return;
     let active = true;
     void Promise.resolve().then(async () => {
       setPostsLoading(true);
@@ -423,13 +592,13 @@ export const ProfilePage: React.FC = () => {
         const convertedPosts: SocialPost[] = backendPosts.map((item) => {
           const isOwnerPost = item.userId === profileUserId;
           const authorName = isOwnerPost
-            ? (profile.displayName?.trim() || profile.username)
+            ? (profileDisplayName?.trim() || profileUsername || "Oyuncu")
             : (identityMap.get(item.userId)?.displayName || `Oyuncu #${item.userId}`);
           const authorUsername = isOwnerPost
-            ? profile.username
+            ? (profileUsername || "oyuncu")
             : (identityMap.get(item.userId)?.username || `oyuncu-${item.userId}`);
           const authorAvatar = isOwnerPost
-            ? profile.avatarUrl
+            ? profileAvatarUrl
             : identityMap.get(item.userId)?.avatarUrl;
 
           return {
@@ -476,13 +645,13 @@ export const ProfilePage: React.FC = () => {
           .map((item) => {
             const isOwnerPost = item.userId === profileUserId;
             const authorName = isOwnerPost
-              ? (profile.displayName?.trim() || profile.username)
+              ? (profileDisplayName?.trim() || profileUsername || "Oyuncu")
               : (identityMap.get(item.userId)?.displayName || `Oyuncu #${item.userId}`);
             const authorUsername = isOwnerPost
-              ? profile.username
+              ? (profileUsername || "oyuncu")
               : (identityMap.get(item.userId)?.username || `oyuncu-${item.userId}`);
             const authorAvatar = isOwnerPost
-              ? profile.avatarUrl
+              ? profileAvatarUrl
               : identityMap.get(item.userId)?.avatarUrl;
 
             const details = [
@@ -543,14 +712,14 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [profileUserId, profile, resolveIdentities, postsRefreshKey, relationship, isOwnProfile, currentUserId]);
+  }, [profileUserId, profileDisplayName, profileUsername, profileAvatarUrl, resolveIdentities, postsRefreshKey, relationship, isOwnProfile, currentUserId, setPostsLoading, setPosts, setPostsError]);
 
   useEffect(() => {
-    if (!profile || !visibility.showGameLibrary) return;
+    if (!Number.isFinite(profileUserId) || !visibility.showGameLibrary) return;
     let active = true;
     void Promise.resolve().then(async () => {
       setGamesLoading(true);
-      const category = (profile.favoriteCategories || "").split(",")[0]?.trim();
+      const category = (profileFavoriteCategories || "").split(",")[0]?.trim();
       try {
         const result = await gameService.filterGames({ genre: category || undefined });
         if (!active) return;
@@ -579,7 +748,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [profile, visibility.showGameLibrary]);
+  }, [profileUserId, profileFavoriteCategories, visibility.showGameLibrary, setGamesLoading, setGames, setGameRequirements]);
 
   const badges = useMemo(
     () =>
@@ -607,7 +776,7 @@ export const ProfilePage: React.FC = () => {
     [socialSummary, posts.length],
   );
 
-  const openChat = async () => {
+  const openChat = useCallback(async () => {
     if (!currentUserId || !profileUserId || !profile || isOwnProfile) return;
 
     setRelationshipBusyAction("chat");
@@ -625,25 +794,31 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setRelationshipBusyAction(null);
     }
-  };
+  }, [currentUserId, profileUserId, profile, isOwnProfile, openChatWidget, showToast, setRelationshipBusyAction]);
 
-  const sendMessage = async () => {
-    if (!chatState.room || !chatState.text.trim()) return;
+  const chatStateRef = useRef(chatState);
+  useEffect(() => {
+    chatStateRef.current = chatState;
+  }, [chatState]);
+
+  const sendMessage = useCallback(async () => {
+    const currentChat = chatStateRef.current;
+    if (!currentChat.room || !currentChat.text.trim()) return;
     setChatState((prev) => ({ ...prev, loading: true }));
     try {
       await socialService.sendMessage({
-        chatRoomId: chatState.room.id,
-        content: chatState.text.trim(),
+        chatRoomId: currentChat.room.id,
+        content: currentChat.text.trim(),
       });
-      const messages = await socialService.getChatRoomMessages(chatState.room.id);
+      const messages = await socialService.getChatRoomMessages(currentChat.room.id);
       setChatState((prev) => ({ ...prev, messages, text: "", loading: false }));
     } catch {
       setChatState((prev) => ({ ...prev, loading: false }));
       showToast("Mesaj gönderilemedi.", "error");
     }
-  };
+  }, [showToast, setChatState]);
 
-  const attachCommentAuthors = async (comments: SocialComment[]) => {
+  const attachCommentAuthors = useCallback(async (comments: SocialComment[]) => {
     const identityMap = await resolveIdentities(
       comments.flatMap((comment) =>
         [comment.userId, comment.replyingToUserId].filter(
@@ -699,9 +874,9 @@ export const ProfilePage: React.FC = () => {
         replyingToName,
       };
     });
-  };
+  }, [resolveIdentities, profileUserId, currentUserId, loggedInDisplayName, currentUser, loggedInAvatarUrl, profile]);
 
-  const handleLoadComments = async (postId: number | string) => {
+  const handleLoadComments = useCallback(async (postId: number | string) => {
     if (typeof postId !== "number") return;
     setBusyPostId(postId);
     try {
@@ -731,9 +906,9 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, attachCommentAuthors, setPosts, setPostsError]);
 
-  const handleAddComment = async (postId: number | string, content: string) => {
+  const handleAddComment = useCallback(async (postId: number | string, content: string) => {
     if (typeof postId !== "number") return;
     setBusyPostId(postId);
     try {
@@ -755,9 +930,9 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, attachCommentAuthors, setPosts, setPostsError]);
 
-  const handleAddReply = async (
+  const handleAddReply = useCallback(async (
     postId: number | string,
     parentCommentId: number,
     content: string,
@@ -799,9 +974,9 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, attachCommentAuthors, setPosts, setPostsError]);
 
-  const handleToggleCommentLike = async (
+  const handleToggleCommentLike = useCallback(async (
     postId: number | string,
     commentId: number,
     parentCommentId: number | null | undefined,
@@ -858,9 +1033,9 @@ export const ProfilePage: React.FC = () => {
     } catch (error) {
       setPostsError(getErrorMessage(error, "Yorum beğenisi güncellenemedi."));
     }
-  };
+  }, [setPosts, setPostsError]);
 
-  const handleDeleteComment = async (
+  const handleDeleteComment = useCallback(async (
     postId: number | string,
     commentId: number,
     parentCommentId?: number | null,
@@ -909,9 +1084,9 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, setPosts, setPostsError]);
 
-  const handleToggleLike = async (postId: number | string, likedByMe: boolean) => {
+  const handleToggleLike = useCallback(async (postId: number | string, likedByMe: boolean) => {
     if (typeof postId !== "number") return;
     setBusyPostId(postId);
     try {
@@ -925,9 +1100,9 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, setPosts, setPostsError]);
 
-  const handleLoadPostLikes = async (post: SocialPost): Promise<SocialUser[]> => {
+  const handleLoadPostLikes = useCallback(async (post: SocialPost): Promise<SocialUser[]> => {
     if (typeof post.id !== "number") return [];
     try {
       const likes = await socialService.getPostLikes(post.id);
@@ -943,7 +1118,7 @@ export const ProfilePage: React.FC = () => {
     } catch {
       return [];
     }
-  };
+  }, [resolveIdentities]);
 
   const handleCreatePost = useCallback(
     async (payload: { content: string; visibility?: PostVisibility }) => {
@@ -954,10 +1129,10 @@ export const ProfilePage: React.FC = () => {
       setPostsRefreshKey((value) => value + 1);
       showToast("Duvar gönderin paylaşıldı.", "success");
     },
-    [showToast],
+    [showToast, setPostsRefreshKey],
   );
 
-  const handleDeletePost = async (postId: number | string) => {
+  const handleDeletePost = useCallback(async (postId: number | string) => {
     if (typeof postId !== "number") return;
     setBusyPostId(postId);
     try {
@@ -969,9 +1144,9 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, setPosts, showToast, setPostsError]);
 
-  const handleUpdatePost = async (
+  const handleUpdatePost = useCallback(async (
     postId: number | string,
     request: SocialPostUpdateRequest,
   ) => {
@@ -996,13 +1171,13 @@ export const ProfilePage: React.FC = () => {
               media: updatedPost.media?.length
                 ? updatedPost.media.map((mediaItem) => ({
                   url: getImageUrl(mediaItem.url),
-                  alt: "GÃ¶nderi medyasÄ±",
+                  alt: "Gönderi medyası",
                   type: mediaItem.mediaType === "VIDEO" ? "video" : "image",
                 }))
                 : updatedPost.imageUrl
                   ? [{
                     url: getImageUrl(updatedPost.imageUrl),
-                    alt: "GÃ¶nderi gÃ¶rseli",
+                    alt: "Gönderi görseli",
                     type: updatedPost.mediaType === "VIDEO" ? "video" : "image",
                   }]
                   : [],
@@ -1013,15 +1188,15 @@ export const ProfilePage: React.FC = () => {
             : post,
         ),
       );
-      showToast("GÃ¶nderi gÃ¼ncellendi.", "success");
+      showToast("Gönderi güncellendi.", "success");
     } catch (error) {
-      setPostsError(getErrorMessage(error, "GÃ¶nderi gÃ¼ncellenemedi."));
+      setPostsError(getErrorMessage(error, "Gönderi güncellenemedi."));
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, setPosts, showToast, setPostsError]);
 
-  const handleUpdateComment = async (
+  const handleUpdateComment = useCallback(async (
     postId: number | string,
     commentId: number,
     content: string,
@@ -1075,13 +1250,13 @@ export const ProfilePage: React.FC = () => {
             : post,
         ),
       );
-      showToast("Yorum gÃ¼ncellendi.", "success");
+      showToast("Yorum güncellendi.", "success");
     } catch (error) {
-      setPostsError(getErrorMessage(error, "Yorum gÃ¼ncellenemedi."));
+      setPostsError(getErrorMessage(error, "Yorum güncellenemedi."));
     } finally {
       setBusyPostId(null);
     }
-  };
+  }, [setBusyPostId, setPosts, showToast, setPostsError]);
 
   const handleCloseLookingForPlayerPost = useCallback(
     async (postId: number) => {
@@ -1098,7 +1273,7 @@ export const ProfilePage: React.FC = () => {
         setBusyPostId(null);
       }
     },
-    [showToast],
+    [showToast, setBusyPostId, setPosts, setPostsError],
   );
 
   const handleCancelLookingForPlayerPost = useCallback(
@@ -1116,7 +1291,7 @@ export const ProfilePage: React.FC = () => {
         setBusyPostId(null);
       }
     },
-    [showToast],
+    [showToast, setBusyPostId, setPosts, setPostsError],
   );
 
   const handleRemoveFriend = useCallback(
@@ -1147,10 +1322,10 @@ export const ProfilePage: React.FC = () => {
         setRemovingFriendUserId(null);
       }
     },
-    [currentUserId, showToast],
+    [currentUserId, showToast, setRemovingFriendUserId, setSocialSummary, setSocialIdentityGroups, setConnectionModal],
   );
 
-  const handleToggleFollowAuthor = async (
+  const handleToggleFollowAuthor = useCallback(async (
     authorUserId: number,
     followedByMe: boolean,
   ) => {
@@ -1177,9 +1352,9 @@ export const ProfilePage: React.FC = () => {
     } catch (error) {
       setPostsError(getErrorMessage(error, "Takip işlemi tamamlanamadı."));
     }
-  };
+  }, [profileUserId, setPosts, setRelationship, showToast, setPostsError]);
 
-  const handleSendFriendRequest = async (authorUserId: number) => {
+  const handleSendFriendRequest = useCallback(async (authorUserId: number) => {
     try {
       const request = await socialService.sendFriendRequest({
         receiverUserId: authorUserId,
@@ -1198,9 +1373,9 @@ export const ProfilePage: React.FC = () => {
     } catch (error) {
       setPostsError(getErrorMessage(error, "Arkadaşlık isteği gönderilemedi."));
     }
-  };
+  }, [profileUserId, setPosts, setRelationship, showToast, setPostsError]);
 
-  const handleCancelFriendRequest = async (
+  const handleCancelFriendRequest = useCallback(async (
     requestId: number,
     authorUserId: number,
   ) => {
@@ -1220,9 +1395,9 @@ export const ProfilePage: React.FC = () => {
     } catch (error) {
       setPostsError(getErrorMessage(error, "Arkadaşlık isteği iptal edilemedi."));
     }
-  };
+  }, [profileUserId, setPosts, setRelationship, showToast, setPostsError]);
 
-  const handleStartChat = async (post: SocialPost) => {
+  const handleStartChat = useCallback(async (post: SocialPost) => {
     if (typeof post.authorUserId !== "number") return;
     try {
       cacheUserIdentity(post.authorUserId, post.author.username);
@@ -1234,9 +1409,9 @@ export const ProfilePage: React.FC = () => {
     } catch (error) {
       setPostsError(getErrorMessage(error, "Sohbet başlatılamadı."));
     }
-  };
+  }, [openChatWidget, setPostsError]);
 
-  const handleBlockAuthor = async (authorUserId: number) => {
+  const handleBlockAuthor = useCallback(async (authorUserId: number) => {
     try {
       await socialService.blockUser({ blockedUserId: authorUserId });
       setPosts((current) => current.filter((post) => post.authorUserId !== authorUserId));
@@ -1247,9 +1422,9 @@ export const ProfilePage: React.FC = () => {
     } catch (error) {
       setPostsError(getErrorMessage(error, "Engelleme işlemi tamamlanamadı."));
     }
-  };
+  }, [profileUserId, setPosts, setRelationship, showToast, setPostsError]);
 
-  const handleSharePost = async (post: SocialPost) => {
+  const handleSharePost = useCallback(async (post: SocialPost) => {
     const shareText = post.content.slice(0, 180);
     try {
       if (navigator.share) {
@@ -1265,12 +1440,13 @@ export const ProfilePage: React.FC = () => {
     } catch {
       showToast("Paylaşım tamamlanamadı.", "error");
     }
-  };
+  }, [showToast]);
 
-  const handleToggleSave = (postId: number | string) => {
+  const handleToggleSave = useCallback((postId: number | string) => {
     const normalizedPostId = String(postId);
-    const nextSavedPostIds = new Set(savedPostIds);
-    if (nextSavedPostIds.has(normalizedPostId)) {
+    const nextSavedPostIds = new Set(savedPostIdsRef.current);
+    const hasId = nextSavedPostIds.has(normalizedPostId);
+    if (hasId) {
       nextSavedPostIds.delete(normalizedPostId);
     } else {
       nextSavedPostIds.add(normalizedPostId);
@@ -1286,11 +1462,157 @@ export const ProfilePage: React.FC = () => {
     setPosts((current) =>
       current.map((post) =>
         post.id === postId
-          ? { ...post, savedByMe: nextSavedPostIds.has(normalizedPostId) }
+          ? { ...post, savedByMe: !hasId }
           : post,
       ),
     );
-  };
+  }, [savedPostStorageKey, setSavedPostIds, setPosts]);
+
+  const handleHeroToggleFollow = useCallback(async () => {
+    if (!profileUserId || !relationship) return;
+    setRelationshipBusyAction("follow");
+    try {
+      if (relationship.isFollowing) {
+        await socialService.unfollowUser(profileUserId);
+      } else {
+        await socialService.followUser({ followingUserId: profileUserId });
+      }
+      setRelationship((prev) => (prev ? { ...prev, isFollowing: !prev.isFollowing } : prev));
+    } finally {
+      setRelationshipBusyAction(null);
+    }
+  }, [profileUserId, relationship, setRelationshipBusyAction, setRelationship]);
+
+  const handleHeroFriendAction = useCallback(async () => {
+    if (!profileUserId || !relationship) return;
+    setRelationshipBusyAction("friend");
+    try {
+      if (relationship.hasIncomingRequestFromTarget) {
+        const incoming = await socialService.getIncomingFriendRequests(currentUserId as number);
+        const request = incoming.find((item) => item.senderUserId === profileUserId);
+        if (request) await socialService.acceptFriendRequest(request.id);
+        setRelationship((prev) =>
+          prev
+            ? {
+              ...prev,
+              isFriend: true,
+              hasIncomingRequestFromTarget: false,
+              hasOutgoingRequestToTarget: false,
+            }
+            : prev,
+        );
+      } else {
+        await socialService.sendFriendRequest({ receiverUserId: profileUserId });
+        setRelationship((prev) =>
+          prev ? { ...prev, hasOutgoingRequestToTarget: true } : prev,
+        );
+      }
+    } finally {
+      setRelationshipBusyAction(null);
+    }
+  }, [profileUserId, relationship, currentUserId, setRelationshipBusyAction, setRelationship]);
+
+  const handleHeroRejectFriendRequest = useCallback(async () => {
+    if (!profileUserId || !relationship || !currentUserId) return;
+    setRelationshipBusyAction("reject-friend");
+    try {
+      const incoming = await socialService.getIncomingFriendRequests(currentUserId);
+      const request = incoming.find((item) => item.senderUserId === profileUserId);
+      if (request) {
+        await socialService.rejectFriendRequest(request.id);
+      }
+      setRelationship((prev) =>
+        prev ? { ...prev, hasIncomingRequestFromTarget: false } : prev,
+      );
+    } finally {
+      setRelationshipBusyAction(null);
+    }
+  }, [profileUserId, relationship, currentUserId, setRelationshipBusyAction, setRelationship]);
+
+  const handleHeroToggleBlock = useCallback(async () => {
+    if (!profileUserId || !relationship || !currentUserId) return;
+    setRelationshipBusyAction("block");
+    try {
+      if (relationship.isBlockedByMe) {
+        await socialService.unblockUser(profileUserId);
+        setRelationship((prev) => (prev ? { ...prev, isBlockedByMe: false } : prev));
+      } else {
+        await socialService.blockUser({ blockedUserId: profileUserId });
+        setRelationship((prev) => (prev ? { ...prev, isBlockedByMe: true } : prev));
+      }
+    } finally {
+      setRelationshipBusyAction(null);
+    }
+  }, [profileUserId, relationship, currentUserId, setRelationshipBusyAction, setRelationship]);
+
+  const handleOpenConnectionModal = useCallback((title: string, group: Map<number, ProfileIdentity>) => {
+    setConnectionModal({ title, group });
+  }, [setConnectionModal]);
+
+  const handleCloseConnectionModal = useCallback(() => {
+    setConnectionModal(null);
+  }, [setConnectionModal]);
+
+  const handleCloseSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, [setSettingsOpen]);
+
+  const handleOpenEditModal = useCallback(() => {
+    setEditModalOpen(true);
+  }, [setEditModalOpen]);
+
+  const handleOpenSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, [setSettingsOpen]);
+
+  const handleCloseChat = useCallback(() => {
+    setChatState((prev) => ({ ...prev, open: false }));
+  }, [setChatState]);
+
+  const handleChatTextChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setChatState((prev) => ({ ...prev, text: event.target.value }));
+  }, [setChatState]);
+
+  const handleFollowersClick = useCallback(() => {
+    setConnectionModal({
+      title: "Takipçiler",
+      group: socialIdentityGroups.followers,
+    });
+  }, [setConnectionModal, socialIdentityGroups.followers]);
+
+  const handleFollowingClick = useCallback(() => {
+    setConnectionModal({
+      title: "Takip Edilenler",
+      group: socialIdentityGroups.following,
+    });
+  }, [setConnectionModal, socialIdentityGroups.following]);
+
+  const handleFriendsClick = useCallback(() => {
+    setConnectionModal({
+      title: "Arkadaşlar",
+      group: socialIdentityGroups.friends,
+    });
+  }, [setConnectionModal, socialIdentityGroups.friends]);
+
+  const handlePostsClick = useCallback(() => {
+    switchNavSection("wall");
+  }, [switchNavSection]);
+
+  const handleRetryRelationship = useCallback(() => {
+    if (!currentUserId || !Number.isFinite(profileUserId)) return;
+    setRelationshipBusyAction("snapshot");
+    setRelationshipError(null);
+    void socialProfileService
+      .getRelationshipSnapshot(currentUserId, profileUserId)
+      .then(setRelationship)
+      .catch(() => setRelationshipError("Sosyal bağlantı bilgisi yüklenemedi."))
+      .finally(() => setRelationshipBusyAction(null));
+  }, [currentUserId, profileUserId, setRelationship, setRelationshipError, setRelationshipBusyAction]);
+
+  const handleSectionChange = useCallback((section: ProfileNavSection) => {
+    setSettingsOpen(false);
+    switchNavSection(section);
+  }, [setSettingsOpen, switchNavSection]);
 
   const hasHardware = visibility.showHardware;
   const hasHardwareData = Boolean(
@@ -1387,8 +1709,8 @@ export const ProfilePage: React.FC = () => {
         badges={badges}
         isOwnProfile={isOwnProfile}
         lastSeenLabel={lastSeenLabel}
-        onEditClick={() => setEditModalOpen(true)}
-        onSettingsClick={() => setSettingsOpen(true)}
+        onEditClick={handleOpenEditModal}
+        onSettingsClick={handleOpenSettings}
         profile={profile}
         role={displayRole}
         socialActions={
@@ -1396,79 +1718,10 @@ export const ProfilePage: React.FC = () => {
             <ProfileSocialActions
               relationship={relationship}
               busyAction={relationshipBusyAction}
-              onToggleFollow={async () => {
-                if (!profileUserId || !relationship) return;
-                setRelationshipBusyAction("follow");
-                try {
-                  if (relationship.isFollowing) {
-                    await socialService.unfollowUser(profileUserId);
-                  } else {
-                    await socialService.followUser({ followingUserId: profileUserId });
-                  }
-                  setRelationship((prev) => (prev ? { ...prev, isFollowing: !prev.isFollowing } : prev));
-                } finally {
-                  setRelationshipBusyAction(null);
-                }
-              }}
-              onFriendAction={async () => {
-                if (!profileUserId || !relationship) return;
-                setRelationshipBusyAction("friend");
-                try {
-                  if (relationship.hasIncomingRequestFromTarget) {
-                    const incoming = await socialService.getIncomingFriendRequests(currentUserId as number);
-                    const request = incoming.find((item) => item.senderUserId === profileUserId);
-                    if (request) await socialService.acceptFriendRequest(request.id);
-                    setRelationship((prev) =>
-                      prev
-                        ? {
-                          ...prev,
-                          isFriend: true,
-                          hasIncomingRequestFromTarget: false,
-                          hasOutgoingRequestToTarget: false,
-                        }
-                        : prev,
-                    );
-                  } else {
-                    await socialService.sendFriendRequest({ receiverUserId: profileUserId });
-                    setRelationship((prev) =>
-                      prev ? { ...prev, hasOutgoingRequestToTarget: true } : prev,
-                    );
-                  }
-                } finally {
-                  setRelationshipBusyAction(null);
-                }
-              }}
-              onRejectFriendRequest={async () => {
-                if (!profileUserId || !relationship || !currentUserId) return;
-                setRelationshipBusyAction("reject-friend");
-                try {
-                  const incoming = await socialService.getIncomingFriendRequests(currentUserId);
-                  const request = incoming.find((item) => item.senderUserId === profileUserId);
-                  if (request) {
-                    await socialService.rejectFriendRequest(request.id);
-                  }
-                  setRelationship((prev) =>
-                    prev ? { ...prev, hasIncomingRequestFromTarget: false } : prev,
-                  );
-                } finally {
-                  setRelationshipBusyAction(null);
-                }
-              }}
-              onToggleBlock={async () => {
-                if (!profileUserId || !relationship || !currentUserId) return;
-                setRelationshipBusyAction("block");
-                try {
-                  if (relationship.isBlockedByMe) {
-                    await socialService.unblockUser(profileUserId);
-                    setRelationship((prev) => (prev ? { ...prev, isBlockedByMe: false } : prev));
-                  } else {
-                    await socialService.blockUser({ blockedUserId: profileUserId });
-                    setRelationship((prev) => (prev ? { ...prev, isBlockedByMe: true } : prev));
-                  }
-                } finally {
-                  setRelationshipBusyAction(null);
-                }
-              }}
+              onToggleFollow={handleHeroToggleFollow}
+              onFriendAction={handleHeroFriendAction}
+              onRejectFriendRequest={handleHeroRejectFriendRequest}
+              onToggleBlock={handleHeroToggleBlock}
               onStartChat={openChat}
             />
           ) : undefined
@@ -1479,43 +1732,16 @@ export const ProfilePage: React.FC = () => {
         followers={formatStatCount(visibility.showFollowerList, counts.followers)}
         following={formatStatCount(visibility.showFollowerList, counts.following)}
         friends={formatStatCount(visibility.showFriendList, counts.friends)}
-        onFollowersClick={
-          visibility.showFollowerList
-            ? () =>
-              setConnectionModal({
-                title: "Takipçiler",
-                group: socialIdentityGroups.followers,
-              })
-            : undefined
-        }
-        onFollowingClick={
-          visibility.showFollowerList
-            ? () =>
-              setConnectionModal({
-                title: "Takip Edilenler",
-                group: socialIdentityGroups.following,
-              })
-            : undefined
-        }
-        onFriendsClick={
-          visibility.showFriendList
-            ? () =>
-              setConnectionModal({
-                title: "Arkadaşlar",
-                group: socialIdentityGroups.friends,
-              })
-            : undefined
-        }
-        onPostsClick={() => switchNavSection("wall")}
+        onFollowersClick={visibility.showFollowerList ? handleFollowersClick : undefined}
+        onFollowingClick={visibility.showFollowerList ? handleFollowingClick : undefined}
+        onFriendsClick={visibility.showFriendList ? handleFriendsClick : undefined}
+        onPostsClick={handlePostsClick}
         posts={`${counts.posts}${counts.posts >= 200 ? "+" : ""}`}
       />
 
       <ProfileQuickNav
         activeSection={settingsOpen ? "settings" : activeNavSection}
-        onSectionChange={(section) => {
-          setSettingsOpen(false);
-          switchNavSection(section);
-        }}
+        onSectionChange={handleSectionChange}
         showHardware={hasHardware}
       />
 
@@ -1525,16 +1751,7 @@ export const ProfilePage: React.FC = () => {
           <button
             className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/10"
             disabled={relationshipBusyAction === "snapshot"}
-            onClick={() => {
-              if (!currentUserId || !Number.isFinite(profileUserId)) return;
-              setRelationshipBusyAction("snapshot");
-              setRelationshipError(null);
-              void socialProfileService
-                .getRelationshipSnapshot(currentUserId, profileUserId)
-                .then(setRelationship)
-                .catch(() => setRelationshipError("Sosyal bağlantı bilgisi yüklenemedi."))
-                .finally(() => setRelationshipBusyAction(null));
-            }}
+            onClick={handleRetryRelationship}
             type="button"
           >
             Tekrar dene
@@ -1593,7 +1810,7 @@ export const ProfilePage: React.FC = () => {
 
         <div className="space-y-8">
           <ProfileSocialSidebar
-            onOpenList={(title, group) => setConnectionModal({ title, group })}
+            onOpenList={handleOpenConnectionModal}
             showFollowers={visibility.showFollowerList}
             showFollowing={visibility.showFollowerList}
             showFriends={visibility.showFriendList}
@@ -1629,7 +1846,7 @@ export const ProfilePage: React.FC = () => {
       <ProfileConnectionListModal
         canRemove={isOwnProfile && connectionModal?.title === "Arkadaşlar"}
         identities={connectionModal?.group ?? new Map()}
-        onClose={() => setConnectionModal(null)}
+        onClose={handleCloseConnectionModal}
         onRemove={handleRemoveFriend}
         open={Boolean(connectionModal)}
         removingUserId={removingFriendUserId}
@@ -1639,7 +1856,7 @@ export const ProfilePage: React.FC = () => {
       <ProfileSettingsPanel
         activeTab={settingsTab}
         isAdmin={isAdmin}
-        onClose={() => setSettingsOpen(false)}
+        onClose={handleCloseSettings}
         onTabChange={setSettingsTab}
         open={settingsOpen}
       />
@@ -1692,7 +1909,7 @@ export const ProfilePage: React.FC = () => {
               <button
                 type="button"
                 className="rounded p-1 text-zinc-400 hover:text-white"
-                onClick={() => setChatState((prev) => ({ ...prev, open: false }))}
+                onClick={handleCloseChat}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1707,14 +1924,14 @@ export const ProfilePage: React.FC = () => {
             <div className="flex gap-2 border-t border-zinc-800 p-3">
               <input
                 value={chatState.text}
-                onChange={(event) => setChatState((prev) => ({ ...prev, text: event.target.value }))}
+                onChange={handleChatTextChange}
                 className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-white outline-none"
                 placeholder="Mesaj yaz..."
               />
               <button
                 type="button"
                 disabled={chatState.loading || !chatState.text.trim()}
-                onClick={() => void sendMessage()}
+                onClick={sendMessage}
                 className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
               >
                 <Send className="h-3.5 w-3.5" />
