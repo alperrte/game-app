@@ -51,9 +51,11 @@ export const SOCIAL_ROUTES = {
     feed: ROUTES.home,
     explore: "/explore",
     communities: "/communities",
+    communityDetail: (communityId: number | string) => `/communities/${communityId}`,
     events: "/events",
     messages: "/messages",
     chatRoom: (roomId: number | string) => `/messages/${roomId}`,
+    postDetail: (postId: number | string) => `/posts/${postId}`,
 } as const;
 
 /*
@@ -62,8 +64,10 @@ export const SOCIAL_ROUTES = {
 export const SOCIAL_API_ENDPOINTS = {
     imageUploads: "/api/social/media/images",
     videoUploads: "/api/social/media/videos",
+    fileUploads: "/api/social/media/files",
 
     publicPosts: "/api/social/posts/public",
+    communityPosts: "/api/social/posts/communities",
     posts: "/api/social/posts",
     userPosts: (userId: number | string) =>
         `/api/social/users/${userId}/posts`,
@@ -72,6 +76,8 @@ export const SOCIAL_API_ENDPOINTS = {
         `/api/social/posts/${postId}/likes`,
     postComments: (postId: number | string) =>
         `/api/social/posts/${postId}/comments`,
+    postPollVotes: (postId: number | string) =>
+        `/api/social/posts/${postId}/poll/votes`,
 
     commentById: (commentId: number | string) =>
         `/api/social/comments/${commentId}`,
@@ -110,6 +116,20 @@ export const SOCIAL_API_ENDPOINTS = {
     myChatRooms: "/api/social/chat-rooms/mine",
     chatRoomById: (chatRoomId: number | string) =>
         `/api/social/chat-rooms/${chatRoomId}`,
+    chatRoomMembers: (chatRoomId: number | string) =>
+        `/api/social/chat-rooms/${chatRoomId}/members`,
+    chatRoomMember: (
+        chatRoomId: number | string,
+        userId: number | string,
+    ) => `/api/social/chat-rooms/${chatRoomId}/members/${userId}`,
+    chatRoomMemberRole: (
+        chatRoomId: number | string,
+        userId: number | string,
+    ) => `/api/social/chat-rooms/${chatRoomId}/members/${userId}/role`,
+    chatRoomOwnership: (chatRoomId: number | string) =>
+        `/api/social/chat-rooms/${chatRoomId}/ownership`,
+    chatRoomMembership: (chatRoomId: number | string) =>
+        `/api/social/chat-rooms/${chatRoomId}/membership`,
     userChatRooms: (userId: number | string) =>
         `/api/social/users/${userId}/chat-rooms`,
 
@@ -120,10 +140,18 @@ export const SOCIAL_API_ENDPOINTS = {
         `/api/social/messages/${messageId}/reactions`,
     chatRoomMessages: (chatRoomId: number | string) =>
         `/api/social/chat-rooms/${chatRoomId}/messages`,
+    chatRoomMessageSearch: (chatRoomId: number | string) =>
+        `/api/social/chat-rooms/${chatRoomId}/messages/search`,
     markChatRoomRead: (chatRoomId: number | string) =>
         `/api/social/chat-rooms/${chatRoomId}/read`,
     hideChatRoom: (chatRoomId: number | string) =>
         `/api/social/chat-rooms/${chatRoomId}/hide`,
+    pinnedChatMessage: (chatRoomId: number | string) =>
+        `/api/social/chat-rooms/${chatRoomId}/pinned-message`,
+    pinChatMessage: (
+        chatRoomId: number | string,
+        messageId: number | string,
+    ) => `/api/social/chat-rooms/${chatRoomId}/pinned-message/${messageId}`,
 
     lookingForPlayer: "/api/social/looking-for-player",
     openLookingForPlayer: "/api/social/looking-for-player/open",
@@ -138,6 +166,41 @@ export const SOCIAL_API_ENDPOINTS = {
 
     gameCatalogGames: "/api/social/game-catalog/games",
     gameCatalogPlatforms: "/api/social/game-catalog/platforms",
+
+    communities: "/api/social/communities",
+    myCommunities: "/api/social/communities/mine",
+    joinCommunity: (communityId: number | string) =>
+        `/api/social/communities/${communityId}/join`,
+    communityMembership: (communityId: number | string) =>
+        `/api/social/communities/${communityId}/membership`,
+    communityById: (communityId: number | string) =>
+        `/api/social/communities/${communityId}`,
+    communityMembers: (communityId: number | string) =>
+        `/api/social/communities/${communityId}/members`,
+    communityMember: (
+        communityId: number | string,
+        userId: number | string,
+    ) => `/api/social/communities/${communityId}/members/${userId}`,
+    communityInvitations: (communityId: number | string) =>
+        `/api/social/communities/${communityId}/invitations`,
+    myCommunityInvitations: "/api/social/community-invitations/mine",
+    acceptCommunityInvitation: (invitationId: number | string) =>
+        `/api/social/community-invitations/${invitationId}/accept`,
+    rejectCommunityInvitation: (invitationId: number | string) =>
+        `/api/social/community-invitations/${invitationId}/reject`,
+    communityOwnership: (communityId: number | string) =>
+        `/api/social/communities/${communityId}/ownership`,
+    communityEvents: (communityId: number | string) =>
+        `/api/social/communities/${communityId}/events`,
+    upcomingEvents: "/api/social/events/upcoming",
+    eventById: (eventId: number | string) =>
+        `/api/social/events/${eventId}`,
+    cancelEvent: (eventId: number | string) =>
+        `/api/social/events/${eventId}/cancel`,
+    joinEvent: (eventId: number | string) =>
+        `/api/social/events/${eventId}/join`,
+    eventParticipation: (eventId: number | string) =>
+        `/api/social/events/${eventId}/participation`,
 } as const;
 
 /*
@@ -147,6 +210,10 @@ export const USER_API_ENDPOINTS = {
     profile: (userId: string) => `/api/users/profile/${userId}`,
     userReviews: (userId: number | string) => `/api/users/profile/${userId}/reviews`,
     userPosts: (userId: number | string) => `/api/users/profile/${userId}/posts`,
+    socialConnections: (userId: number | string) =>
+        `/api/users/profile/${userId}/social-connections`,
+    relationship: (userId: number | string) =>
+        `/api/users/profile/${userId}/relationship`,
 
     // Backward-compatible alias used by existing services.
     profileById: (userId: number | string) => `/api/users/profile/${userId}`,

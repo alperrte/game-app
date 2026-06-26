@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,18 +38,37 @@ public class LookingForPlayerController {
     }
 
     @GetMapping("/looking-for-player/open")
-    public List<LookingForPlayerPostResponse> getOpenPosts() {
-        return lookingForPlayerService.getOpenPosts();
+    public List<LookingForPlayerPostResponse> getOpenPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return lookingForPlayerService.getOpenPosts(
+                Math.max(0, page),
+                boundedSize(size));
     }
 
     @GetMapping("/users/{userId}/looking-for-player")
-    public List<LookingForPlayerPostResponse> getPostsByUser(@PathVariable Long userId) {
-        return lookingForPlayerService.getPostsByUser(userId);
+    public List<LookingForPlayerPostResponse> getPostsByUser(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return lookingForPlayerService.getPostsByUser(
+                userId,
+                Math.max(0, page),
+                boundedSize(size));
     }
 
     @GetMapping("/games/{gameId}/looking-for-player/open")
-    public List<LookingForPlayerPostResponse> getOpenPostsByGame(@PathVariable Long gameId) {
-        return lookingForPlayerService.getOpenPostsByGame(gameId);
+    public List<LookingForPlayerPostResponse> getOpenPostsByGame(
+            @PathVariable Long gameId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return lookingForPlayerService.getOpenPostsByGame(
+                gameId,
+                Math.max(0, page),
+                boundedSize(size));
     }
 
     @PutMapping("/looking-for-player/{postId}/close")
@@ -65,5 +85,9 @@ public class LookingForPlayerController {
             @PathVariable Long postId
     ) {
         return lookingForPlayerService.cancelPost(postId, principal.userId());
+    }
+
+    private int boundedSize(int size) {
+        return Math.max(1, Math.min(size, 100));
     }
 }

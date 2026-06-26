@@ -2,12 +2,13 @@
  * Uygulamanın genel, sabit üst navigasyonu.
  *
  * Navbar sırası:
- * Logo | Akış | Sohbet | Oyunlar | İncelemeler | Sistem Gereksinimleri | LTZ Corner
+ * Logo | Akış | Sohbet | Keşfet | Topluluklar | Etkinlikler | Oyunlar
+ * | İncelemeler | Sistem Gereksinimleri | LTZ Corner | Donanım
  * | Kullanıcı Profili | Çıkış Yap
  *
  * - GameNavbar kullanılmaz.
  * - Sosyal özellikler ortak Navbar içinde yönetilir.
- * - Oyun sayfaları ve LTZ Corner modülleri dropdown altında gruplanır.
+ * - Oyun sayfaları, LTZ Corner ve Donanım modülleri dropdown altında gruplanır.
  * - Profil dropdown içinde profil ve arkadaşlık istekleri bulunur.
  * - Bekleyen arkadaşlık isteği sayısı badge olarak gösterilir.
  * - Scroll sırasında navbar küçülür.
@@ -28,8 +29,10 @@ import {
 import {
     Brain,
     Building2,
+    CalendarDays,
     ChevronDown,
     Code2,
+    Compass,
     Cpu,
     Gamepad2,
     Gauge,
@@ -53,6 +56,7 @@ import {
     Settings,
     UserPlus,
     UserRound,
+    Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -98,6 +102,21 @@ const mainNavItems: NavItem[] = [
         label: "Sohbet",
         href: "/messages",
         icon: MessageCircle,
+    },
+    {
+        label: "Keşfet",
+        href: "/explore",
+        icon: Compass,
+    },
+    {
+        label: "Topluluklar",
+        href: "/communities",
+        icon: Users,
+    },
+    {
+        label: "Etkinlikler",
+        href: "/events",
+        icon: CalendarDays,
     },
 ];
 

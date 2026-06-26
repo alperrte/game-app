@@ -49,10 +49,13 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/ws/chat", "/ws/chat/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/social/media/images/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/social/media/images/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/social/media/videos/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/social/media/videos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/social/media/files/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/social/media/files/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/social/users/*/posts").permitAll()
                         .anyRequest().authenticated()
                 )

@@ -3,45 +3,41 @@ import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 import { API_BASE_URL, AUTH_ENDPOINTS, ROUTES } from "./constants";
 import { clearAuth } from "../store/authStore";
-import {
-  getAccessToken,
-  getRefreshToken,
-  setTokens,
-} from "./token";
+import { getAccessToken, getRefreshToken, setTokens } from "./token";
 import type { AuthResponse } from "../features/auth/types/auth.types";
 
 export type QueryParams = Record<
-  string,
-  string | number | boolean | null | undefined
+    string,
+    string | number | boolean | null | undefined
 >;
 
 export class ApiError extends Error {
-  status: number;
-  details: unknown;
+    status: number;
+    details: unknown;
 
-  constructor(message: string, status: number, details: unknown) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.details = details;
-  }
+    constructor(message: string, status: number, details: unknown) {
+        super(message);
+        this.name = "ApiError";
+        this.status = status;
+        this.details = details;
+    }
 }
 
 export const axiosClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+    baseURL: API_BASE_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
 });
 
 axiosClient.interceptors.request.use((config) => {
-  const token = getAccessToken();
+    const token = getAccessToken();
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  return config;
+    return config;
 });
 
 /*
@@ -51,106 +47,117 @@ axiosClient.interceptors.request.use((config) => {
 let refreshPromise: Promise<string> | null = null;
 
 /*
- * refresh-token isteğini axiosClient DIŞINDA, ham axios ile yapar.
+ * Refresh-token isteğini axiosClient DIŞINDA, ham axios ile yapar.
  * Böylece interceptor'a yeniden girip sonsuz döngü oluşmaz.
  */
 async function requestNewAccessToken(): Promise<string> {
-  const refreshToken = getRefreshToken();
+    const refreshToken = getRefreshToken();
 
-  if (!refreshToken) {
-    throw new Error("Refresh token bulunamadı.");
-  }
+    if (!refreshToken) {
+        throw new Error("Refresh token bulunamadı.");
+    }
 
-  const { data } = await axios.post<AuthResponse>(
-    `${API_BASE_URL}${AUTH_ENDPOINTS.refreshToken}`,
-    { refreshToken },
-    { headers: { "Content-Type": "application/json" } }
-  );
+    const { data } = await axios.post<AuthResponse>(
+        `${API_BASE_URL}${AUTH_ENDPOINTS.refreshToken}`,
+        { refreshToken },
+        { headers: { "Content-Type": "application/json" } }
+    );
 
-  setTokens(data.accessToken, data.refreshToken);
-  return data.accessToken;
+    setTokens(data.accessToken, data.refreshToken);
+    return data.accessToken;
 }
 
 function isAuthEndpoint(url?: string): boolean {
-  if (!url) return false;
+    if (!url) return false;
 
-  return (
-    url.includes(AUTH_ENDPOINTS.login) ||
-    url.includes(AUTH_ENDPOINTS.register) ||
-    url.includes(AUTH_ENDPOINTS.refreshToken)
-  );
+    return (
+        url.includes(AUTH_ENDPOINTS.login) ||
+        url.includes(AUTH_ENDPOINTS.register) ||
+        url.includes(AUTH_ENDPOINTS.refreshToken)
+    );
 }
 
 axiosClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as
-      | (InternalAxiosRequestConfig & { _retry?: boolean })
-      | undefined;
+    (response) => response,
+    async (error: AxiosError) => {
+        const originalRequest = error.config as
+            | (InternalAxiosRequestConfig & { _retry?: boolean })
+            | undefined;
 
-    const status = error.response?.status;
+        const status = error.response?.status;
 
-    // Ağ hatası veya sunucu cevap vermiyor - sadece logla, otomatik çıkış yapma
-    if (!error.response) {
-      console.error("Sunucuya erişilemedi:", error.message);
-      return Promise.reject(error);
-    }
-
-    // 403 Forbidden: yetki reddidir; oturum sadece refresh başarısızsa temizlenir.
-    if (status === 403 && originalRequest && !isAuthEndpoint(originalRequest.url)) {
-      return Promise.reject(error);
-    }
-
-    /*
-     * Sadece 401 + daha önce denenmemiş + auth endpoint'i olmayan istekleri yenile.
-     * Login/register/refresh 401'leri olduğu gibi forma iletilir.
-     */
-    if (
-      status === 401 &&
-      originalRequest &&
-      !originalRequest._retry &&
-      !isAuthEndpoint(originalRequest.url) &&
-      getRefreshToken()
-    ) {
-      originalRequest._retry = true;
-
-      try {
-        if (!refreshPromise) {
-          refreshPromise = requestNewAccessToken().finally(() => {
-            refreshPromise = null;
-          });
-        }
-
-        const newToken = await refreshPromise;
-
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return axiosClient(originalRequest);
-      } catch (refreshError) {
         /*
-         * Refresh başarısız: oturumu temizle ve login'e yönlendir.
+         * Ağ hatası veya sunucu cevap vermiyor.
+         * Bu durumda otomatik logout yapılmaz.
          */
-        clearAuth();
-
-        if (window.location.pathname !== ROUTES.login) {
-          window.location.href = ROUTES.login;
+        if (!error.response) {
+            console.error("Sunucuya erişilemedi:", error.message);
+            return Promise.reject(error);
         }
 
-        return Promise.reject(refreshError);
-      }
-    }
+        /*
+         * 403 Forbidden yetki reddidir.
+         * Token refresh denenmez, kullanıcı logout edilmez.
+         * Örnek: USER rolü ADMIN endpointine istek attıysa 403 alabilir.
+         */
+        if (
+            status === 403 &&
+            originalRequest &&
+            !isAuthEndpoint(originalRequest.url)
+        ) {
+            return Promise.reject(error);
+        }
 
-    return Promise.reject(error);
-  }
+        /*
+         * Sadece 401 + daha önce denenmemiş + auth endpoint'i olmayan istekleri yenile.
+         * Login/register/refresh 401'leri olduğu gibi forma iletilir.
+         */
+        if (
+            status === 401 &&
+            originalRequest &&
+            !originalRequest._retry &&
+            !isAuthEndpoint(originalRequest.url) &&
+            getRefreshToken()
+        ) {
+            originalRequest._retry = true;
+
+            try {
+                if (!refreshPromise) {
+                    refreshPromise = requestNewAccessToken().finally(() => {
+                        refreshPromise = null;
+                    });
+                }
+
+                const newToken = await refreshPromise;
+
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                return axiosClient(originalRequest);
+            } catch (refreshError) {
+                /*
+                 * Refresh başarısızsa oturumu temizle ve login'e yönlendir.
+                 */
+                clearAuth();
+
+                if (window.location.pathname !== ROUTES.login) {
+                    window.location.href = ROUTES.login;
+                }
+
+                return Promise.reject(refreshError);
+            }
+        }
+
+        return Promise.reject(error);
+    }
 );
 
 const cleanQueryParams = (query?: QueryParams) => {
-  if (!query) return undefined;
+    if (!query) return undefined;
 
-  return Object.fromEntries(
-    Object.entries(query).filter(
-      ([, value]) => value !== undefined && value !== null && value !== ""
-    )
-  );
+    return Object.fromEntries(
+        Object.entries(query).filter(
+            ([, value]) => value !== undefined && value !== null && value !== ""
+        )
+    );
 };
 
 /*
@@ -158,29 +165,35 @@ const cleanQueryParams = (query?: QueryParams) => {
  * Altta yine merkezi axiosClient kullanılır; token ve refresh sistemi bozulmaz.
  */
 export const apiClient = {
-  get: async <TResponse>(endpoint: string, query?: QueryParams) => {
-    const { data } = await axiosClient.get<TResponse>(endpoint, {
-      params: cleanQueryParams(query),
-    });
+    get: async <TResponse>(endpoint: string, query?: QueryParams) => {
+        const { data } = await axiosClient.get<TResponse>(endpoint, {
+            params: cleanQueryParams(query),
+        });
 
-    return data;
-  },
+        return data;
+    },
 
-  post: async <TResponse, TBody = unknown>(endpoint: string, body: TBody) => {
-    const { data } = await axiosClient.post<TResponse>(endpoint, body);
-    return data;
-  },
+    post: async <TResponse, TBody = unknown>(
+        endpoint: string,
+        body: TBody
+    ) => {
+        const { data } = await axiosClient.post<TResponse>(endpoint, body);
+        return data;
+    },
 
-  put: async <TResponse, TBody = unknown>(endpoint: string, body: TBody) => {
-    const { data } = await axiosClient.put<TResponse>(endpoint, body);
-    return data;
-  },
+    put: async <TResponse, TBody = unknown>(
+        endpoint: string,
+        body: TBody
+    ) => {
+        const { data } = await axiosClient.put<TResponse>(endpoint, body);
+        return data;
+    },
 
-  delete: async (endpoint: string, query?: QueryParams) => {
-    await axiosClient.delete<void>(endpoint, {
-      params: cleanQueryParams(query),
-    });
-  },
+    delete: async (endpoint: string, query?: QueryParams) => {
+        await axiosClient.delete<void>(endpoint, {
+            params: cleanQueryParams(query),
+        });
+    },
 };
 
 export default axiosClient;

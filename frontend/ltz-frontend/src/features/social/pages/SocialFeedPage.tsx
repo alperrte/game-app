@@ -6,7 +6,7 @@ import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { cacheUserIdentity } from "../../../utils/userIdentityCache";
 import { useAuthStore } from "../../../store/authStore";
 import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
-import { API_BASE_URL, ROUTES, SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
+import { ROUTES, SOCIAL_ROUTES, STORAGE_KEYS } from "../../../lib/constants";
 import type { Game, GamePlatform } from "../../game/types/gameTypes";
 import { userService } from "../../user/services/userService";
 import type { UserProfileResponse } from "../../user/types/user";
@@ -16,8 +16,14 @@ import { SocialFeedTabs } from "../components/SocialFeedTabs";
 import { SocialPostCard } from "../components/SocialPostCard";
 import { SocialRightPanel } from "../components/SocialRightPanel";
 import { socialService } from "../services/socialService";
+import { toUiPostVisibility } from "../types/social.types";
+import { communityService } from "../../community/services/communityService";
+import { useChatWidget } from "../context/ChatWidgetContext";
 import type {
-  ActiveEvent,
+  Community,
+  CommunityEvent,
+} from "../../community/types/community.types";
+import type {
   ComposerSubmitPayload,
   FollowResponse,
   LookingForPlayerCreateRequest,
@@ -28,150 +34,11 @@ import type {
   SocialPostLikeResponse,
   SocialPostResponse,
   SocialPost,
+  SocialPostUpdateRequest,
   SocialUser,
-  SuggestedGroup,
 } from "../types/social.types";
 
-const avatarBase =
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80";
-
-const currentUserFallback: SocialUser = {
-  name: "Arda Demir",
-  username: "ArdaDemir",
-  avatarUrl: avatarBase,
-  level: 24,
-  verified: true,
-  status: "online",
-};
-
-const mockPosts: SocialPost[] = [
-  {
-    id: "post-cyberpunk",
-    authorUserId: 100,
-    author: {
-      name: "LunaWolf",
-      username: "lunawolf",
-      avatarUrl:
-        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80",
-      verified: true,
-    },
-    createdAt: "2 saat önce",
-    visibility: "public",
-    content:
-      "Cyberpunk 2077 2.12 güncellemesi gerçekten oyunu bambaşka bir seviyeye taşımış.\nGece şehirde dolaşmak apayrı bir his!",
-    media: [
-      {
-        url: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1200&q=85",
-        alt: "Neon ışıklı gece şehri",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=600&q=80",
-        alt: "Gelecek temalı oyun karakteri",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80",
-        alt: "Oyun salonu",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80",
-        alt: "Oyun kontrolcüsü",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80",
-        alt: "Karanlık oyun atmosferi",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?auto=format&fit=crop&w=600&q=80",
-        alt: "Konsol oyun gecesi",
-      },
-    ],
-    reactions: {
-      likes: 128,
-      comments: 36,
-      shares: 12,
-    },
-  },
-  {
-    id: "post-elden",
-    authorUserId: 101,
-    author: {
-      name: "xCem",
-      username: "xcem",
-      avatarUrl:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-    },
-    createdAt: "5 saat önce",
-    visibility: "public",
-    content:
-      "Elden Ring DLC incelemem yayında! Shadow of the Erdtree dünyası muazzam olmuş.",
-    media: [
-      {
-        url: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=85",
-        alt: "Fantastik karanlik kale manzarasi",
-      },
-    ],
-    reactions: {
-      likes: 86,
-      comments: 19,
-      shares: 8,
-    },
-  },
-];
-
-const suggestedGroups: SuggestedGroup[] = [
-  {
-    id: "soulslike",
-    name: "Soulslike Turkiye",
-    members: "12.3K",
-    description: "Soulslike oyunlar hakkında tartış, rehber paylaş!",
-    imageUrl:
-      "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=120&q=80",
-  },
-  {
-    id: "fps",
-    name: "FPS Oyunculari",
-    members: "8.9K",
-    description: "Rekabetçi ruhunuzu konuşturun!",
-    imageUrl:
-      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=120&q=80",
-  },
-  {
-    id: "photo",
-    name: "Oyun Fotografcilari",
-    members: "5.7K",
-    description: "En iyi oyun karelerini paylaş!",
-    imageUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=120&q=80",
-  },
-];
-
-const attendeeAvatars = [
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80",
-  "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=80&q=80",
-  "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=80&q=80",
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80",
-];
-
-const activeEvents: ActiveEvent[] = [
-  {
-    id: "valorant",
-    title: "Valorant Turnuvası #12",
-    date: { day: "24", month: "MAY", detail: "24 Mayıs, 20:00" },
-    tag: "Turnuva",
-    tagTone: "purple",
-    attendeeAvatars,
-    extraAttendees: 124,
-  },
-  {
-    id: "game-night",
-    title: "Cuma Oyun Gecesi",
-    date: { day: "25", month: "MAY", detail: "25 Mayıs, 21:00" },
-    tag: "Etkinlik",
-    tagTone: "green",
-    attendeeAvatars,
-    extraAttendees: 38,
-  },
-];
+const FEED_PAGE_SIZE = 20;
 
 function formatPostDate(dateValue: string): string {
   const date = new Date(dateValue);
@@ -201,22 +68,7 @@ function formatPostDate(dateValue: string): string {
 void formatPostDate;
 
 function resolveMediaUrl(imageUrl: string): string {
-  const normalizedImageUrl = imageUrl.trim();
-
-  if (
-    normalizedImageUrl.startsWith("http://") ||
-    normalizedImageUrl.startsWith("https://")
-  ) {
-    return normalizedImageUrl;
-  }
-
-  const baseUrl = API_BASE_URL.endsWith("/")
-    ? API_BASE_URL.slice(0, -1)
-    : API_BASE_URL;
-
-  return normalizedImageUrl.startsWith("/")
-    ? `${baseUrl}${normalizedImageUrl}`
-    : `${baseUrl}/${normalizedImageUrl}`;
+  return getImageUrl(imageUrl.trim());
 }
 
 function resolveProfileAvatar(avatarUrl?: string | null): string {
@@ -256,7 +108,7 @@ function resolveAuthor(
       name: cachedUsername,
       username: cachedUsername,
       userId: authorUserId,
-      avatarUrl: avatarBase,
+      avatarUrl: "",
       verified: false,
     };
   }
@@ -265,8 +117,7 @@ function resolveAuthor(
     name: `Oyuncu #${authorUserId}`,
     username: `oyuncu-${authorUserId}`,
     userId: authorUserId,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
+    avatarUrl: "",
     verified: false,
   };
 }
@@ -440,6 +291,11 @@ function mapBackendPostToSocialPost(
         },
       ]
       : [];
+  const rawMediaUrls = post.media?.length
+    ? post.media.map((media) => media.url)
+    : post.imageUrl?.trim()
+      ? [post.imageUrl]
+      : [];
 
   return {
     id: post.id,
@@ -452,15 +308,19 @@ function mapBackendPostToSocialPost(
       cachedUsernames,
     ),
     createdAt: formatSocialTime(post.createdAt),
-    visibility: post.visibility === "PUBLIC" ? "public" : "followers",
+    createdAtRaw: post.createdAt,
+    updatedAt: post.updatedAt,
+    visibility: toUiPostVisibility(post.visibility),
     content: post.content,
     media: mediaItems,
+    rawMediaUrls,
     reactions: {
       likes: post.likeCount,
       comments: post.commentCount,
       shares: 0,
     },
     likedByMe: Boolean(post.likedByCurrentUser),
+    poll: post.poll,
     followedByMe:
       typeof currentUserId === "number" &&
       !isCurrentUserPost &&
@@ -474,6 +334,8 @@ function mapBackendPostToSocialPost(
           : "none",
     pendingFriendRequestId: pendingFriendRequests.get(post.userId),
     savedByMe: savedPostIds.has(String(post.id)),
+    communityId: post.communityId ?? undefined,
+    communityName: post.communityName ?? undefined,
     source: "backend",
   };
 }
@@ -525,6 +387,8 @@ function mapLookingForPlayerToSocialPost(
     likedByMe: false,
     savedByMe: savedPostIds.has(`looking-for-player-${post.id}`),
     source: "lookingForPlayer",
+    lookingForPlayerPostId: post.id,
+    lookingForPlayerStatus: post.status,
   };
 }
 
@@ -535,9 +399,11 @@ function getEmptyFeedMessage(activeTab: SocialFeedTab): string {
     case "popular":
       return "Popüler gönderi bulunamadı.";
     case "news":
-      return "Oyun haberleri modülü backend tarafında henüz yok.";
+      return "Oyun haberi bulunamadı.";
     case "market":
       return "Açık oyuncu aranıyor ilanı yok.";
+    case "communities":
+      return "Seçilen toplulukta henüz gönderi yok.";
     case "saved":
       return "Henüz kaydedilen gönderin yok.";
     default:
@@ -666,6 +532,7 @@ function normalizeList<T>(value: unknown): T[] {
 }
 
 export default function SocialFeedPage() {
+  const { openChat } = useChatWidget();
   const { user } = useAuthStore();
   const { displayName, avatarUrl } = useCurrentUserProfile();
   const navigate = useNavigate();
@@ -675,6 +542,9 @@ export default function SocialFeedPage() {
   );
   const [activeTab, setActiveTab] = useState<SocialFeedTab>("all");
   const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [feedPage, setFeedPage] = useState(0);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -682,6 +552,9 @@ export default function SocialFeedPage() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [platforms, setPlatforms] = useState<GamePlatform[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<CommunityEvent[]>([]);
+  const [selectedCommunityId, setSelectedCommunityId] = useState("");
   const [onlineFriendProfiles, setOnlineFriendProfiles] = useState<OnlineFriend[]>([]);
   const [savedPostState, setSavedPostState] = useState(() => ({
     ids: readSavedPostIds(savedPostStorageKey),
@@ -710,9 +583,8 @@ export default function SocialFeedPage() {
 
   const currentUser = useMemo<SocialUser>(
     () => ({
-      ...currentUserFallback,
-      name: displayName || user?.username || currentUserFallback.name,
-      username: user?.username ?? currentUserFallback.username,
+      name: displayName || user?.username || "Oyuncu",
+      username: user?.username ?? "oyuncu",
       userId: user?.userId,
       avatarUrl: resolveProfileAvatar(avatarUrl),
       verified: false,
@@ -748,6 +620,31 @@ export default function SocialFeedPage() {
     }
 
     void loadGames();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void Promise.all([
+      communityService.getMyCommunities(),
+      communityService.getUpcomingEvents(0, 3),
+    ])
+      .then(([loadedCommunities, loadedEvents]) => {
+        if (!isMounted) return;
+
+        setCommunities(loadedCommunities);
+        setUpcomingEvents(loadedEvents);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+
+        setCommunities([]);
+        setUpcomingEvents([]);
+      });
 
     return () => {
       isMounted = false;
@@ -814,7 +711,11 @@ export default function SocialFeedPage() {
     let isMounted = true;
 
     async function loadPosts() {
-      setIsLoadingPosts(true);
+      if (feedPage === 0) {
+        setIsLoadingPosts(true);
+      } else {
+        setIsLoadingMorePosts(true);
+      }
       setFeedError(null);
 
       try {
@@ -822,15 +723,17 @@ export default function SocialFeedPage() {
 
         if (activeTab === "market") {
           const lookingForPlayerPosts =
-            await socialService.getOpenLookingForPlayerPosts();
+            await socialService.getOpenLookingForPlayerPosts({
+              page: feedPage,
+              size: FEED_PAGE_SIZE,
+            });
           const userProfiles = await loadUserProfiles(
             lookingForPlayerPosts.map((post) => post.userId),
           );
 
           if (!isMounted) return;
 
-          setPosts(
-            lookingForPlayerPosts.map((post) =>
+          const mappedPosts = lookingForPlayerPosts.map((post) =>
               mapLookingForPlayerToSocialPost(
                 post,
                 currentUser,
@@ -839,19 +742,40 @@ export default function SocialFeedPage() {
                 userProfiles,
                 cachedUsernames,
               ),
-            ),
+            );
+          setPosts((current) =>
+            feedPage === 0
+              ? mappedPosts
+              : [
+                  ...current,
+                  ...mappedPosts.filter(
+                    (post) => !current.some((item) => item.id === post.id),
+                  ),
+                ],
           );
+          setHasMorePosts(lookingForPlayerPosts.length === FEED_PAGE_SIZE);
           return;
         }
 
         const [backendPosts, following, lookingForPlayerPosts, friendships, outgoingFriendRequests] =
           await Promise.all([
-            socialService.getPublicPosts(),
+            activeTab === "communities"
+              ? socialService.getCommunityPosts(
+                  selectedCommunityId ? Number(selectedCommunityId) : undefined,
+                  { page: feedPage, size: FEED_PAGE_SIZE },
+                )
+              : socialService.getPublicPosts({
+                  page: feedPage,
+                  size: FEED_PAGE_SIZE,
+                }),
             user?.userId
               ? socialService.getFollowing(user.userId)
               : Promise.resolve<FollowResponse[]>([]),
             activeTab === "saved"
-              ? socialService.getOpenLookingForPlayerPosts()
+              ? socialService.getOpenLookingForPlayerPosts({
+                  page: feedPage,
+                  size: FEED_PAGE_SIZE,
+                })
               : Promise.resolve<LookingForPlayerPostResponse[]>([]),
             user?.userId
               ? socialService.getFriends(user.userId)
@@ -942,20 +866,34 @@ export default function SocialFeedPage() {
           ];
         }
 
-        setPosts(nextPosts);
+        setPosts((current) =>
+          feedPage === 0
+            ? nextPosts
+            : [
+                ...current,
+                ...nextPosts.filter(
+                  (post) => !current.some((item) => item.id === post.id),
+                ),
+              ],
+        );
+        setHasMorePosts(backendPosts.length === FEED_PAGE_SIZE);
       } catch (error) {
         if (!isMounted) return;
 
         setFeedError(
           getErrorMessage(
             error,
-            "Akış yüklenemedi. Backend çalışmıyorsa örnek gönderiler gösteriliyor.",
+            "Akış yüklenemedi.",
           ),
         );
-        setPosts(activeTab === "all" ? mockPosts : []);
+        if (feedPage === 0) {
+          setPosts([]);
+        }
+        setHasMorePosts(false);
       } finally {
         if (isMounted) {
           setIsLoadingPosts(false);
+          setIsLoadingMorePosts(false);
         }
       }
     }
@@ -965,7 +903,14 @@ export default function SocialFeedPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeTab, cachedUsernames, user?.userId, displayName, avatarUrl]);
+  }, [
+    activeTab,
+    selectedCommunityId,
+    feedPage,
+    cachedUsernames,
+    currentUser,
+    user?.userId,
+  ]);
 
   async function handleCreatePost(payload: ComposerSubmitPayload) {
     setIsSubmittingPost(true);
@@ -1002,9 +947,11 @@ export default function SocialFeedPage() {
 
       const createdPost = await socialService.createPost({
         content: payload.content,
+        communityId: payload.communityId,
         imageUrl: uploadResponses[0]?.imageUrl,
         mediaUrls: uploadResponses.map((response) => response.imageUrl),
-        visibility: "PUBLIC",
+        visibility: payload.visibility ?? "PUBLIC",
+        poll: payload.poll,
       });
       const mappedPost = mapBackendPostToSocialPost(
         createdPost,
@@ -1012,10 +959,20 @@ export default function SocialFeedPage() {
         user?.userId,
       );
 
-      setActiveTab(isGameNewsPost(mappedPost) ? "news" : "all");
+      setFeedPage(0);
+      setActiveTab(
+        payload.communityId
+          ? "communities"
+          : isGameNewsPost(mappedPost)
+            ? "news"
+            : "all",
+      );
+      if (payload.communityId) {
+        setSelectedCommunityId(String(payload.communityId));
+      }
       setPosts((currentPosts) => [
         mappedPost,
-        ...currentPosts.filter((post) => post.source !== "mock"),
+        ...currentPosts.filter((post) => post.id !== mappedPost.id),
       ]);
     } catch (error) {
       setFeedError(getErrorMessage(error, "Gönderi paylaşılamadı."));
@@ -1035,6 +992,7 @@ export default function SocialFeedPage() {
       const createdPost =
         await socialService.createLookingForPlayerPost(request);
 
+      setFeedPage(0);
       setActiveTab("market");
       setPosts((currentPosts) => [
         mapLookingForPlayerToSocialPost(createdPost, currentUser, user?.userId),
@@ -1327,6 +1285,88 @@ export default function SocialFeedPage() {
     }
   }
 
+  async function handleUpdatePost(
+    postId: number | string,
+    request: SocialPostUpdateRequest,
+  ) {
+    if (typeof postId !== "number") return;
+
+    setBusyPostId(postId);
+    setFeedError(null);
+
+    try {
+      const updatedPost = await socialService.updatePost(postId, request);
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) => {
+          if (post.id !== postId) return post;
+
+          const mappedPost = mapBackendPostToSocialPost(
+            updatedPost,
+            currentUser,
+            user?.userId,
+          );
+
+          return {
+            ...mappedPost,
+            comments: post.comments,
+            followedByMe: post.followedByMe,
+            friendStatus: post.friendStatus,
+            pendingFriendRequestId: post.pendingFriendRequestId,
+            savedByMe: post.savedByMe,
+          };
+        }),
+      );
+    } catch (error) {
+      setFeedError(getErrorMessage(error, "GÃ¶nderi gÃ¼ncellenemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  }
+
+  async function handleUpdateComment(
+    postId: number | string,
+    commentId: number,
+    content: string,
+    parentCommentId?: number | null,
+  ) {
+    if (typeof postId !== "number") return;
+
+    setBusyPostId(postId);
+    setFeedError(null);
+
+    try {
+      const updatedComment = await socialService.updateComment(commentId, {
+        content,
+      });
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? updateCommentInPost(post, commentId, parentCommentId, (comment) =>
+              mapCommentAuthor(
+                {
+                  ...updatedComment,
+                  author: comment.author,
+                  likedByMe: comment.likedByMe,
+                  likeCount: comment.likeCount,
+                  replies: comment.replies,
+                },
+                post,
+                currentUser,
+                user?.userId,
+              ),
+            )
+            : post,
+        ),
+      );
+    } catch (error) {
+      setFeedError(getErrorMessage(error, "Yorum gÃ¼ncellenemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  }
+
   async function handleDeletePost(postId: number | string) {
     if (typeof postId !== "number") return;
 
@@ -1340,6 +1380,38 @@ export default function SocialFeedPage() {
       );
     } catch (error) {
       setFeedError(getErrorMessage(error, "Gönderi silinemedi."));
+    } finally {
+      setBusyPostId(null);
+    }
+  }
+
+  async function handleCloseLookingForPlayerPost(postId: number) {
+    setBusyPostId(`looking-for-player-${postId}`);
+    setFeedError(null);
+
+    try {
+      await socialService.closeLookingForPlayerPost(postId);
+      setPosts((currentPosts) =>
+        currentPosts.filter((post) => post.lookingForPlayerPostId !== postId),
+      );
+    } catch (error) {
+      setFeedError(getErrorMessage(error, "İlan kapatılamadı."));
+    } finally {
+      setBusyPostId(null);
+    }
+  }
+
+  async function handleCancelLookingForPlayerPost(postId: number) {
+    setBusyPostId(`looking-for-player-${postId}`);
+    setFeedError(null);
+
+    try {
+      await socialService.cancelLookingForPlayerPost(postId);
+      setPosts((currentPosts) =>
+        currentPosts.filter((post) => post.lookingForPlayerPostId !== postId),
+      );
+    } catch (error) {
+      setFeedError(getErrorMessage(error, "İlan iptal edilemedi."));
     } finally {
       setBusyPostId(null);
     }
@@ -1460,7 +1532,7 @@ export default function SocialFeedPage() {
         targetUserId: post.authorUserId,
         targetUsername: post.author.username,
       });
-      navigate(SOCIAL_ROUTES.chatRoom(room.id));
+      openChat(room.id);
       setFeedError("Sohbet başlatıldı.");
     } catch (error) {
       setFeedError(getErrorMessage(error, "Sohbet başlatılamadı."));
@@ -1483,18 +1555,22 @@ export default function SocialFeedPage() {
 
   async function handleSharePost(post: SocialPost) {
     const shareText = post.content.slice(0, 180);
+    const shareUrl =
+      typeof post.id === "number"
+        ? `${window.location.origin}${SOCIAL_ROUTES.postDetail(post.id)}`
+        : window.location.href;
 
     try {
       if (navigator.share) {
         await navigator.share({
           title: "LobbyTwoZero gönderisi",
           text: shareText,
-          url: window.location.href,
+          url: shareUrl,
         });
         return;
       }
 
-      await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setFeedError("Gönderi bağlantısı panoya kopyalandı.");
     } catch {
       setFeedError("Paylaşım tamamlanamadı.");
@@ -1534,6 +1610,7 @@ export default function SocialFeedPage() {
       <div className="mx-auto grid max-w-[1860px] gap-8 xl:grid-cols-[minmax(0,1fr)_590px]">
         <main className="space-y-5">
           <SocialComposer
+            communities={communities}
             games={games}
             platforms={platforms}
             isSubmitting={isSubmittingPost}
@@ -1542,7 +1619,32 @@ export default function SocialFeedPage() {
             uploadProgress={uploadProgress}
             user={currentUser}
           />
-          <SocialFeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <SocialFeedTabs
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setFeedPage(0);
+              setHasMorePosts(false);
+              setActiveTab(tab);
+            }}
+          />
+          {activeTab === "communities" ? (
+            <select
+              className="w-full rounded-xl border border-violet-500/25 bg-[#0a101c] px-4 py-3 text-sm text-zinc-200 outline-none focus:border-violet-400/60"
+              onChange={(event) => {
+                setFeedPage(0);
+                setHasMorePosts(false);
+                setSelectedCommunityId(event.target.value);
+              }}
+              value={selectedCommunityId}
+            >
+              <option value="">Tüm topluluklarım</option>
+              {communities.map((community) => (
+                <option key={community.id} value={community.id}>
+                  {community.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
 
           {feedError && (
             <div className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -1574,12 +1676,16 @@ export default function SocialFeedPage() {
                   }
                   onSendFriendRequest={handleSendFriendRequest}
                   onCancelFriendRequest={handleCancelFriendRequest}
+                  onCloseLookingForPlayerPost={handleCloseLookingForPlayerPost}
+                  onCancelLookingForPlayerPost={handleCancelLookingForPlayerPost}
                   onShare={handleSharePost}
                   onStartChat={handleStartChat}
                   onToggleCommentLike={handleToggleCommentLike}
                   onToggleFollowAuthor={handleToggleFollowAuthor}
                   onToggleSave={handleToggleSave}
                   onToggleLike={handleToggleLike}
+                  onUpdateComment={handleUpdateComment}
+                  onUpdatePost={handleUpdatePost}
                   post={post}
                 />
               ))
@@ -1589,13 +1695,27 @@ export default function SocialFeedPage() {
               </div>
             )}
           </div>
+          {!isLoadingPosts && posts.length > 0 && hasMorePosts ? (
+            <div className="text-center">
+              <button
+                className="rounded-xl border border-violet-500/40 px-6 py-3 font-bold text-violet-200 disabled:opacity-50"
+                disabled={isLoadingMorePosts}
+                onClick={() => setFeedPage((current) => current + 1)}
+                type="button"
+              >
+                {isLoadingMorePosts ? "Yükleniyor..." : "Daha fazla gönderi yükle"}
+              </button>
+            </div>
+          ) : null}
         </main>
 
         <div className="hidden xl:block">
           <SocialRightPanel
-            groups={suggestedGroups}
-            events={activeEvents}
+            communities={communities}
+            events={upcomingEvents}
             friends={onlineFriendProfiles}
+            onCommunityClick={() => navigate(SOCIAL_ROUTES.communities)}
+            onEventClick={() => navigate(SOCIAL_ROUTES.events)}
             onFriendProfileClick={(username) =>
               navigate(ROUTES.profile.replace(":username", username))
             }

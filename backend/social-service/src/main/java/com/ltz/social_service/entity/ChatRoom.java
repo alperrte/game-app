@@ -22,12 +22,18 @@ public class ChatRoom {
     @Column(name = "room_name", length = 100)
     private String roomName;
 
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "room_type", nullable = false, length = 20)
     private ChatRoomType roomType;
 
     @Column(name = "created_by_user_id", nullable = false)
     private Long createdByUserId;
+
+    @Column(name = "pinned_message_id")
+    private Long pinnedMessageId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

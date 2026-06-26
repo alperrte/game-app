@@ -6,6 +6,7 @@ export type SocialFeedTab =
   | "popular"
   | "news"
   | "market"
+  | "communities"
   | "saved";
 
 export interface SocialUser {
@@ -29,9 +30,11 @@ export interface SocialPost {
   author: SocialUser;
   authorUserId?: number;
   createdAt: string;
-  visibility: "public" | "followers";
+  createdAtRaw?: string;
+  visibility: "public" | "followers" | "friends" | "private";
   content: string;
   media: SocialPostMedia[];
+  rawMediaUrls?: string[];
   reactions: {
     likes: number;
     comments: number;
@@ -42,11 +45,30 @@ export interface SocialPost {
   savedByMe?: boolean;
   friendStatus?: "none" | "pending" | "friends";
   pendingFriendRequestId?: number;
-  source?: "backend" | "lookingForPlayer" | "mock";
+  source?: "backend" | "lookingForPlayer";
+  lookingForPlayerPostId?: number;
+  lookingForPlayerStatus?: LookingForPlayerStatus;
+  communityId?: number;
+  communityName?: string;
   comments?: SocialComment[];
+  poll?: PostPoll;
+  updatedAt?: string;
 }
 
-export type PostVisibility = "PUBLIC" | "FRIENDS" | "PRIVATE";
+export type PostVisibility =
+  | "PUBLIC"
+  | "FOLLOWERS_ONLY"
+  | "FRIENDS"
+  | "PRIVATE";
+
+export function toUiPostVisibility(
+  visibility: PostVisibility,
+): SocialPost["visibility"] {
+  if (visibility === "PRIVATE") return "private";
+  if (visibility === "FOLLOWERS_ONLY") return "followers";
+  if (visibility === "FRIENDS") return "friends";
+  return "public";
+}
 
 export type FriendRequestStatus =
   | "PENDING"
@@ -64,6 +86,8 @@ export type LookingForPlayerStatus =
 export interface SocialPostResponse {
   id: number;
   userId: number;
+  communityId?: number | null;
+  communityName?: string | null;
   content: string;
   imageUrl: string | null;
   mediaType?: "IMAGE" | "VIDEO" | null;
@@ -80,9 +104,43 @@ export interface SocialPostResponse {
   likeCount: number;
   commentCount: number;
   likedByCurrentUser?: boolean;
+  poll?: PostPoll;
+}
+
+export interface PostPollOption {
+  id: number;
+  text: string;
+  voteCount: number;
+  percentage: number;
+  selectedByCurrentUser: boolean;
+}
+
+export interface PostPoll {
+  id: number;
+  question: string;
+  expiresAt: string;
+  closed: boolean;
+  totalVotes: number;
+  selectedOptionId?: number | null;
+  options: PostPollOption[];
+}
+
+export interface PostPollCreateRequest {
+  question: string;
+  options: string[];
+  durationMinutes: number;
 }
 
 export interface SocialPostCreateRequest {
+  content: string;
+  communityId?: number;
+  imageUrl?: string;
+  mediaUrls?: string[];
+  visibility?: PostVisibility;
+  poll?: PostPollCreateRequest;
+}
+
+export interface SocialPostUpdateRequest {
   content: string;
   imageUrl?: string;
   mediaUrls?: string[];
@@ -93,7 +151,7 @@ export interface SocialMediaUploadResponse {
   imageUrl: string;
   fileName: string;
   contentType: string;
-  mediaType: "IMAGE" | "VIDEO";
+  mediaType: "IMAGE" | "VIDEO" | "FILE";
   size: number;
 }
 
@@ -126,6 +184,10 @@ export interface SocialCommentCreateRequest {
   content: string;
   parentCommentId?: number;
   replyingToUserId?: number;
+}
+
+export interface SocialCommentUpdateRequest {
+  content: string;
 }
 
 export interface SocialCommentLikeResponse {
@@ -185,11 +247,25 @@ export interface DirectChatRoomCreateRequest {
 export interface ChatRoomCreateRequest {
   roomName?: string;
   roomType: ChatRoomType;
+  participantUserIds?: number[];
+}
+
+export interface ChatRoomUpdateRequest {
+  roomName?: string;
+  imageUrl?: string | null;
+}
+
+export interface ChatRoomMemberResponse {
+  userId: number;
+  creator: boolean;
+  role: "OWNER" | "ADMIN" | "MEMBER";
+  joinedAt: string;
 }
 
 export interface ChatRoomResponse {
   id: number;
   roomName: string | null;
+  imageUrl?: string | null;
   roomType: ChatRoomType;
   createdByUserId: number;
   createdAt: string;
@@ -198,12 +274,15 @@ export interface ChatRoomResponse {
   lastMessageContent?: string | null;
   lastMessageAt?: string | null;
   unreadCount?: number;
+  pinnedMessageId?: number | null;
+  pinnedMessage?: MessageResponse | null;
 }
 
 export interface MessageCreateRequest {
   chatRoomId: number;
-  content: string;
+  content?: string;
   replyToMessageId?: number;
+  mediaUrl?: string;
 }
 
 export interface MessageReactionResponse {
@@ -222,6 +301,9 @@ export interface MessageResponse {
   replyToMessageId?: number | null;
   replyToSenderUserId?: number | null;
   replyToContent?: string | null;
+  messageType?: "TEXT" | "IMAGE" | "VIDEO" | "FILE" | "SYSTEM";
+  mediaUrl?: string | null;
+  mediaType?: "IMAGE" | "VIDEO" | "FILE" | null;
   reactions?: MessageReactionResponse[];
   createdAt: string;
   updatedAt: string;
@@ -263,34 +345,15 @@ export type ComposerMediaType = "image" | "video";
 
 export interface ComposerSubmitPayload {
   content: string;
+  communityId?: number;
+  visibility?: PostVisibility;
+  poll?: PostPollCreateRequest;
   mediaFile?: File;
   mediaFiles?: Array<{
     file: File;
     type: ComposerMediaType;
   }>;
   mediaType?: ComposerMediaType;
-}
-
-export interface SuggestedGroup {
-  id: string;
-  name: string;
-  members: string;
-  description: string;
-  imageUrl: string;
-}
-
-export interface ActiveEvent {
-  id: string;
-  title: string;
-  date: {
-    day: string;
-    month: string;
-    detail: string;
-  };
-  tag: string;
-  tagTone: "purple" | "green";
-  attendeeAvatars: string[];
-  extraAttendees: number;
 }
 
 export interface OnlineFriend {

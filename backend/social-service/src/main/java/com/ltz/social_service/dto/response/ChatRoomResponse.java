@@ -12,6 +12,7 @@ public class ChatRoomResponse {
 
     private Long id;
     private String roomName;
+    private String imageUrl;
     private ChatRoomType roomType;
     private Long createdByUserId;
     private LocalDateTime createdAt;
@@ -20,4 +21,6 @@ public class ChatRoomResponse {
     private String lastMessageContent;
     private LocalDateTime lastMessageAt;
     private Long unreadCount;
+    private Long pinnedMessageId;
+    private MessageResponse pinnedMessage;
 }

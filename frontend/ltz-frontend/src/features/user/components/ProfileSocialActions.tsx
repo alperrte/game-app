@@ -7,6 +7,7 @@ type Props = {
   busyAction: string | null;
   onToggleFollow: () => Promise<void>;
   onFriendAction: () => Promise<void>;
+  onRejectFriendRequest?: () => Promise<void>;
   onToggleBlock: () => Promise<void>;
   onStartChat: () => Promise<void>;
 };
@@ -16,6 +17,7 @@ export const ProfileSocialActions: React.FC<Props> = ({
   busyAction,
   onToggleFollow,
   onFriendAction,
+  onRejectFriendRequest,
   onToggleBlock,
   onStartChat,
 }) => {
@@ -63,6 +65,20 @@ export const ProfileSocialActions: React.FC<Props> = ({
         )}
         {friendLabel}
       </button>
+
+      {relationship.hasIncomingRequestFromTarget && onRejectFriendRequest ? (
+        <button
+          type="button"
+          disabled={busyAction !== null || relationship.isBlockedByMe}
+          onClick={() => void onRejectFriendRequest()}
+          className="rounded-lg border border-rose-500/35 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-bold text-rose-300 hover:bg-rose-500 hover:text-white disabled:opacity-60"
+        >
+          {busyAction === "reject-friend" ? (
+            <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />
+          ) : null}
+          İsteği Reddet
+        </button>
+      ) : null}
 
       <button
         type="button"
