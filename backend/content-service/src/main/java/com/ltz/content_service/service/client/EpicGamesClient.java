@@ -14,7 +14,6 @@ public class EpicGamesClient {
 
     private final WebClient webClient;
 
-    @SuppressWarnings("unchecked")
     public Mono<Map<String, Object>> getFreeGames() {
         String graphqlQuery = "{\"query\":\"{ Catalog { searchStore(category: \\\"freegames\\\", limit: 5) { elements { title keyImages { type url } promotions { promotionalOffers { promotionalOffers { startDate endDate discountSetting { discountType discountPercentage } } } } } } } }\"}";
 
@@ -23,7 +22,8 @@ public class EpicGamesClient {
                 .header("Content-Type", "application/json")
                 .bodyValue(graphqlQuery)
                 .retrieve()
-                .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
+                .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
+                })
                 .onErrorResume(e -> {
                     log.error("Epic Games GraphQL API error: ", e);
                     return Mono.empty();

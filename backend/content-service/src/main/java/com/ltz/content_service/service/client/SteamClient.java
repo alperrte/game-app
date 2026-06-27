@@ -52,7 +52,8 @@ public class SteamClient {
                     try {
                         if (responseList != null && !responseList.isEmpty()) {
                             Map<String, Object> firstEntry = (Map<String, Object>) responseList.get(0);
-                            java.util.List<java.util.List<Number>> dataPoints = (java.util.List<java.util.List<Number>>) firstEntry.get("data");
+                            java.util.List<java.util.List<Number>> dataPoints = (java.util.List<java.util.List<Number>>) firstEntry
+                                    .get("data");
                             if (dataPoints != null && !dataPoints.isEmpty()) {
                                 java.util.List<Number> lastPoint = dataPoints.get(dataPoints.size() - 1);
                                 if (lastPoint != null && lastPoint.size() >= 2) {
@@ -72,7 +73,6 @@ public class SteamClient {
                 });
     }
 
-    @SuppressWarnings("unchecked")
     public Mono<String> getProtonDbCompatibility(long steamAppId) {
         return webClient.get()
                 .uri("https://www.protondb.com/api/v1/reports/summaries/" + steamAppId + ".json")

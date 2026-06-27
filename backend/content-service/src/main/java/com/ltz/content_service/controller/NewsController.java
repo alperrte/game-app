@@ -11,7 +11,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/content/news")
@@ -25,8 +24,7 @@ public class NewsController {
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal JwtUserPrincipal principal
-    ) {
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         Long currentUserId = (principal != null) ? principal.userId() : null;
         if (size > 100) {
             size = 100;
@@ -41,8 +39,7 @@ public class NewsController {
     @GetMapping("/{id}")
     public ResponseEntity<NewsArticleResponse> getNewsById(
             @PathVariable Long id,
-            @AuthenticationPrincipal JwtUserPrincipal principal
-    ) {
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         Long currentUserId = (principal != null) ? principal.userId() : null;
         NewsArticleResponse article = newsService.getNewsById(id, currentUserId);
         return ResponseEntity.ok(article);

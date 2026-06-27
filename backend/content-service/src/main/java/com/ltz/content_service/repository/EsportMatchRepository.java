@@ -3,12 +3,12 @@ package com.ltz.content_service.repository;
 import com.ltz.content_service.model.entity.EsportMatch;
 import com.ltz.content_service.model.enums.MatchStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Optional;
 
-@Repository
 public interface EsportMatchRepository extends JpaRepository<EsportMatch, Long> {
     Optional<EsportMatch> findByMatchId(String matchId);
+
     List<EsportMatch> findByStatusOrderByMatchTimeAsc(MatchStatus status);
 }
