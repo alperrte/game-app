@@ -23,24 +23,12 @@ public class StartupInitializer {
         log.info("Application started! Triggering initial data fetch in a separate thread...");
         new Thread(() -> {
             try {
-                // Fetch news
                 newsScheduler.fetchNews();
-                
-                // Fetch deals & historical lows
                 dealsScheduler.fetchDeals();
-                
-                // Fetch platform stats & CCU
                 statsScheduler.fetchPlatformStats();
-                
-                // Fetch free games & giveaways
                 statsScheduler.fetchFreeGamesAndGiveaways();
-                
-                // Fetch speedrun records
                 statsScheduler.fetchSpeedrunRecords();
-                
-                // Generate esports matches
                 statsScheduler.generateOrUpdateEsportMatches();
-                
                 log.info("Initial data fetch completed successfully!");
             } catch (Exception e) {
                 log.error("Error during initial startup data fetch: ", e);
