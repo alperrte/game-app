@@ -86,6 +86,9 @@ public class DealsScheduler {
                         Integer discountPercent = (int) Math.round(Double.parseDouble((String) deal.get("savings")));
 
                         String image = (String) deal.get("thumb");
+                        if (image != null && image.contains("store-images.s-microsoft.com")) {
+                            image = null;
+                        }
 
                         // Parse Metacritic score
                         Integer metacriticScore = null;
@@ -192,15 +195,14 @@ public class DealsScheduler {
                     "https://image.api.playstation.com/vulcan/ap/rnd/202206/0720/eE7Dx27rWl37r24u35B07g94.png",
                     new BigDecimal("69.99"), new BigDecimal("39.99"), 42, "VERIFIED", false, 89, 94);
 
-            // Xbox Store Campaigns
             createConsoleDeal("Halo Infinite", "Xbox Store",
                     "https://www.xbox.com/games/store/halo-infinite-campaign/9np1p1w0dcc1",
-                    "https://store-images.s-microsoft.com/image/apps.50670.13727856755392170.62ec2f9c-7e6b-4e6f-ad86-cf57e62a8069.9575e9e0-88cb-402a-a92c-56bfb0a7c493",
+                    "https://shared.steamstatic.com/store_item_assets/steam/apps/1240440/capsule_616x353.jpg",
                     new BigDecimal("59.99"), new BigDecimal("19.99"), 66, "VERIFIED", true, 87, 85);
 
             createConsoleDeal("Forza Horizon 5", "Xbox Store",
                     "https://www.xbox.com/games/store/forza-horizon-5-standard-edition/9nkx70bbcd18",
-                    "https://store-images.s-microsoft.com/image/apps.13965.13781254394801997.7d76ee73-ee0b-46bf-ad90-256df2e1f422.39b6b7cf-a511-4045-bf27-142273be81a9",
+                    "https://shared.steamstatic.com/store_item_assets/steam/apps/1551360/capsule_616x353.jpg",
                     new BigDecimal("59.99"), new BigDecimal("29.99"), 50, "VERIFIED", true, 92, 91);
         } catch (Exception e) {
             log.error("Failed to populate console deals: ", e);

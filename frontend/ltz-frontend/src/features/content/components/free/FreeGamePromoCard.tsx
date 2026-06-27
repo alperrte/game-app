@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { ExternalLink, Gift } from "lucide-react";
 
 import { formatTimeRemaining } from "../../../../utils/formatTimeRemaining";
+import { optimizeImageUrl } from "../../../../utils/optimizeImageUrl";
 import type { FreeGameItem } from "../../types/contentStats.types";
 
 interface FreeGamePromoCardProps {
@@ -8,7 +10,11 @@ interface FreeGamePromoCardProps {
 }
 
 export function FreeGamePromoCard({ game }: FreeGamePromoCardProps) {
+    const [imageFailed, setImageFailed] = useState(false);
     const remaining = formatTimeRemaining(game.endsAt);
+
+    const optimizedUrl = optimizeImageUrl(game.imageUrl);
+    const canShowImage = Boolean(optimizedUrl) && !imageFailed;
 
     return (
         <a
@@ -17,12 +23,13 @@ export function FreeGamePromoCard({ game }: FreeGamePromoCardProps) {
             rel="noreferrer"
             className="group overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-gradient-to-br from-fuchsia-950/30 to-slate-950/80 transition hover:-translate-y-0.5 hover:border-fuchsia-400/40 hover:shadow-[0_0_28px_rgba(217,70,239,0.15)]"
         >
-            <div className="relative aspect-[16/10] overflow-hidden bg-violet-500/5">
-                {game.imageUrl ? (
+            <div className="relative aspect-[452/283] overflow-hidden bg-violet-500/5">
+                {canShowImage ? (
                     <img
-                        src={game.imageUrl}
+                        src={optimizedUrl}
                         alt={game.gameTitle}
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        onError={() => setImageFailed(true)}
                     />
                 ) : (
                     <div className="grid h-full place-items-center text-violet-200">
