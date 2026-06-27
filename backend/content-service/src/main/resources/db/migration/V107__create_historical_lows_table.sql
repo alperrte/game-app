@@ -7,5 +7,3 @@ CREATE TABLE historical_lows (
     recorded_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT ck_hist_price CHECK (lowest_price >= 0)
 );
-
--- uq_hist_title zaten game_title üzerinde unique index sağlar; ek indeks gerekmez

@@ -19,75 +19,71 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
+        public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(authenticationEntryPoint())
-                        .accessDeniedHandler((request, response, accessDeniedException) ->
-                                response.sendError(HttpStatus.FORBIDDEN.value(), "Access denied"))
-                )
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/actuator/health",
-                                "/error"
-                        ).permitAll()
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .cors(Customizer.withDefaults())
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(authenticationEntryPoint())
+                                                .accessDeniedHandler(
+                                                                (request, response, accessDeniedException) -> response
+                                                                                .sendError(HttpStatus.FORBIDDEN.value(),
+                                                                                                "Access denied")))
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                                .requestMatchers(
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html",
+                                                                "/v3/api-docs/**",
+                                                                "/actuator/health",
+                                                                "/error")
+                                                .permitAll()
 
-                        // Admin CMS & specific content admin endpoints
-                        .requestMatchers("/api/content/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/content/trivia/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/content/history/admin/**").hasRole("ADMIN")
+                                                .requestMatchers("/api/content/admin/**").hasRole("ADMIN")
+                                                .requestMatchers("/api/content/trivia/admin/**").hasRole("ADMIN")
+                                                .requestMatchers("/api/content/history/admin/**").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/content/spotlight").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/content/news/**").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/content/deals/**").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/content/stats/**").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/content/history/**").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/content/trivia/**").permitAll()
 
-                        // Publicly accessible content GET routes
-                        .requestMatchers(HttpMethod.GET, "/api/content/spotlight").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/content/news/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/content/deals/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/content/stats/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/content/history/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/content/trivia/**").permitAll()
+                                                .anyRequest().authenticated())
+                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-                        // Reactions and any other content management
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                return http.build();
+        }
 
-        return http.build();
-    }
+        @Bean
+        public AuthenticationEntryPoint authenticationEntryPoint() {
+                return (request, response, authException) -> response.sendError(HttpStatus.UNAUTHORIZED.value(),
+                                "Authentication required");
+        }
 
-    @Bean
-    public AuthenticationEntryPoint authenticationEntryPoint() {
-        return (request, response, authException) ->
-                response.sendError(HttpStatus.UNAUTHORIZED.value(), "Authentication required");
-    }
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration configuration = new CorsConfiguration();
+                configuration.setAllowedOrigins(List.of(
+                                "http://localhost:5173",
+                                "http://localhost:3000",
+                                "http://localhost:7070",
+                                "http://localhost:8080"));
+                configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowCredentials(true);
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:7070",
-                "http://localhost:8080"
-        ));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", configuration);
+                return source;
+        }
 }

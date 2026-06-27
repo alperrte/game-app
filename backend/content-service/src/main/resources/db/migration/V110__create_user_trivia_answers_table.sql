@@ -6,5 +6,3 @@ CREATE TABLE user_trivia_answers (
     answered_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT uq_user_daily_trivia UNIQUE (user_id, trivia_date)
 );
-
--- uq_user_daily_trivia zaten (user_id, trivia_date) lookup'ını kapsar

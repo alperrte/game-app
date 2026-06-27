@@ -1,11 +1,13 @@
 package com.ltz.content_service.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.NOT_FOUND)
-public class ResourceNotFoundException extends RuntimeException {
+public class ResourceNotFoundException extends BusinessException {
+
     public ResourceNotFoundException(String message) {
-        super(message);
+        super(
+                ErrorCode.CONTENT_NOT_FOUND,
+                HttpStatus.NOT_FOUND,
+                message);
     }
 }
