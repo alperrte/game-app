@@ -11,7 +11,6 @@ public class UserServiceApplication {
 
 	public static void main(String[] args) {
 		try {
-			// Try loading .env from parent directory (if running from backend/user-service)
 			Dotenv dotenv = Dotenv.configure()
 					.directory("../../")
 					.ignoreIfMissing()
@@ -19,7 +18,6 @@ public class UserServiceApplication {
 			dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
 		} catch (Exception e) {
 			try {
-				// Try loading from current directory
 				Dotenv dotenv = Dotenv.configure()
 						.directory("./")
 						.ignoreIfMissing()

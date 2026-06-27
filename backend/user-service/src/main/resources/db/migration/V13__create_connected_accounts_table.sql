@@ -1,6 +1,4 @@
--- ==========================================
--- V13__create_connected_accounts_table.sql
--- ==========================================
+
 
 CREATE TABLE connected_accounts (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,

@@ -1,6 +1,3 @@
--- ==========================================
--- V12__create_privacy_settings_table.sql
--- ==========================================
 
 CREATE TABLE privacy_settings (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,

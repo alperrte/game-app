@@ -30,24 +30,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 🏆 UserProfileService
- * 
- * Kullanıcı profili, gizlilik ayarları ve bağlı üçüncü taraf hesapların (Steam, Epic, Discord vb.)
- * iş mantığını (Business Logic) yöneten ana servis sınıfıdır.
- * 
- * 📌 TASARIM VE MİMARİ KARARLAR:
- * - Proje kuralları uyarınca Service ve ServiceImpl ayrımı yapılmadan doğrudan tek bir sınıf olarak tasarlanmıştır.
- * - Veritabanı tutarlılığı sağlamak amacıyla veri güncelleyen tüm metotlar `@Transactional` ile korunur.
- * 
- * 🚀 GELECEK MODERNİZASYON ÖNERİLERİ (Gelecek Yazılımcılar İçin Notlar):
- * - **Premium/VIP Tiers:** İleride kullanıcıların profil temalarında GIF kullanması (profileThemeUrl)
- *   veya yükleyebileceği maksimum dosya boyutu, kullanıcının premium rolüne/statüsüne göre burada kısıtlanabilir.
- * - **Event-Driven Architecture:** Yeni profil kurulumu yapıldığında (`createOrUpdateProfile`), diğer mikroservisleri
- *   (Örn: notification-service) haberdar etmek için RabbitMQ veya Kafka üzerinden bir Event yayınlanabilir.
- * - **Platform Enum:** Steam, Discord gibi platform isimleri şu an String olarak alınıyor. İleride platform
- *   çeşitliliği arttıkça buraya bir Java Enum (PlatformType) entegre edilmesi hataları minimize edecektir.
- */
 @Service
 @Slf4j
 public class UserProfileService {
@@ -64,12 +46,11 @@ public class UserProfileService {
     private final UserAssignedBadgeRepository userAssignedBadgeRepository;
     private final AuditLogService auditLogService;
 
-    // Dependency Injection (Constructor Injection) kullanılmıştır.
     public UserProfileService(UserProfileRepository userProfileRepository,
-                              PrivacySettingsRepository privacySettingsRepository,
-                              ConnectedAccountRepository connectedAccountRepository,
-                              UserAssignedBadgeRepository userAssignedBadgeRepository,
-                              AuditLogService auditLogService) {
+            PrivacySettingsRepository privacySettingsRepository,
+            ConnectedAccountRepository connectedAccountRepository,
+            UserAssignedBadgeRepository userAssignedBadgeRepository,
+            AuditLogService auditLogService) {
         this.userProfileRepository = userProfileRepository;
         this.privacySettingsRepository = privacySettingsRepository;
         this.connectedAccountRepository = connectedAccountRepository;
@@ -77,10 +58,6 @@ public class UserProfileService {
         this.auditLogService = auditLogService;
     }
 
-    /**
-     * Belirli bir kullanıcının profil detaylarını çeker.
-     * profile bulunamazsa ResourceNotFoundException fırlatır (GlobalExceptionHandler tarafından yakalanıp 404 döner).
-     */
     @Transactional(readOnly = true)
     public UserProfileResponse getProfile(String userId) {
         UserProfile profile = userProfileRepository.findByUserId(userId)
@@ -105,7 +82,8 @@ public class UserProfileService {
 
     private void checkProfilePrivacy(String targetUserId, String currentUserId) {
         PrivacySettings settings = privacySettingsRepository.findByUserId(targetUserId).orElse(null);
-        if (settings != null && (settings.getProfileVisibility() == Visibility.PRIVATE || settings.getProfileVisibility() == Visibility.FRIENDS_ONLY)) {
+        if (settings != null && (settings.getProfileVisibility() == Visibility.PRIVATE
+                || settings.getProfileVisibility() == Visibility.FRIENDS_ONLY)) {
             if (currentUserId == null || !currentUserId.equals(targetUserId)) {
                 throw new org.springframework.security.access.AccessDeniedException("Bu profil gizlidir.");
             }
@@ -152,61 +130,57 @@ public class UserProfileService {
         });
     }
 
-
-    /**
-     * Kullanıcı profil bilgilerini günceller veya kullanıcı ilk defa sisteme girdiyse yeni profil oluşturur.
-     * 
-     * 📌 YAN ETKİ (Side Effect) YÖNETİMİ:
-     * - Profil ilk defa oluşturuluyorsa, kullanıcının varsayılan gizlilik ayarları da (`PrivacySettings`)
-     *   arka planda otomatik olarak oluşturulur ve kaydedilir.
-     */
     @Transactional
-    public UserProfileResponse createOrUpdateProfile(String userId, String username, String email, UserProfileRequest request, ClientRequestContext context) {
+    public UserProfileResponse createOrUpdateProfile(String userId, String username, String email,
+            UserProfileRequest request, ClientRequestContext context) {
         boolean isNew = !userProfileRepository.findByUserId(userId).isPresent();
 
-        // Profil varsa bul, yoksa veritabanına eklemek üzere yeni bir UserProfile modeli inşa et
         UserProfile profile = userProfileRepository.findByUserId(userId)
                 .orElse(UserProfile.builder().userId(userId).username(username).email(email).build());
 
-        // İstek içeriği boş değilse gelen güncel alanları modele set et (Null-safe güncellemeler)
         if (request != null) {
-            if (request.getDisplayName() != null) profile.setDisplayName(request.getDisplayName());
-            if (request.getBio() != null) profile.setBio(request.getBio());
-            if (request.getAvatarUrl() != null) profile.setAvatarUrl(request.getAvatarUrl());
-            if (request.getCoverUrl() != null) profile.setCoverUrl(request.getCoverUrl());
-            if (request.getGamerType() != null) profile.setGamerType(request.getGamerType());
-            if (request.getFavoriteCategories() != null) profile.setFavoriteCategories(request.getFavoriteCategories());
-            if (request.getProfileThemeUrl() != null) profile.setProfileThemeUrl(request.getProfileThemeUrl());
-            if (request.getProfileBackgroundUrl() != null) profile.setProfileBackgroundUrl(request.getProfileBackgroundUrl());
-            if (request.getProfileMusicUrl() != null) profile.setProfileMusicUrl(request.getProfileMusicUrl());
-            if (request.getHardwareCpu() != null) profile.setHardwareCpu(request.getHardwareCpu());
-            if (request.getHardwareGpu() != null) profile.setHardwareGpu(request.getHardwareGpu());
-            if (request.getHardwareRam() != null) profile.setHardwareRam(request.getHardwareRam());
-            if (request.getHardwareOs() != null) profile.setHardwareOs(request.getHardwareOs());
+            if (request.getDisplayName() != null)
+                profile.setDisplayName(request.getDisplayName());
+            if (request.getBio() != null)
+                profile.setBio(request.getBio());
+            if (request.getAvatarUrl() != null)
+                profile.setAvatarUrl(request.getAvatarUrl());
+            if (request.getCoverUrl() != null)
+                profile.setCoverUrl(request.getCoverUrl());
+            if (request.getGamerType() != null)
+                profile.setGamerType(request.getGamerType());
+            if (request.getFavoriteCategories() != null)
+                profile.setFavoriteCategories(request.getFavoriteCategories());
+            if (request.getProfileThemeUrl() != null)
+                profile.setProfileThemeUrl(request.getProfileThemeUrl());
+            if (request.getProfileBackgroundUrl() != null)
+                profile.setProfileBackgroundUrl(request.getProfileBackgroundUrl());
+            if (request.getProfileMusicUrl() != null)
+                profile.setProfileMusicUrl(request.getProfileMusicUrl());
+            if (request.getHardwareCpu() != null)
+                profile.setHardwareCpu(request.getHardwareCpu());
+            if (request.getHardwareGpu() != null)
+                profile.setHardwareGpu(request.getHardwareGpu());
+            if (request.getHardwareRam() != null)
+                profile.setHardwareRam(request.getHardwareRam());
+            if (request.getHardwareOs() != null)
+                profile.setHardwareOs(request.getHardwareOs());
         }
 
         UserProfile saved = userProfileRepository.save(profile);
 
-        // Kullanıcının varsayılan gizlilik ayarlarının veritabanında var olduğundan emin ol (Yoksa oluştur)
         if (!privacySettingsRepository.findByUserId(userId).isPresent()) {
             privacySettingsRepository.save(PrivacySettings.builder().userId(userId).build());
         }
 
-        // Asenkron Audit Loglama
         String details = isNew ? "Profile initialized for user " + username : "Profile fields updated";
-        auditLogService.log(userId, isNew ? AuditAction.CREATE_PROFILE.name() : AuditAction.UPDATE_PROFILE.name(), details, context);
+        auditLogService.log(userId, isNew ? AuditAction.CREATE_PROFILE.name() : AuditAction.UPDATE_PROFILE.name(),
+                details, context);
 
         log.info("Profile successfully created/updated for userId: {}", userId);
 
         return mapToProfileResponse(saved);
     }
-
-
-
-    // ==========================================
-    // 🔄 DTO MAPPING METOTLARI
-    // (Veritabanı Entity modellerini temiz API çıktılarına dönüştürür)
-    // ==========================================
 
     private UserProfileResponse mapToProfileResponse(UserProfile profile) {
         return mapToProfileResponse(profile, getCurrentUserId());
@@ -230,7 +204,7 @@ public class UserProfileService {
     }
 
     private UserProfileResponse mapToProfileResponse(
-            UserProfile profile, 
+            UserProfile profile,
             String viewerUserId,
             PrivacySettings settings,
             List<ConnectedAccount> connected,
@@ -296,8 +270,6 @@ public class UserProfileService {
                 .build();
     }
 
-
-
     private ConnectedAccountResponse mapToConnectedAccountResponse(ConnectedAccount account) {
         return ConnectedAccountResponse.builder()
                 .id(account.getId())
@@ -319,7 +291,6 @@ public class UserProfileService {
             return List.of();
         }
 
-        // Clean and deduplicate IDs
         List<String> cleanIds = userIds.stream()
                 .filter(id -> id != null && !id.trim().isEmpty())
                 .distinct()
@@ -329,13 +300,11 @@ public class UserProfileService {
             return List.of();
         }
 
-        // Bulk load profiles, settings, connected accounts, and assigned badges in exactly 4 database queries total
         List<UserProfile> profiles = userProfileRepository.findAllByUserIdIn(cleanIds);
         List<PrivacySettings> settingsList = privacySettingsRepository.findAllByUserIdIn(cleanIds);
         List<ConnectedAccount> connectedList = connectedAccountRepository.findAllByUserIdIn(cleanIds);
         List<UserAssignedBadge> assignedBadgesList = userAssignedBadgeRepository.findAllByUserIdIn(cleanIds);
 
-        // Map them for O(1) in-memory resolution
         java.util.Map<String, PrivacySettings> settingsMap = settingsList.stream()
                 .collect(Collectors.toMap(PrivacySettings::getUserId, s -> s, (s1, s2) -> s1));
 
@@ -350,22 +319,18 @@ public class UserProfileService {
         return profiles.stream()
                 .filter(profile -> {
                     PrivacySettings settings = settingsMap.get(profile.getUserId());
-                    if (settings != null && (settings.getProfileVisibility() == Visibility.PRIVATE 
+                    if (settings != null && (settings.getProfileVisibility() == Visibility.PRIVATE
                             || settings.getProfileVisibility() == Visibility.FRIENDS_ONLY)) {
-                        // Secure gating: Private profiles are only returned if requested by their owner.
                         return currentUserId != null && currentUserId.equals(profile.getUserId());
                     }
                     return true;
                 })
                 .map(p -> mapToProfileResponse(
-                        p, 
+                        p,
                         currentUserId,
                         settingsMap.get(p.getUserId()),
                         connectedMap.getOrDefault(p.getUserId(), List.of()),
-                        badgesMap.getOrDefault(p.getUserId(), List.of())
-                ))
+                        badgesMap.getOrDefault(p.getUserId(), List.of())))
                 .collect(Collectors.toList());
     }
 }
-
-

@@ -8,29 +8,24 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * 📝 OpenApiConfig
- * 
- * Swagger UI dokümantasyonuna Bearer JWT yetkilendirme (Authorize) desteği ekler.
- */
 @Configuration
 public class OpenApiConfig {
 
-    @Bean
-    public OpenAPI customOpenAPI() {
-        final String securitySchemeName = "bearerAuth";
-        return new OpenAPI()
-                .info(new Info()
-                        .title("LTZ User Service API")
-                        .version("v1.0")
-                        .description("Lobby Two Zero - User Service REST API belgelendirmesi."))
-                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
-                .components(new Components()
-                        .addSecuritySchemes(securitySchemeName,
-                                new SecurityScheme()
-                                        .name(securitySchemeName)
-                                        .type(SecurityScheme.Type.HTTP)
-                                        .scheme("bearer")
-                                        .bearerFormat("JWT")));
-    }
+        @Bean
+        public OpenAPI customOpenAPI() {
+                final String securitySchemeName = "bearerAuth";
+                return new OpenAPI()
+                                .info(new Info()
+                                                .title("LTZ User Service API")
+                                                .version("v1.0")
+                                                .description("Lobby Two Zero - User Service REST API belgelendirmesi."))
+                                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
+                                .components(new Components()
+                                                .addSecuritySchemes(securitySchemeName,
+                                                                new SecurityScheme()
+                                                                                .name(securitySchemeName)
+                                                                                .type(SecurityScheme.Type.HTTP)
+                                                                                .scheme("bearer")
+                                                                                .bearerFormat("JWT")));
+        }
 }
