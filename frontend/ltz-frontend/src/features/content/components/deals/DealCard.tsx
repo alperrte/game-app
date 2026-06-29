@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { ExternalLink, Gamepad2, Users } from "lucide-react";
 
 import { formatCurrency } from "../../../../utils/formatCurrency";
 import { formatTimeRemaining } from "../../../../utils/formatTimeRemaining";
 import { cn } from "../../../../utils/cn";
+import { optimizeImageUrl } from "../../../../utils/optimizeImageUrl";
 import type { DealCampaign } from "../../types/deals.types";
 import { SteamDeckBadge } from "./SteamDeckBadge";
 
@@ -12,9 +14,13 @@ interface DealCardProps {
 }
 
 export function DealCard({ deal, highlight = false }: DealCardProps) {
+    const [imageFailed, setImageFailed] = useState(false);
     const endsLabel = deal.endsAt
         ? formatTimeRemaining(deal.endsAt)
         : null;
+
+    const optimizedUrl = optimizeImageUrl(deal.imageUrl);
+    const canShowImage = Boolean(optimizedUrl) && !imageFailed;
 
     return (
         <article
@@ -25,12 +31,13 @@ export function DealCard({ deal, highlight = false }: DealCardProps) {
                     : "border-white/10",
             )}
         >
-            <div className="relative aspect-[16/10] overflow-hidden bg-violet-500/5">
-                {deal.imageUrl ? (
+            <div className="relative aspect-[452/283] overflow-hidden bg-violet-500/5">
+                {canShowImage ? (
                     <img
-                        src={deal.imageUrl}
+                        src={optimizedUrl}
                         alt={deal.gameTitle}
                         className="h-full w-full object-cover"
+                        onError={() => setImageFailed(true)}
                     />
                 ) : (
                     <div className="grid h-full place-items-center text-sm font-semibold text-violet-200">

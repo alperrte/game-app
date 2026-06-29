@@ -1,26 +1,21 @@
 package com.ltz.user_service.dto.request;
 
-import jakarta.validation.constraints.Pattern;
+import com.ltz.user_service.entity.Visibility;
 import lombok.Data;
 
 @Data
 public class PrivacySettingsRequest {
 
-    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
-    private String profileVisibility;
+    private Visibility profileVisibility;
 
-    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
-    private String gameLibraryVisibility;
+    private Visibility gameLibraryVisibility;
 
-    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
-    private String hardwareVisibility;
+    private Visibility hardwareVisibility;
 
-    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
-    private String friendListVisibility;
+    private Visibility friendListVisibility;
 
-    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
-    private String followerListVisibility;
+    private Visibility followerListVisibility;
 
-    @Pattern(regexp = "PUBLIC|FRIENDS_ONLY|PRIVATE", message = "Visibility must be PUBLIC, FRIENDS_ONLY, or PRIVATE")
-    private String lastSeenVisibility;
+    private Visibility lastSeenVisibility;
 }
+

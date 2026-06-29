@@ -28,8 +28,10 @@ import {
 import {
     Brain,
     Building2,
+    CalendarDays,
     ChevronDown,
     Code2,
+    Compass,
     Cpu,
     Gamepad2,
     Gauge,
@@ -53,6 +55,7 @@ import {
     Settings,
     UserPlus,
     UserRound,
+    Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -95,9 +98,19 @@ const mainNavItems: NavItem[] = [
         icon: Home,
     },
     {
-        label: "Sohbet",
-        href: "/messages",
-        icon: MessageCircle,
+        label: "Keşfet",
+        href: "/explore",
+        icon: Compass,
+    },
+    {
+        label: "Topluluklar",
+        href: "/communities",
+        icon: Users,
+    },
+    {
+        label: "Etkinlikler",
+        href: "/events",
+        icon: CalendarDays,
     },
 ];
 
@@ -757,10 +770,7 @@ export function Navbar() {
                         "
                     >
                         {mainNavItems.map((item) =>
-                            renderNavLink(
-                                item,
-                                activeHref,
-                            ),
+                            renderNavLink(item, activeHref),
                         )}
 
                         {/* Oyunlar dropdown */}
@@ -896,7 +906,7 @@ export function Navbar() {
                             activeHref,
                         )}
 
-                        {/* LTZ Corner dropdown */}
+                        {/* Oyun Merkezi dropdown */}
                         <div
                             ref={contentMenuRef}
                             className="relative shrink-0"
@@ -953,7 +963,7 @@ export function Navbar() {
                                         }
                                     />
 
-                                    <span>LTZ Corner</span>
+                                    <span>Oyun Merkezi</span>
                                 </NavLink>
 
                                 <button
@@ -961,7 +971,7 @@ export function Navbar() {
                                     aria-expanded={
                                         isContentMenuOpen
                                     }
-                                    aria-label="LTZ Corner menüsünü aç veya kapat"
+                                    aria-label="Oyun Merkezi menüsünü aç veya kapat"
                                     className="
                                         mr-1 grid h-7 w-7
                                         place-items-center

@@ -1,6 +1,5 @@
 package com.ltz.content_service.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ltz.content_service.exception.ResourceNotFoundException;
 import com.ltz.content_service.model.entity.EsportMatch;

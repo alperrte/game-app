@@ -69,7 +69,7 @@ public class IgdbClient {
                                     if (cover != null && cover.containsKey("url")) {
                                         String url = (String) cover.get("url");
                                         if (url != null) {
-                                            coverUrl = url.replace("t_thumb", "t_cover_big");
+                                            coverUrl = url.replace("t_thumb", "t_720p");
                                             if (coverUrl.startsWith("//")) {
                                                 coverUrl = "https:" + coverUrl;
                                             }

@@ -1,11 +1,15 @@
 package com.ltz.social_service.controller;
 
 import com.ltz.social_service.dto.request.PostCommentCreateRequest;
+import com.ltz.social_service.dto.request.PostCommentUpdateRequest;
 import com.ltz.social_service.dto.request.PostCreateRequest;
+import com.ltz.social_service.dto.request.PostUpdateRequest;
 import com.ltz.social_service.dto.response.PostCommentLikeResponse;
 import com.ltz.social_service.dto.response.PostCommentResponse;
 import com.ltz.social_service.dto.response.PostLikeResponse;
 import com.ltz.social_service.dto.response.PostResponse;
+import com.ltz.social_service.dto.request.PostPollVoteRequest;
+import com.ltz.social_service.dto.response.PostPollResponse;
 import com.ltz.social_service.security.JwtUserPrincipal;
 import com.ltz.social_service.service.PostService;
 import jakarta.validation.Valid;
@@ -16,9 +20,11 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -42,17 +48,56 @@ public class PostController {
 
     @GetMapping("/posts/public")
     public List<PostResponse> getPublicPosts(
-            @AuthenticationPrincipal JwtUserPrincipal principal
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return postService.getPublicPosts(principal == null ? null : principal.userId());
+        return postService.getPublicPosts(
+                principal == null ? null : principal.userId(),
+                Math.max(0, page),
+                boundedSize(size));
     }
 
     @GetMapping("/users/{userId}/posts")
     public List<PostResponse> getPostsByUser(
             @PathVariable Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return postService.getPostsByUser(
+                userId,
+                principal == null ? null : principal.userId(),
+                Math.max(0, page),
+                boundedSize(size));
+    }
+
+    @GetMapping("/posts/{postId}")
+    public PostResponse getPostById(
+            @PathVariable Long postId,
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-        return postService.getPostsByUser(userId, principal == null ? null : principal.userId());
+        return postService.getPostById(
+                postId,
+                principal == null ? null : principal.userId());
+    }
+
+    @PutMapping("/posts/{postId}")
+    public PostResponse updatePost(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody PostUpdateRequest request
+    ) {
+        return postService.updatePost(postId, principal.userId(), request);
+    }
+
+    @PostMapping("/posts/{postId}/poll/votes")
+    public PostPollResponse votePoll(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody PostPollVoteRequest request
+    ) {
+        return postService.votePoll(postId, request.getOptionId(), principal.userId());
     }
 
     @DeleteMapping("/posts/{postId}")
@@ -83,8 +128,17 @@ public class PostController {
     }
 
     @GetMapping("/posts/{postId}/likes")
-    public List<PostLikeResponse> getLikesByPost(@PathVariable Long postId) {
-        return postService.getLikesByPost(postId);
+    public List<PostLikeResponse> getLikesByPost(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size
+    ) {
+        return postService.getLikesByPost(
+                postId,
+                principal.userId(),
+                Math.max(0, page),
+                boundedSize(size));
     }
 
     @PostMapping("/posts/{postId}/comments")
@@ -102,9 +156,15 @@ public class PostController {
     @GetMapping("/posts/{postId}/comments")
     public List<PostCommentResponse> getCommentsByPost(
             @PathVariable Long postId,
-            @AuthenticationPrincipal JwtUserPrincipal principal
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size
     ) {
-        return postService.getCommentsByPost(postId, principal == null ? null : principal.userId());
+        return postService.getCommentsByPost(
+                postId,
+                principal == null ? null : principal.userId(),
+                Math.max(0, page),
+                boundedSize(size));
     }
 
     @PostMapping("/comments/{commentId}/likes")
@@ -132,5 +192,32 @@ public class PostController {
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         postService.deleteComment(commentId, principal.userId());
+    }
+
+    @PutMapping("/comments/{commentId}")
+    public PostCommentResponse updateComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @Valid @RequestBody PostCommentUpdateRequest request
+    ) {
+        return postService.updateComment(commentId, principal.userId(), request);
+    }
+
+    @GetMapping("/posts/communities")
+    public List<PostResponse> getCommunityFeed(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(required = false) Long communityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return postService.getCommunityFeed(
+                principal.userId(),
+                communityId,
+                Math.max(0, page),
+                boundedSize(size));
+    }
+
+    private int boundedSize(int size) {
+        return Math.max(1, Math.min(size, 100));
     }
 }

@@ -9,6 +9,5 @@ CREATE TABLE spotlight_banners (
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME()
 );
 
--- GET /spotlight: aktif banner'lar display_order'a göre
 CREATE INDEX ix_spotlight_active_order ON spotlight_banners(is_active, display_order)
     WHERE is_active = 1;

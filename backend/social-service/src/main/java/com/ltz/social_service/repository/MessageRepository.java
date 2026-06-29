@@ -4,6 +4,8 @@ import com.ltz.social_service.entity.Message;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
@@ -13,6 +15,13 @@ import java.util.Optional;
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
     List<Message> findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtAsc(Long chatRoomId);
+    Page<Message> findByChatRoomIdAndIsDeletedFalse(Long chatRoomId, Pageable pageable);
+
+    Page<Message> findByChatRoomIdAndIsDeletedFalseAndContentContainingIgnoreCase(
+            Long chatRoomId,
+            String content,
+            Pageable pageable
+    );
 
     List<Message> findBySenderUserId(Long senderUserId);
 

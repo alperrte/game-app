@@ -16,5 +16,9 @@ public class SocialClientResponse {
     private Long friendUserId; // Arkadaşlar listesinden döner
     private Long followerUserId; // Takipçiler listesinden döner
     private Long followingUserId; // Takip edilenler listesinden döner
+    private Long senderUserId;
+    private Long receiverUserId;
+    private Long blockerUserId;
+    private Long blockedUserId;
     private LocalDateTime createdAt;
 }

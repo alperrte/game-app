@@ -30,13 +30,11 @@ public class NewsScheduler {
 
     private static final List<String> HARDWARE_KEYWORDS = Arrays.asList(
             "nvidia", "amd", "intel", "rtx", "gpu", "cpu", "processor", "radeon", "graphics", "dlss", "fsr",
-            "ekran kartı", "işlemci", "donanım", "ekran karti", "islemci", "anakart", "ram", "bellek"
-    );
+            "ekran kartı", "işlemci", "donanım", "ekran karti", "islemci", "anakart", "ram", "bellek");
 
     private static final List<String> PATCH_NOTES_KEYWORDS = Arrays.asList(
             "patch notes", "update", "hotfix", "patch v", "version", "changelog", "patch-notes",
-            "güncelleme", "yama", "guncelleme", "sürüm", "surum", "notları", "notlari"
-    );
+            "güncelleme", "yama", "guncelleme", "sürüm", "surum", "notları", "notlari");
 
     private static final Map<String, String> RSS_SOURCES = Map.of(
             "PC Gamer", "https://www.pcgamer.com/rss/",
@@ -44,8 +42,7 @@ public class NewsScheduler {
             "GameSpot", "https://www.gamespot.com/feeds/news/",
             "Eurogamer", "https://www.eurogamer.net/feed/news",
             "Oyungezer", "https://oyungezer.com.tr/rss",
-            "Merlin'in Kazani", "https://www.merlininkazani.com/feed/"
-    );
+            "Merlin'in Kazani", "https://www.merlininkazani.com/feed/");
 
     @Scheduled(cron = "0 0 * * * *")
     public void fetchNews() {
@@ -73,7 +70,6 @@ public class NewsScheduler {
                 return;
             }
 
-            // Sanitize raw ampersands before XML parsing to prevent SAXParseException
             xmlContent = xmlContent.replaceAll("&(?!(amp|lt|gt|quot|apos|#\\d+);)", "&amp;");
 
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -100,7 +96,7 @@ public class NewsScheduler {
                 NewsCategory category = NewsCategory.GLOBAL;
                 String lowerTitle = title != null ? title.toLowerCase() : "";
                 String lowerDesc = description != null ? description.toLowerCase() : "";
-                
+
                 boolean isHardware = false;
                 for (String keyword : HARDWARE_KEYWORDS) {
                     if (lowerTitle.contains(keyword) || lowerDesc.contains(keyword)) {
@@ -132,7 +128,8 @@ public class NewsScheduler {
                 log.info("Saved new article from {}: {}", sourceName, title);
             }
         } catch (Exception e) {
-            log.warn("Strict XML parsing failed for source {} ({}), falling back to regex parser: {}", sourceName, url, e.getMessage());
+            log.warn("Strict XML parsing failed for source {} ({}), falling back to regex parser: {}", sourceName, url,
+                    e.getMessage());
             if (xmlContent != null) {
                 parseRssViaRegex(xmlContent, sourceName);
             }
@@ -142,24 +139,25 @@ public class NewsScheduler {
     private void parseRssViaRegex(String xmlContent, String sourceName) {
         log.info("Starting robust regex parsing for source: {}", sourceName);
         try {
-            java.util.regex.Pattern itemPattern = java.util.regex.Pattern.compile("<item>(.*?)</item>", java.util.regex.Pattern.DOTALL);
+            java.util.regex.Pattern itemPattern = java.util.regex.Pattern.compile("<item>(.*?)</item>",
+                    java.util.regex.Pattern.DOTALL);
             java.util.regex.Matcher itemMatcher = itemPattern.matcher(xmlContent);
-            
+
             int count = 0;
             while (itemMatcher.find() && count < 10) {
                 String itemContent = itemMatcher.group(1);
-                
+
                 String title = extractTagContent(itemContent, "title");
                 String description = extractTagContent(itemContent, "description");
                 if (description == null || description.isEmpty()) {
                     description = extractTagContent(itemContent, "content:encoded");
                 }
                 String link = extractTagContent(itemContent, "link");
-                
+
                 if (link == null || link.isEmpty()) {
                     link = extractTagContent(itemContent, "guid");
                 }
-                
+
                 title = cleanHtml(title);
                 description = cleanHtml(description);
 
@@ -176,7 +174,7 @@ public class NewsScheduler {
                 NewsCategory category = NewsCategory.GLOBAL;
                 String lowerTitle = title != null ? title.toLowerCase() : "";
                 String lowerDesc = description != null ? description.toLowerCase() : "";
-                
+
                 boolean isHardware = false;
                 for (String keyword : HARDWARE_KEYWORDS) {
                     if (lowerTitle.contains(keyword) || lowerDesc.contains(keyword)) {
@@ -215,7 +213,8 @@ public class NewsScheduler {
 
     private String extractTagContent(String content, String tag) {
         try {
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile("<" + tag + ">(.*?)</" + tag + ">", java.util.regex.Pattern.DOTALL);
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile("<" + tag + ">(.*?)</" + tag + ">",
+                    java.util.regex.Pattern.DOTALL);
             java.util.regex.Matcher m = p.matcher(content);
             if (m.find()) {
                 String val = m.group(1).trim();
@@ -242,16 +241,16 @@ public class NewsScheduler {
         String cleaned = text.replaceAll("<[^>]*>", "").trim();
         // Replace common HTML entities for clean output
         cleaned = cleaned.replace("&amp;", "&")
-                         .replace("&#039;", "'")
-                         .replace("&apos;", "'")
-                         .replace("&quot;", "\"")
-                         .replace("&ldquo;", "\"")
-                         .replace("&rdquo;", "\"")
-                         .replace("&lsquo;", "'")
-                         .replace("&rsquo;", "'")
-                         .replace("&ndash;", "–")
-                         .replace("&mdash;", "—")
-                         .replace("&nbsp;", " ");
+                .replace("&#039;", "'")
+                .replace("&apos;", "'")
+                .replace("&quot;", "\"")
+                .replace("&ldquo;", "\"")
+                .replace("&rdquo;", "\"")
+                .replace("&lsquo;", "'")
+                .replace("&rsquo;", "'")
+                .replace("&ndash;", "–")
+                .replace("&mdash;", "—")
+                .replace("&nbsp;", " ");
         return cleaned;
     }
 

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "../../../lib/constants";
+import { getAccessToken } from "../../../lib/token";
 
 export const DEFAULT_PROFILE_COVER =
   "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80";
@@ -18,5 +19,14 @@ export const getImageUrl = (url: string | null | undefined): string => {
     return url;
   }
   const cleanUrl = url.startsWith("/") ? url : `/${url}`;
-  return `${API_BASE_URL}${cleanUrl}`;
+  const resolved = `${API_BASE_URL}${cleanUrl}`;
+
+  if (cleanUrl.startsWith("/api/social/media/")) {
+    const token = getAccessToken();
+    if (token) {
+      return `${resolved}${resolved.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+    }
+  }
+
+  return resolved;
 };

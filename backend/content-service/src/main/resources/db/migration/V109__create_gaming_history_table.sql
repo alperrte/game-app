@@ -13,5 +13,4 @@ CREATE TABLE gaming_history (
     CONSTRAINT ck_history_year CHECK (event_year BETWEEN 1970 AND 2100)
 );
 
--- GET /history/today ve /history/date?month=&day=
 CREATE INDEX ix_gaming_history_date ON gaming_history(event_month, event_day);

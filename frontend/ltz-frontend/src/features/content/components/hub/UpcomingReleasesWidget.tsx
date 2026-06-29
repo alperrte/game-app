@@ -2,6 +2,7 @@ import { CalendarDays } from "lucide-react";
 import { useState } from "react";
 
 import type { UpcomingRelease } from "../../types/contentStats.types";
+import { optimizeImageUrl } from "../../../../utils/optimizeImageUrl";
 import { HubWidgetCard } from "./HubWidgetCard";
 
 interface UpcomingReleasesWidgetProps {
@@ -27,11 +28,12 @@ function ReleaseCover({
     imageUrl?: string | null;
 }) {
     const [failed, setFailed] = useState(false);
-    const canShowImage = Boolean(imageUrl?.trim()) && !failed;
+    const optimizedUrl = optimizeImageUrl(imageUrl);
+    const canShowImage = Boolean(optimizedUrl) && !failed;
 
     if (!canShowImage) {
         return (
-            <div className="grid aspect-[16/9] place-items-center bg-gradient-to-br from-violet-950/60 to-slate-950/80 px-4 text-center">
+            <div className="grid aspect-[450/253] place-items-center bg-gradient-to-br from-violet-950/60 to-slate-950/80 px-4 text-center">
                 <span className="text-xs font-bold uppercase tracking-[0.14em] text-violet-200">
                     {title}
                 </span>
@@ -41,9 +43,9 @@ function ReleaseCover({
 
     return (
         <img
-            src={imageUrl!}
+            src={optimizedUrl}
             alt={title}
-            className="aspect-[16/9] w-full object-cover"
+            className="aspect-[450/253] w-full object-cover"
             onError={() => setFailed(true)}
         />
     );

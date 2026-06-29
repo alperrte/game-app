@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "content_reactions", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "content_id", "content_type"})
+        @UniqueConstraint(columnNames = { "user_id", "content_id", "content_type" })
 })
 @Getter
 @Setter
@@ -23,7 +23,7 @@ public class ContentReaction {
     private Long contentId;
 
     @Column(name = "content_type", nullable = false, length = 20)
-    private String contentType; // 'NEWS', 'CAMPAIGN'
+    private String contentType;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;

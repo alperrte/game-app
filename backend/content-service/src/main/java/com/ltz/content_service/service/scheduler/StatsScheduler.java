@@ -2,10 +2,10 @@ package com.ltz.content_service.service.scheduler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ltz.content_service.model.entity.EsportMatch;
-import com.ltz.content_service.model.entity.LiveStat;
+
 import com.ltz.content_service.model.enums.MatchStatus;
 import com.ltz.content_service.repository.EsportMatchRepository;
-import com.ltz.content_service.repository.LiveStatRepository;
+
 import com.ltz.content_service.service.StatsService;
 import com.ltz.content_service.service.client.EpicGamesClient;
 import com.ltz.content_service.service.client.GamerPowerClient;
@@ -43,16 +43,16 @@ public class StatsScheduler {
         try {
             // Steam Top Played Games CCU (Map of title -> [appId, fallbackCCU])
             Map<String, Long[]> steamGamesMap = new LinkedHashMap<>();
-            steamGamesMap.put("Counter-Strike 2", new Long[]{730L, 1250000L});
-            steamGamesMap.put("Dota 2", new Long[]{570L, 680000L});
-            steamGamesMap.put("PUBG: BATTLEGROUNDS", new Long[]{578080L, 450000L});
-            steamGamesMap.put("Apex Legends", new Long[]{1172470L, 280000L});
-            steamGamesMap.put("GTA V", new Long[]{271590L, 190000L});
-            steamGamesMap.put("Elden Ring", new Long[]{1245620L, 150000L});
-            steamGamesMap.put("Helldivers 2", new Long[]{553850L, 120000L});
-            steamGamesMap.put("Rust", new Long[]{252490L, 95000L});
-            steamGamesMap.put("Destiny 2", new Long[]{1085660L, 85000L});
-            steamGamesMap.put("Team Fortress 2", new Long[]{440L, 78000L});
+            steamGamesMap.put("Counter-Strike 2", new Long[] { 730L, 1250000L });
+            steamGamesMap.put("Dota 2", new Long[] { 570L, 680000L });
+            steamGamesMap.put("PUBG: BATTLEGROUNDS", new Long[] { 578080L, 450000L });
+            steamGamesMap.put("Apex Legends", new Long[] { 1172470L, 280000L });
+            steamGamesMap.put("GTA V", new Long[] { 271590L, 190000L });
+            steamGamesMap.put("Elden Ring", new Long[] { 1245620L, 150000L });
+            steamGamesMap.put("Helldivers 2", new Long[] { 553850L, 120000L });
+            steamGamesMap.put("Rust", new Long[] { 252490L, 95000L });
+            steamGamesMap.put("Destiny 2", new Long[] { 1085660L, 85000L });
+            steamGamesMap.put("Team Fortress 2", new Long[] { 440L, 78000L });
 
             List<Map<String, Object>> topPlayed = new ArrayList<>();
             int rank = 1;
@@ -62,27 +62,27 @@ public class StatsScheduler {
                 String gameTitle = entry.getKey();
                 Long appId = entry.getValue()[0];
                 Long fallbackCCU = entry.getValue()[1];
-                
+
                 Long liveCCU = 0L;
                 try {
                     liveCCU = steamClient.getPlayerCount(appId).block();
                 } catch (Exception ex) {
-                    log.warn("Failed to get live player count for {} (appid {}): {}", gameTitle, appId, ex.getMessage());
+                    log.warn("Failed to get live player count for {} (appid {}): {}", gameTitle, appId,
+                            ex.getMessage());
                 }
-                
+
                 if (liveCCU == null || liveCCU <= 0) {
                     liveCCU = fallbackCCU;
                 }
-                
+
                 if (appId == 730L) {
                     cs2CCU = liveCCU;
                 }
-                
+
                 topPlayed.add(Map.of(
                         "rank", rank++,
                         "gameTitle", gameTitle,
-                        "ccu", liveCCU
-                ));
+                        "ccu", liveCCU));
             }
 
             // Platform Server Status
@@ -132,11 +132,13 @@ public class StatsScheduler {
                         if (catalog != null && catalog.containsKey("searchStore")) {
                             Map<String, Object> searchStore = (Map<String, Object>) catalog.get("searchStore");
                             if (searchStore != null && searchStore.containsKey("elements")) {
-                                List<Map<String, Object>> elements = (List<Map<String, Object>>) searchStore.get("elements");
+                                List<Map<String, Object>> elements = (List<Map<String, Object>>) searchStore
+                                        .get("elements");
                                 for (Map<String, Object> element : elements) {
                                     String title = (String) element.get("title");
                                     String imageUrl = null;
-                                    List<Map<String, Object>> keyImages = (List<Map<String, Object>>) element.get("keyImages");
+                                    List<Map<String, Object>> keyImages = (List<Map<String, Object>>) element
+                                            .get("keyImages");
                                     if (keyImages != null && !keyImages.isEmpty()) {
                                         imageUrl = (String) keyImages.get(0).get("url");
                                     }
@@ -144,12 +146,15 @@ public class StatsScheduler {
                                     // Parse endsAt if available
                                     LocalDateTime endsAt = LocalDateTime.now().plusDays(7); // Default fallback
                                     try {
-                                        Map<String, Object> promotions = (Map<String, Object>) element.get("promotions");
+                                        Map<String, Object> promotions = (Map<String, Object>) element
+                                                .get("promotions");
                                         if (promotions != null && promotions.containsKey("promotionalOffers")) {
-                                            List<Map<String, Object>> promoOffersList = (List<Map<String, Object>>) promotions.get("promotionalOffers");
+                                            List<Map<String, Object>> promoOffersList = (List<Map<String, Object>>) promotions
+                                                    .get("promotionalOffers");
                                             if (promoOffersList != null && !promoOffersList.isEmpty()) {
                                                 Map<String, Object> promoOffers = promoOffersList.get(0);
-                                                List<Map<String, Object>> offers = (List<Map<String, Object>>) promoOffers.get("promotionalOffers");
+                                                List<Map<String, Object>> offers = (List<Map<String, Object>>) promoOffers
+                                                        .get("promotionalOffers");
                                                 if (offers != null && !offers.isEmpty()) {
                                                     String endDateStr = (String) offers.get(0).get("endDate");
                                                     if (endDateStr != null) {
@@ -160,7 +165,8 @@ public class StatsScheduler {
                                             }
                                         }
                                     } catch (Exception parseEx) {
-                                        log.warn("Failed to parse Epic promotions for {}: {}", title, parseEx.getMessage());
+                                        log.warn("Failed to parse Epic promotions for {}: {}", title,
+                                                parseEx.getMessage());
                                     }
 
                                     freeGamesList.add(Map.of(
@@ -169,8 +175,7 @@ public class StatsScheduler {
                                             "imageUrl", imageUrl != null ? imageUrl : "",
                                             "dealUrl", "https://store.epicgames.com/free-games",
                                             "endsAt", endsAt.toString(),
-                                            "isGiveaway", false
-                                    ));
+                                            "isGiveaway", false));
                                 }
                             }
                         }
@@ -193,7 +198,7 @@ public class StatsScheduler {
                         String image = (String) giveaway.get("image");
                         String openGiveawayUrl = (String) giveaway.get("open_giveaway_url");
                         String endDateStr = (String) giveaway.get("end_date");
-                        
+
                         LocalDateTime endsAt = LocalDateTime.now().plusDays(5);
                         if (endDateStr != null && !endDateStr.equalsIgnoreCase("N/A") && endDateStr.length() >= 10) {
                             try {
@@ -210,8 +215,7 @@ public class StatsScheduler {
                                 "dealUrl", openGiveawayUrl != null ? openGiveawayUrl : "",
                                 "endsAt", endsAt.toString(),
                                 "isGiveaway", true,
-                                "worth", worth != null ? worth : "N/A"
-                        ));
+                                "worth", worth != null ? worth : "N/A"));
                     }
                 }
             } catch (Exception gpEx) {
@@ -226,8 +230,7 @@ public class StatsScheduler {
                         "imageUrl", "https://img.logo.com",
                         "dealUrl", "https://store.epicgames.com/free-games",
                         "endsAt", LocalDateTime.now().plusDays(5).toString(),
-                        "isGiveaway", false
-                ));
+                        "isGiveaway", false));
             }
 
             saveOrUpdateStat("free_games", objectMapper.writeValueAsString(freeGamesList));
@@ -245,7 +248,8 @@ public class StatsScheduler {
         final String fallbackTime;
         final String fallbackVideo;
 
-        SpeedrunConfig(String gameId, String categoryId, String gameTitle, String categoryName, String fallbackRunner, String fallbackTime, String fallbackVideo) {
+        SpeedrunConfig(String gameId, String categoryId, String gameTitle, String categoryName, String fallbackRunner,
+                String fallbackTime, String fallbackVideo) {
             this.gameId = gameId;
             this.categoryId = categoryId;
             this.gameTitle = gameTitle;
@@ -257,12 +261,16 @@ public class StatsScheduler {
     }
 
     private static final List<SpeedrunConfig> SPEEDRUN_CONFIGS = List.of(
-            new SpeedrunConfig("mc", "any-glitchless", "Minecraft", "Any% Glitchless", "Schnydi", "8m 15s", "https://www.youtube.com/watch?v=s58vFj5Gv3w"),
-            new SpeedrunConfig("eldenring", "any", "Elden Ring", "Any%", "Seeker", "19m 56s", "https://www.youtube.com/watch?v=0tS6Y12jLzY"),
-            new SpeedrunConfig("celeste", "any-1", "Celeste", "Any%", "TGH", "25m 48s", "https://www.youtube.com/watch?v=F32nJvS7x1k"),
-            new SpeedrunConfig("sm64", "120-stars", "Super Mario 64", "120 Stars", "Kaze", "1h 37m 50s", "https://www.youtube.com/watch?v=cI760jR2m04"),
-            new SpeedrunConfig("portal", "out-of-bounds", "Portal", "Out of Bounds", "Can't Even", "5m 57s", "https://www.youtube.com/watch?v=p4vW7w4jN3w")
-    );
+            new SpeedrunConfig("mc", "any-glitchless", "Minecraft", "Any% Glitchless", "Schnydi", "8m 15s",
+                    "https://www.youtube.com/watch?v=s58vFj5Gv3w"),
+            new SpeedrunConfig("eldenring", "any", "Elden Ring", "Any%", "Seeker", "19m 56s",
+                    "https://www.youtube.com/watch?v=0tS6Y12jLzY"),
+            new SpeedrunConfig("celeste", "any-1", "Celeste", "Any%", "TGH", "25m 48s",
+                    "https://www.youtube.com/watch?v=F32nJvS7x1k"),
+            new SpeedrunConfig("sm64", "120-stars", "Super Mario 64", "120 Stars", "Kaze", "1h 37m 50s",
+                    "https://www.youtube.com/watch?v=cI760jR2m04"),
+            new SpeedrunConfig("portal", "out-of-bounds", "Portal", "Out of Bounds", "Can't Even", "5m 57s",
+                    "https://www.youtube.com/watch?v=p4vW7w4jN3w"));
 
     @Scheduled(cron = "0 0 1 * * *")
     public void fetchSpeedrunRecords() {
@@ -280,7 +288,7 @@ public class StatsScheduler {
                         if (runs != null && !runs.isEmpty()) {
                             Map<String, Object> runInfo = (Map<String, Object>) runs.get(0).get("run");
                             double timeSeconds = ((Number) runInfo.get("times")).doubleValue();
-                            
+
                             String runnerName = "Runner";
                             try {
                                 List<Map<String, Object>> players = (List<Map<String, Object>>) runInfo.get("players");
@@ -296,16 +304,15 @@ public class StatsScheduler {
                             } catch (Exception rEx) {
                                 log.warn("Failed to parse runner info for {}: {}", cfg.gameTitle, rEx.getMessage());
                             }
-                            
+
                             String weblink = (String) runInfo.get("weblink");
-                            
+
                             speedruns.add(Map.of(
                                     "gameTitle", cfg.gameTitle,
                                     "category", cfg.categoryName,
                                     "runner", runnerName,
                                     "time", formatDuration(timeSeconds),
-                                    "videoUrl", weblink != null ? weblink : ""
-                            ));
+                                    "videoUrl", weblink != null ? weblink : ""));
                             success = true;
                         }
                     }
@@ -319,8 +326,7 @@ public class StatsScheduler {
                             "category", cfg.categoryName,
                             "runner", cfg.fallbackRunner,
                             "time", cfg.fallbackTime,
-                            "videoUrl", cfg.fallbackVideo
-                    ));
+                            "videoUrl", cfg.fallbackVideo));
                 }
             }
 
@@ -347,8 +353,7 @@ public class StatsScheduler {
                             m.getTeamBScore(),
                             m.getGameName(),
                             m.getStatus(),
-                            m.getMatchTime()
-                    );
+                            m.getMatchTime());
                 }
                 log.info("Successfully loaded and saved {} live esports matches.", liveMatches.size());
             } else {
@@ -362,13 +367,18 @@ public class StatsScheduler {
     }
 
     private void generateSimulatedMatches() {
-        createOrUpdateMatch("m_cs2_01", "PGL Major Copenhagen 2026", "Natus Vincere", "FaZe Clan", 1, 0, "CS2", MatchStatus.LIVE, LocalDateTime.now().minusMinutes(45));
-        createOrUpdateMatch("m_val_01", "VCT Champions 2026", "Fnatic", "Sentinels", 2, 1, "VALORANT", MatchStatus.FINISHED, LocalDateTime.now().minusHours(3));
-        createOrUpdateMatch("m_lol_01", "LCK Summer 2026", "T1", "Gen.G", 0, 0, "LOL", MatchStatus.UPCOMING, LocalDateTime.now().plusHours(2));
-        createOrUpdateMatch("m_dota_01", "The International 2026", "Team Spirit", "Gaimin Gladiators", 0, 0, "DOTA2", MatchStatus.UPCOMING, LocalDateTime.now().plusHours(5));
+        createOrUpdateMatch("m_cs2_01", "PGL Major Copenhagen 2026", "Natus Vincere", "FaZe Clan", 1, 0, "CS2",
+                MatchStatus.LIVE, LocalDateTime.now().minusMinutes(45));
+        createOrUpdateMatch("m_val_01", "VCT Champions 2026", "Fnatic", "Sentinels", 2, 1, "VALORANT",
+                MatchStatus.FINISHED, LocalDateTime.now().minusHours(3));
+        createOrUpdateMatch("m_lol_01", "LCK Summer 2026", "T1", "Gen.G", 0, 0, "LOL", MatchStatus.UPCOMING,
+                LocalDateTime.now().plusHours(2));
+        createOrUpdateMatch("m_dota_01", "The International 2026", "Team Spirit", "Gaimin Gladiators", 0, 0, "DOTA2",
+                MatchStatus.UPCOMING, LocalDateTime.now().plusHours(5));
     }
 
-    private void createOrUpdateMatch(String matchId, String tournament, String teamA, String teamB, int scoreA, int scoreB, String game, MatchStatus status, LocalDateTime matchTime) {
+    private void createOrUpdateMatch(String matchId, String tournament, String teamA, String teamB, int scoreA,
+            int scoreB, String game, MatchStatus status, LocalDateTime matchTime) {
         Optional<EsportMatch> existingOpt = esportMatchRepository.findByMatchId(matchId);
         EsportMatch match;
         if (existingOpt.isPresent()) {

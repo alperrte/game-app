@@ -1,7 +1,3 @@
--- ==========================================
--- V11__create_user_profiles_table.sql
--- ==========================================
-
 CREATE TABLE user_profiles (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id VARCHAR(50) NOT NULL UNIQUE,

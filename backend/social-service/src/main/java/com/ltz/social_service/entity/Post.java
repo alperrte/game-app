@@ -22,6 +22,9 @@ public class Post {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "community_id")
+    private Long communityId;
+
     @Column(nullable = false, length = 2000)
     private String content;
 

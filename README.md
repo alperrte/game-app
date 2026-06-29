@@ -60,7 +60,7 @@ Kullanıcılar ekran kartı, işlemci, RAM, depolama ve çevre birimi gibi donan
 
 ## 👥 Community & Events
 
-LobbyTwoZero, oyuncuların topluluklara katılmasını, oyun geceleri düzenlemesini, turnuvalara dahil olmasını ve diğer oyuncularla etkileşim kurmasını sağlar. Etkinlik takvimi, duyurular, rozetler ve grup yapılarıyla platform içi bağlılık artırılır.
+LobbyTwoZero, oyuncuların topluluklara katılmasını, oyun geceleri düzenlemesini, turnuvalara dahil olmasını ve diğer oyuncularla etkileşim kurmasını sağlar. Etkinlik takvimi, duyurular, rozetler ve topluluk yapılarıyla platform içi bağlılık artırılır.
 
 <p align="center">
   <img src="./assets/communityEvents.png" alt="Community Events" width="100%" />

@@ -7,12 +7,14 @@ import {
   FastForward,
   Gamepad2,
   Heart,
+  Lock,
   Maximize2,
   MessageCircle,
   MessageSquare,
   Minimize2,
   MoreHorizontal,
   Pause,
+  Pencil,
   Play,
   Rewind,
   Share2,
@@ -22,6 +24,7 @@ import {
   UserPlus,
   UserRoundPlus,
   UserCheck,
+  Users,
   Volume2,
   VolumeX,
   X,
@@ -30,13 +33,22 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { formatSocialTime } from "../../../utils/formatSocialTime";
+import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { UserAvatar } from "../../user/components/UserAvatar";
 import { useCurrentUserProfile } from "../../user/context/CurrentUserProfileContext";
 import {
   DEFAULT_EMOJIS,
   EmojiPickerPopover,
 } from "../../../components/ui/EmojiPickerPopover";
-import type { SocialPost, SocialUser } from "../types/social.types";
+import type {
+  PostPoll,
+  PostVisibility,
+  SocialComment,
+  SocialPost,
+  SocialPostUpdateRequest,
+  SocialUser,
+} from "../types/social.types";
+import { socialService } from "../services/socialService";
 
 interface SocialPostCardProps {
   post: SocialPost;
@@ -57,6 +69,16 @@ interface SocialPostCardProps {
       parentCommentId?: number | null,
   ) => Promise<void>;
   onDeletePost: (postId: number | string) => Promise<void>;
+  onUpdatePost: (
+      postId: number | string,
+      request: SocialPostUpdateRequest,
+  ) => Promise<void>;
+  onUpdateComment: (
+      postId: number | string,
+      commentId: number,
+      content: string,
+      parentCommentId?: number | null,
+  ) => Promise<void>;
   onToggleFollowAuthor: (
       authorUserId: number,
       followedByMe: boolean,
@@ -79,6 +101,8 @@ interface SocialPostCardProps {
   ) => Promise<void>;
   onToggleSave: (postId: number | string) => void;
   onToggleLike: (postId: number | string, likedByMe: boolean) => Promise<void>;
+  onCloseLookingForPlayerPost?: (postId: number) => Promise<void>;
+  onCancelLookingForPlayerPost?: (postId: number) => Promise<void>;
 }
 
 interface ParsedPollContent {
@@ -127,6 +151,16 @@ function parsePollContent(content: string): ParsedPollContent | null {
       .trim();
 
   return question && options.length >= 2 ? { body, options, question } : null;
+}
+
+function formatPollRemaining(expiresAt: string): string {
+  const remainingMs = new Date(expiresAt).getTime() - Date.now();
+  if (remainingMs <= 0) return "Anket sona erdi";
+  const remainingMinutes = Math.ceil(remainingMs / 60_000);
+  if (remainingMinutes < 60) return `${remainingMinutes} dk kaldı`;
+  const remainingHours = Math.ceil(remainingMinutes / 60);
+  if (remainingHours < 24) return `${remainingHours} sa kaldı`;
+  return `${Math.ceil(remainingHours / 24)} gün kaldı`;
 }
 
 function parseGameContent(content: string): ParsedGameContent | null {
@@ -189,6 +223,28 @@ function formatVideoTime(seconds: number): string {
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
+const API_VISIBILITY_BY_UI: Record<SocialPost["visibility"], PostVisibility> = {
+  public: "PUBLIC",
+  followers: "FOLLOWERS_ONLY",
+  friends: "FRIENDS",
+  private: "PRIVATE",
+};
+
+const EDIT_VISIBILITY_OPTIONS: Array<{
+  label: string;
+  value: SocialPost["visibility"];
+}> = [
+  { label: "Herkes görebilir", value: "public" },
+  { label: "Yalnızca takipçilerim", value: "followers" },
+  { label: "Yalnızca arkadaşlarım", value: "friends" },
+  { label: "Yalnızca ben", value: "private" },
+];
+
+function isEdited(createdAt?: string, updatedAt?: string | null) {
+  if (!updatedAt) return false;
+  return new Date(updatedAt).getTime() > new Date(createdAt ?? 0).getTime();
+}
+
 export function SocialPostCard({
                                  post,
                                  currentUserId,
@@ -199,6 +255,8 @@ export function SocialPostCard({
                                  onBlockAuthor,
                                  onDeleteComment,
                                  onDeletePost,
+                                 onUpdatePost,
+                                 onUpdateComment,
                                  onToggleFollowAuthor,
                                  onLoadComments,
                                  onLoadPostLikes,
@@ -210,6 +268,8 @@ export function SocialPostCard({
                                  onToggleCommentLike,
                                  onToggleSave,
                                  onToggleLike,
+                                 onCloseLookingForPlayerPost,
+                                 onCancelLookingForPlayerPost,
                                }: SocialPostCardProps) {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const { avatarUrl: loggedInUserAvatarUrl } = useCurrentUserProfile();
@@ -225,10 +285,22 @@ export function SocialPostCard({
   const [commentText, setCommentText] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState(false);
+  const [editPostContent, setEditPostContent] = useState(post.content);
+  const [editPostVisibility, setEditPostVisibility] =
+      useState<SocialPost["visibility"]>(post.visibility);
+  const [editPostMediaUrls, setEditPostMediaUrls] = useState(
+      (post.rawMediaUrls ?? []).join("\n"),
+  );
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editingCommentParentId, setEditingCommentParentId] = useState<
+      number | null
+  >(null);
+  const [editCommentText, setEditCommentText] = useState("");
   const [likesOpen, setLikesOpen] = useState(false);
   const [likedUsers, setLikedUsers] = useState<SocialUser[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
-  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyFormCommentId, setReplyFormCommentId] = useState<number | null>(
       null,
   );
@@ -244,18 +316,22 @@ export function SocialPostCard({
   const [visibleReplyCommentIds, setVisibleReplyCommentIds] = useState<
       Set<number>
   >(() => new Set());
-  const [selectedPollOption, setSelectedPollOption] = useState<number | null>(
-      null,
-  );
   const [failedMediaUrls, setFailedMediaUrls] = useState<Set<string>>(
       () => new Set(),
   );
+  const [poll, setPoll] = useState<PostPoll | undefined>(post.poll);
+  const [pollVoteLoading, setPollVoteLoading] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
 
   const canUseAuthorActions =
-      post.source !== "mock" &&
       typeof post.authorUserId === "number" &&
       currentUserId !== post.authorUserId;
   const canUsePostActions = post.source === "backend" && typeof post.id === "number";
+  const isOwnLookingForPlayerPost =
+      post.source === "lookingForPlayer" &&
+      currentUserId === post.authorUserId &&
+      post.lookingForPlayerStatus === "OPEN" &&
+      typeof post.lookingForPlayerPostId === "number";
   const pollContent = parsePollContent(post.content);
   const gameContent = pollContent ? null : parseGameContent(post.content);
   const listingContent =
@@ -264,6 +340,39 @@ export function SocialPostCard({
       ? Math.min(100, Math.max(0, (videoCurrentTime / videoDuration) * 100))
       : 0;
   const videoVolumePercent = (isVideoMuted ? 0 : videoVolume) * 100;
+
+  useEffect(() => {
+    setPoll(post.poll);
+    setPollError(null);
+  }, [post.poll]);
+
+  useEffect(() => {
+    setEditPostContent(post.content);
+    setEditPostVisibility(post.visibility);
+    setEditPostMediaUrls((post.rawMediaUrls ?? []).join("\n"));
+  }, [post.content, post.rawMediaUrls, post.visibility]);
+
+  async function handlePollVote(optionId: number) {
+    if (
+      typeof post.id !== "number" ||
+      !poll ||
+      poll.closed ||
+      poll.selectedOptionId ||
+      pollVoteLoading
+    ) {
+      return;
+    }
+
+    setPollVoteLoading(true);
+    setPollError(null);
+    try {
+      setPoll(await socialService.votePoll(post.id, optionId));
+    } catch (error) {
+      setPollError(getErrorMessage(error, "Oy kullanılamadı."));
+    } finally {
+      setPollVoteLoading(false);
+    }
+  }
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -417,6 +526,47 @@ export function SocialPostCard({
     setCommentsOpen(true);
   }
 
+  async function handleUpdatePost() {
+    const trimmedContent = editPostContent.trim();
+    if (!trimmedContent || isBusy) return;
+
+    const mediaUrls = editPostMediaUrls
+        .split(/\r?\n|,/)
+        .map((url) => url.trim())
+        .filter(Boolean);
+
+    await onUpdatePost(post.id, {
+      content: trimmedContent,
+      imageUrl: mediaUrls[0],
+      mediaUrls,
+      visibility: API_VISIBILITY_BY_UI[editPostVisibility],
+    });
+    setEditingPost(false);
+  }
+
+  function openCommentEdit(
+      comment: SocialComment,
+      parentCommentId: number | null = null,
+  ) {
+    setEditingCommentId(comment.id);
+    setEditingCommentParentId(parentCommentId);
+    setEditCommentText(comment.content);
+  }
+
+  async function submitCommentEdit() {
+    if (!editingCommentId || !editCommentText.trim() || isBusy) return;
+
+    await onUpdateComment(
+        post.id,
+        editingCommentId,
+        editCommentText.trim(),
+        editingCommentParentId,
+    );
+    setEditingCommentId(null);
+    setEditingCommentParentId(null);
+    setEditCommentText("");
+  }
+
   async function handleOpenLikes() {
     setLikesOpen(true);
 
@@ -562,8 +712,8 @@ export function SocialPostCard({
                 <EmojiPickerPopover
                     className={
                       alignEmojiPickerLeft
-                          ? "absolute bottom-11 left-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
-                          : "absolute bottom-11 right-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                          ? "absolute bottom-11 left-0 z-[140] grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                          : "absolute bottom-11 right-0 z-[140] grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
                     }
                     emojis={DEFAULT_EMOJIS}
                     onClose={() => setReplyEmojiOpenForCommentId(null)}
@@ -655,6 +805,11 @@ export function SocialPostCard({
                   ✓
                 </span>
                 )}
+                {post.communityName ? (
+                    <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold text-violet-200">
+                      {post.communityName}
+                    </span>
+                ) : null}
                 {canUseAuthorActions && (
                     <button
                         className={
@@ -678,22 +833,107 @@ export function SocialPostCard({
               <div className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-400">
                 <span>{post.createdAt}</span>
                 <span>·</span>
-                <Earth size={13} />
+                {post.communityName ? (
+                    <>
+                      <Users size={13} />
+                      <span>{post.communityName} topluluğu</span>
+                    </>
+                ) : post.visibility === "private" ? (
+                    <>
+                      <Lock size={13} />
+                      <span>Yalnızca ben</span>
+                    </>
+                ) : post.visibility === "friends" ? (
+                    <>
+                      <Users size={13} />
+                      <span>Arkadaşlar</span>
+                    </>
+                ) : post.visibility === "followers" ? (
+                    <>
+                      <UserPlus size={13} />
+                      <span>Takipçiler</span>
+                    </>
+                ) : (
+                    <>
+                      <Earth size={13} />
+                      <span>Herkese açık</span>
+                    </>
+                )}
+                {post.lookingForPlayerStatus && post.lookingForPlayerStatus !== "OPEN" ? (
+                    <>
+                      <span>·</span>
+                      <span>
+                        {post.lookingForPlayerStatus === "CLOSED"
+                            ? "İlan kapandı"
+                            : "İlan iptal edildi"}
+                      </span>
+                    </>
+                ) : null}
+                {isEdited(post.createdAtRaw ?? post.createdAt, post.updatedAt) ? (
+                    <>
+                      <span>Â·</span>
+                      <span>DÃ¼zenlendi</span>
+                    </>
+                ) : null}
               </div>
             </div>
           </div>
 
           <div className="relative flex items-center gap-1">
-            {currentUserId === post.authorUserId && (
-                <button
-                    className="cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/10 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isBusy}
-                    onClick={() => void onDeletePost(post.id)}
-                    type="button"
-                >
-                  Sil
-                </button>
-            )}
+            {isOwnLookingForPlayerPost ? (
+                <>
+                  <button
+                      className="cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/10 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                      onClick={() =>
+                          void onCloseLookingForPlayerPost?.(
+                              post.lookingForPlayerPostId as number,
+                          )
+                      }
+                      type="button"
+                  >
+                    İlanı kapat
+                  </button>
+                  <button
+                      className="cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/10 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                      onClick={() =>
+                          void onCancelLookingForPlayerPost?.(
+                              post.lookingForPlayerPostId as number,
+                          )
+                      }
+                      type="button"
+                  >
+                    İptal et
+                  </button>
+                </>
+            ) : null}
+            {currentUserId === post.authorUserId && canUsePostActions ? (
+                <>
+                  <button
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                      onClick={() => {
+                        setEditPostContent(post.content);
+                        setEditPostVisibility(post.visibility);
+                        setEditPostMediaUrls((post.rawMediaUrls ?? []).join("\n"));
+                        setEditingPost((isEditing) => !isEditing);
+                      }}
+                      type="button"
+                  >
+                    <Pencil size={14} />
+                    DÃ¼zenle
+                  </button>
+                  <button
+                      className="cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/10 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                      onClick={() => void onDeletePost(post.id)}
+                      type="button"
+                  >
+                    Sil
+                  </button>
+                </>
+            ) : null}
             <button
                 aria-expanded={actionsOpen}
                 aria-label="Gönderi seçenekleri"
@@ -775,8 +1015,121 @@ export function SocialPostCard({
           </div>
         </header>
 
-        {pollContent ? (
+        {editingPost ? (
             <section className="mt-4 rounded-lg border border-violet-400/20 bg-violet-500/[0.055] p-4">
+              <div className="grid gap-3">
+                <textarea
+                    className="min-h-28 w-full resize-y rounded-lg border border-white/10 bg-slate-950/55 px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+                    maxLength={2000}
+                    onChange={(event) => setEditPostContent(event.target.value)}
+                    value={editPostContent}
+                />
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,220px)_1fr]">
+                  <select
+                      className="h-10 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm font-semibold text-white outline-none focus:border-violet-400/60"
+                      onChange={(event) =>
+                          setEditPostVisibility(
+                              event.target.value as SocialPost["visibility"],
+                          )
+                      }
+                      value={editPostVisibility}
+                  >
+                    {EDIT_VISIBILITY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                    ))}
+                  </select>
+                  <textarea
+                      className="min-h-10 resize-y rounded-lg border border-white/10 bg-slate-950/55 px-3 py-2 text-sm leading-5 text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60"
+                      onChange={(event) => setEditPostMediaUrls(event.target.value)}
+                      placeholder="Medya URL'leri"
+                      value={editPostMediaUrls}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                      className="h-9 cursor-pointer rounded-lg border border-white/10 px-4 text-xs font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                      onClick={() => setEditingPost(false)}
+                      type="button"
+                  >
+                    VazgeÃ§
+                  </button>
+                  <button
+                      className="h-9 cursor-pointer rounded-lg bg-violet-700 px-4 text-xs font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={!editPostContent.trim() || isBusy}
+                      onClick={() => void handleUpdatePost()}
+                      type="button"
+                  >
+                    Kaydet
+                  </button>
+                </div>
+              </div>
+            </section>
+        ) : null}
+
+        {poll ? (
+            <section className="mt-4 rounded-xl border border-violet-400/25 bg-violet-500/[0.055] p-4">
+              <h3 className="text-lg font-bold text-white">{poll.question}</h3>
+              {post.content && post.content !== poll.question ? (
+                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">
+                  {post.content}
+                </p>
+              ) : null}
+              <div className="mt-4 grid gap-2">
+                {poll.options.map((option) => {
+                  const showResults = Boolean(poll.selectedOptionId) || poll.closed;
+                  return (
+                    <button
+                      className={`relative min-h-12 overflow-hidden rounded-xl border px-4 text-left transition ${
+                        option.selectedByCurrentUser
+                          ? "border-violet-400 bg-violet-500/15"
+                          : "border-white/10 bg-slate-950/40 hover:border-violet-400/50"
+                      } disabled:cursor-default`}
+                      disabled={
+                        pollVoteLoading ||
+                        poll.closed ||
+                        Boolean(poll.selectedOptionId)
+                      }
+                      key={option.id}
+                      onClick={() => void handlePollVote(option.id)}
+                      type="button"
+                    >
+                      {showResults ? (
+                        <span
+                          className="absolute inset-y-0 left-0 bg-violet-500/20 transition-all"
+                          style={{ width: `${option.percentage}%` }}
+                        />
+                      ) : null}
+                      <span className="relative flex items-center justify-between gap-3 text-sm font-semibold text-zinc-100">
+                        <span>
+                          {option.selectedByCurrentUser ? "✓ " : ""}
+                          {option.text}
+                        </span>
+                        {showResults ? <span>{option.percentage}%</span> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs text-zinc-400">
+                <span>{poll.totalVotes} oy</span>
+                <span>{formatPollRemaining(poll.expiresAt)}</span>
+              </div>
+              {pollError ? (
+                <p className="mt-2 text-xs font-semibold text-red-300">{pollError}</p>
+              ) : null}
+            </section>
+        ) : pollContent ? (
+            <section className="mt-4 rounded-lg border border-violet-400/20 bg-violet-500/[0.055] p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-200">
+                  Eski anket
+                </p>
+                <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-bold text-amber-100">
+                  Salt okunur
+                </span>
+              </div>
               <h3 className="text-lg font-bold text-white">
                 {pollContent.question}
               </h3>
@@ -786,33 +1139,17 @@ export function SocialPostCard({
                   </p>
               )}
               <div className="mt-4 grid gap-2">
-                {pollContent.options.map((option, index) => {
-                  const selected = selectedPollOption === index;
-
-                  return (
-                      <button
-                          className={
-                            selected
-                                ? "flex min-h-11 cursor-pointer items-center justify-between rounded-lg border border-violet-300/50 bg-violet-600/25 px-4 text-left text-sm font-semibold text-white transition hover:bg-violet-600/30"
-                                : "flex min-h-11 cursor-pointer items-center justify-between rounded-lg border border-white/10 bg-slate-950/35 px-4 text-left text-sm font-semibold text-zinc-200 transition hover:border-violet-300/40 hover:bg-white/[0.06] hover:text-white"
-                          }
+                {pollContent.options.map((option, index) => (
+                      <div
+                          className="flex min-h-11 items-center justify-between rounded-lg border border-white/10 bg-slate-950/35 px-4 text-left text-sm font-semibold text-zinc-200"
                           key={`${option}-${index}`}
-                          onClick={() =>
-                              setSelectedPollOption((currentOption) =>
-                                  currentOption === index ? null : index,
-                              )
-                          }
-                          type="button"
                       >
                         <span>{option}</span>
-                        {selected && (
-                            <span className="rounded-full bg-violet-500 px-2 py-1 text-[11px] text-white">
-                      Seçildi
-                    </span>
-                        )}
-                      </button>
-                  );
-                })}
+                        <span className="text-[11px] font-bold text-zinc-500">
+                          {index + 1}
+                        </span>
+                      </div>
+                ))}
               </div>
             </section>
         ) : gameContent ? (
@@ -1211,10 +1548,55 @@ export function SocialPostCard({
                                   <span className="text-[11px] font-medium text-zinc-500">
                             {formatSocialTime(comment.createdAt)}
                           </span>
+                                  {isEdited(comment.createdAt, comment.updatedAt) ? (
+                                      <span className="text-[11px] font-medium text-zinc-500">
+                                        dÃ¼zenlendi
+                                      </span>
+                                  ) : null}
                                 </div>
-                                <p className="mt-1 text-sm leading-5 text-zinc-200">
-                                  {comment.content}
-                                </p>
+                                {editingCommentId === comment.id ? (
+                                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                                      <input
+                                          className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-sm text-white outline-none focus:border-violet-400/60"
+                                          maxLength={1000}
+                                          onChange={(event) =>
+                                              setEditCommentText(event.target.value)
+                                          }
+                                          onKeyDown={(event) => {
+                                            if (event.key === "Enter" && !event.shiftKey) {
+                                              event.preventDefault();
+                                              void submitCommentEdit();
+                                            }
+                                          }}
+                                          value={editCommentText}
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                            className="h-9 cursor-pointer rounded-lg bg-violet-700 px-3 text-xs font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                            disabled={!editCommentText.trim() || isBusy}
+                                            onClick={() => void submitCommentEdit()}
+                                            type="button"
+                                        >
+                                          Kaydet
+                                        </button>
+                                        <button
+                                            className="h-9 cursor-pointer rounded-lg border border-white/10 px-3 text-xs font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                                            onClick={() => {
+                                              setEditingCommentId(null);
+                                              setEditingCommentParentId(null);
+                                              setEditCommentText("");
+                                            }}
+                                            type="button"
+                                        >
+                                          VazgeÃ§
+                                        </button>
+                                      </div>
+                                    </div>
+                                ) : (
+                                    <p className="mt-1 text-sm leading-5 text-zinc-200">
+                                      {comment.content}
+                                    </p>
+                                )}
                               </div>
                               <button
                                   aria-label="Yorumu beğen"
@@ -1275,16 +1657,26 @@ export function SocialPostCard({
                                 Yanıtla
                               </button>
                               {currentUserId === comment.userId && (
-                                  <button
-                                      className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                                      disabled={isBusy}
-                                      onClick={() =>
-                                          void onDeleteComment(post.id, comment.id)
-                                      }
-                                      type="button"
-                                  >
-                                    Sil
-                                  </button>
+                                  <>
+                                    <button
+                                        className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                        disabled={isBusy}
+                                        onClick={() => openCommentEdit(comment)}
+                                        type="button"
+                                    >
+                                      DÃ¼zenle
+                                    </button>
+                                    <button
+                                        className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                        disabled={isBusy}
+                                        onClick={() =>
+                                            void onDeleteComment(post.id, comment.id)
+                                        }
+                                        type="button"
+                                    >
+                                      Sil
+                                    </button>
+                                  </>
                               )}
                             </div>
                             {replyFormCommentId === comment.id &&
@@ -1337,15 +1729,60 @@ export function SocialPostCard({
                                           <span className="text-[10px] font-medium text-zinc-500">
                                 {formatSocialTime(reply.createdAt)}
                               </span>
+                                          {isEdited(reply.createdAt, reply.updatedAt) ? (
+                                              <span className="text-[10px] font-medium text-zinc-500">
+                                                dÃ¼zenlendi
+                                              </span>
+                                          ) : null}
                                         </div>
-                                        <p className="mt-0.5 text-xs leading-5 text-zinc-300">
-                                          {reply.replyingToName && (
-                                              <span className="mr-1 font-semibold text-violet-300">
+                                        {editingCommentId === reply.id ? (
+                                            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                                              <input
+                                                  className="h-8 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/55 px-3 text-xs text-white outline-none focus:border-violet-400/60"
+                                                  maxLength={1000}
+                                                  onChange={(event) =>
+                                                      setEditCommentText(event.target.value)
+                                                  }
+                                                  onKeyDown={(event) => {
+                                                    if (event.key === "Enter" && !event.shiftKey) {
+                                                      event.preventDefault();
+                                                      void submitCommentEdit();
+                                                    }
+                                                  }}
+                                                  value={editCommentText}
+                                              />
+                                              <div className="flex gap-2">
+                                                <button
+                                                    className="h-8 cursor-pointer rounded-lg bg-violet-700 px-3 text-[11px] font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    disabled={!editCommentText.trim() || isBusy}
+                                                    onClick={() => void submitCommentEdit()}
+                                                    type="button"
+                                                >
+                                                  Kaydet
+                                                </button>
+                                                <button
+                                                    className="h-8 cursor-pointer rounded-lg border border-white/10 px-3 text-[11px] font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                                                    onClick={() => {
+                                                      setEditingCommentId(null);
+                                                      setEditingCommentParentId(null);
+                                                      setEditCommentText("");
+                                                    }}
+                                                    type="button"
+                                                >
+                                                  VazgeÃ§
+                                                </button>
+                                              </div>
+                                            </div>
+                                        ) : (
+                                            <p className="mt-0.5 text-xs leading-5 text-zinc-300">
+                                              {reply.replyingToName && (
+                                                  <span className="mr-1 font-semibold text-violet-300">
                                   @{reply.replyingToName}
                                 </span>
-                                          )}
-                                          {reply.content}
-                                        </p>
+                                              )}
+                                              {reply.content}
+                                            </p>
+                                        )}
                                         <div className="mt-1 flex items-center gap-4 text-[11px] font-semibold text-zinc-500">
                                           <button
                                               className={
@@ -1383,20 +1820,30 @@ export function SocialPostCard({
                                             Yanıtla
                                           </button>
                                           {currentUserId === reply.userId && (
-                                              <button
-                                                  className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                                                  disabled={isBusy}
-                                                  onClick={() =>
-                                                      void onDeleteComment(
-                                                          post.id,
-                                                          reply.id,
-                                                          comment.id,
-                                                      )
-                                                  }
-                                                  type="button"
-                                              >
-                                                Sil
-                                              </button>
+                                              <>
+                                                <button
+                                                    className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                    disabled={isBusy}
+                                                    onClick={() => openCommentEdit(reply, comment.id)}
+                                                    type="button"
+                                                >
+                                                  DÃ¼zenle
+                                                </button>
+                                                <button
+                                                    className="cursor-pointer transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                                    disabled={isBusy}
+                                                    onClick={() =>
+                                                        void onDeleteComment(
+                                                            post.id,
+                                                            reply.id,
+                                                            comment.id,
+                                                        )
+                                                    }
+                                                    type="button"
+                                                >
+                                                  Sil
+                                                </button>
+                                              </>
                                           )}
                                         </div>
                                         {replyFormCommentId === comment.id &&
@@ -1470,7 +1917,7 @@ export function SocialPostCard({
                   </button>
                   {commentEmojiOpen && (
                       <EmojiPickerPopover
-                          className="absolute bottom-11 right-0 z-30 grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
+                          className="absolute bottom-11 right-0 z-[140] grid w-56 grid-cols-6 gap-1 rounded-lg border border-white/10 bg-[#0b1220] p-2 shadow-2xl shadow-black/40"
                           emojis={DEFAULT_EMOJIS}
                           onClose={() => setCommentEmojiOpen(false)}
                           onSelect={addEmojiToComment}

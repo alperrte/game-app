@@ -1,4 +1,9 @@
-import { socialService } from "./socialService";
+import { apiClient } from "../../../lib/axios";
+import { USER_API_ENDPOINTS } from "../../../lib/constants";
+import type {
+  FollowResponse,
+  FriendshipResponse,
+} from "../types/social.types";
 
 export type RelationshipSnapshot = {
   isFollowing: boolean;
@@ -15,44 +20,54 @@ export type SocialCounts = {
   posts: number;
 };
 
+export type SocialConnections = {
+  followers: FollowResponse[];
+  following: FollowResponse[];
+  friends: FriendshipResponse[];
+};
+
+type RelationshipResponse = {
+  following: boolean;
+  friend: boolean;
+  incomingRequestFromTarget: boolean;
+  outgoingRequestToTarget: boolean;
+  blockedByMe: boolean;
+};
+
 export const socialProfileService = {
+  getConnections: (userId: number) =>
+    apiClient.get<SocialConnections>(
+      USER_API_ENDPOINTS.socialConnections(userId),
+    ),
+
   async getCounts(userId: number): Promise<SocialCounts> {
-    const [followers, following, friends, posts] = await Promise.all([
-      socialService.getFollowers(userId),
-      socialService.getFollowing(userId),
-      socialService.getFriends(userId),
-      socialService.getPostsByUser(userId),
+    const [connections, posts] = await Promise.all([
+      this.getConnections(userId),
+      apiClient.get<unknown[]>(USER_API_ENDPOINTS.userPosts(userId)),
     ]);
+
     return {
-      followers: followers.length,
-      following: following.length,
-      friends: friends.length,
+      followers: connections.followers.length,
+      following: connections.following.length,
+      friends: connections.friends.length,
       posts: posts.length,
     };
   },
 
   async getRelationshipSnapshot(
-    myUserId: number,
+    _myUserId: number,
     targetUserId: number,
   ): Promise<RelationshipSnapshot> {
-    const [following, myFriends, incoming, outgoing, blocked] = await Promise.all([
-      socialService.getFollowing(myUserId),
-      socialService.getFriends(myUserId),
-      socialService.getIncomingFriendRequests(myUserId),
-      socialService.getOutgoingFriendRequests(myUserId),
-      socialService.getBlockedUsers(myUserId),
-    ]);
+    const response = await apiClient.get<RelationshipResponse>(
+      USER_API_ENDPOINTS.relationship(targetUserId),
+    );
 
     return {
-      isFollowing: following.some((item) => item.followingUserId === targetUserId),
-      isFriend: myFriends.some((item) => item.friendUserId === targetUserId),
-      hasIncomingRequestFromTarget: incoming.some(
-        (item) => item.senderUserId === targetUserId,
-      ),
-      hasOutgoingRequestToTarget: outgoing.some(
-        (item) => item.receiverUserId === targetUserId,
-      ),
-      isBlockedByMe: blocked.some((item) => item.blockedUserId === targetUserId),
+      isFollowing: response.following,
+      isFriend: response.friend,
+      hasIncomingRequestFromTarget: response.incomingRequestFromTarget,
+      hasOutgoingRequestToTarget: response.outgoingRequestToTarget,
+      isBlockedByMe: response.blockedByMe,
     };
   },
 };

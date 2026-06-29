@@ -11,6 +11,9 @@ import com.ltz.user_service.security.JwtAuthenticationFilter;
 import com.ltz.user_service.security.JwtService;
 import com.ltz.user_service.security.JwtUserPrincipal;
 import com.ltz.user_service.service.UserProfileService;
+import com.ltz.user_service.service.ProfileIntegrationService;
+import com.ltz.user_service.service.PrivacySettingsService;
+import com.ltz.user_service.service.ConnectedAccountService;
 import com.ltz.user_service.util.ClientRequestContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,8 +25,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import com.ltz.user_service.config.SecurityConfig;
-import com.ltz.user_service.client.ReviewServiceClient;
-import com.ltz.user_service.client.SocialServiceClient;
 
 import java.util.Collections;
 
@@ -49,16 +50,19 @@ class UserControllerTest {
     private UserProfileService userProfileService;
 
     @MockitoBean
+    private PrivacySettingsService privacySettingsService;
+
+    @MockitoBean
+    private ConnectedAccountService connectedAccountService;
+
+    @MockitoBean
     private JwtService jwtService;
 
     @MockitoBean
     private AuthServiceClient authServiceClient;
 
     @MockitoBean
-    private ReviewServiceClient reviewServiceClient;
-
-    @MockitoBean
-    private SocialServiceClient socialServiceClient;
+    private ProfileIntegrationService profileIntegrationService;
 
     private UserProfileResponse userProfileResponse;
     private JwtUserPrincipal principal;

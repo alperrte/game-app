@@ -36,8 +36,6 @@ const SEARCH_DEBOUNCE_MS = 450;
 const PAGINATION_WINDOW_SIZE = 30;
 const ALL_CATEGORIES_VALUE = "all";
 
-const SOURCE_OPTIONS: GameSource[] = ["STEAM", "EPIC"];
-
 type SourceLogoUrls = Partial<Record<GameSource, string>>;
 
 const PLATFORM_SOURCE_ALIASES: Record<GameSource, string[]> = {
@@ -1443,7 +1441,7 @@ const GamesPage = () => {
                   </span>
 
                       <Select
-                          value={gameForm.source}
+                          value={gameForm.source ?? ""}
                           onValueChange={(val) => handleFormSourceChange(val as GameSource)}
                           options={sourceSelectOptions}
                       />

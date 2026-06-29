@@ -14,13 +14,14 @@ public class SpeedrunClient {
 
     private final WebClient webClient;
 
-    @SuppressWarnings("unchecked")
     public Mono<Map<String, Object>> getLeaderboard(String gameId, String categoryId) {
-        String uri = String.format("https://www.speedrun.com/api/v1/leaderboards/%s/category/%s?top=1", gameId, categoryId);
+        String uri = String.format("https://www.speedrun.com/api/v1/leaderboards/%s/category/%s?top=1", gameId,
+                categoryId);
         return webClient.get()
                 .uri(uri)
                 .retrieve()
-                .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
+                .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
+                })
                 .onErrorResume(e -> {
                     log.error("Speedrun API error: ", e);
                     return Mono.empty();

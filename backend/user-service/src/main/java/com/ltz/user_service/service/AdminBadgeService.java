@@ -1,6 +1,7 @@
 package com.ltz.user_service.service;
 
 import com.ltz.user_service.dto.request.AssignBadgeRequest;
+import lombok.extern.slf4j.Slf4j;
 import com.ltz.user_service.dto.response.AssignedBadgeResponse;
 import com.ltz.user_service.dto.response.BadgeCatalogItemResponse;
 import com.ltz.user_service.entity.UserAssignedBadge;
@@ -8,6 +9,8 @@ import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.repository.UserAssignedBadgeRepository;
 import com.ltz.user_service.repository.UserProfileRepository;
 import com.ltz.user_service.util.ClientRequestContext;
+import com.ltz.user_service.entity.UserRole;
+import com.ltz.user_service.entity.AuditAction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class AdminBadgeService {
 
     private static final List<BadgeCatalogItemResponse> CATALOG = List.of(
@@ -48,7 +52,8 @@ public class AdminBadgeService {
     }
 
     public void assertAdminRole(String role) {
-        if (role == null || !role.toUpperCase().replace("ROLE_", "").equals("ADMIN")) {
+        UserRole userRole = UserRole.fromString(role);
+        if (userRole != UserRole.ADMIN) {
             throw new org.springframework.security.access.AccessDeniedException("Yalnızca yöneticiler bu işlemi yapabilir.");
         }
     }
@@ -91,9 +96,11 @@ public class AdminBadgeService {
 
         auditLogService.log(
                 adminUserId,
-                "ASSIGN_BADGE",
+                AuditAction.ASSIGN_BADGE.name(),
                 "Assigned badge " + request.getBadgeKey() + " to user " + targetUserId,
                 context);
+
+        log.info("Badge {} successfully assigned to targetUserId: {} by admin: {}", request.getBadgeKey(), targetUserId, adminUserId);
 
         return mapBadge(saved);
     }
@@ -112,9 +119,11 @@ public class AdminBadgeService {
 
         auditLogService.log(
                 adminUserId,
-                "REMOVE_BADGE",
+                AuditAction.REMOVE_BADGE.name(),
                 "Removed badge " + badgeKey + " from user " + targetUserId,
                 context);
+
+        log.info("Badge {} successfully removed from targetUserId: {} by admin: {}", badgeKey, targetUserId, adminUserId);
     }
 
     private AssignedBadgeResponse mapBadge(UserAssignedBadge badge) {

@@ -1,5 +1,6 @@
 package com.ltz.social_service.entity;
 
+import com.ltz.social_service.enums.ChatRoomMemberRole;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,12 +42,19 @@ public class ChatRoomMember {
     @Column(name = "hidden_at")
     private LocalDateTime hiddenAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "member_role", nullable = false, length = 20)
+    private ChatRoomMemberRole memberRole;
+
     @PrePersist
     public void prePersist() {
         this.joinedAt = LocalDateTime.now();
 
         if (this.isHidden == null) {
             this.isHidden = false;
+        }
+        if (this.memberRole == null) {
+            this.memberRole = ChatRoomMemberRole.MEMBER;
         }
     }
 }

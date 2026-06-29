@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,9 +31,8 @@ public class DealsService {
     }
 
     public List<DealCompareResponse> searchAndCompareDeals(String title, Long currentUserId) {
-        List<DealCampaign> campaigns = (title == null || title.trim().isBlank()) ?
-                dealCampaignRepository.findAll() :
-                dealCampaignRepository.findByGameTitleContainingIgnoreCase(title);
+        List<DealCampaign> campaigns = (title == null || title.trim().isBlank()) ? dealCampaignRepository.findAll()
+                : dealCampaignRepository.findByGameTitleContainingIgnoreCase(title);
 
         if (campaigns.size() > 50) {
             campaigns = campaigns.subList(0, 50);
