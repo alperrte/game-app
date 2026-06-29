@@ -2,12 +2,13 @@
  * Uygulamanın genel, sabit üst navigasyonu.
  *
  * Navbar sırası:
- * Logo | Akış | Sohbet | Oyunlar | İncelemeler | Sistem Gereksinimleri | LTZ Corner
+ * Logo | Akış | Sohbet | Keşfet | Topluluklar | Etkinlikler | Oyunlar
+ * | İncelemeler | Sistem Gereksinimleri | LTZ Corner | Donanım
  * | Kullanıcı Profili | Çıkış Yap
  *
  * - GameNavbar kullanılmaz.
  * - Sosyal özellikler ortak Navbar içinde yönetilir.
- * - Oyun sayfaları ve LTZ Corner modülleri dropdown altında gruplanır.
+ * - Oyun sayfaları, LTZ Corner ve Donanım modülleri dropdown altında gruplanır.
  * - Profil dropdown içinde profil ve arkadaşlık istekleri bulunur.
  * - Bekleyen arkadaşlık isteği sayısı badge olarak gösterilir.
  * - Scroll sırasında navbar küçülür.
@@ -96,6 +97,11 @@ const mainNavItems: NavItem[] = [
         label: "Akış",
         href: "/",
         icon: Home,
+    },
+    {
+        label: "Sohbet",
+        href: "/messages",
+        icon: MessageCircle,
     },
     {
         label: "Keşfet",
