@@ -13,7 +13,6 @@ import {
     MonitorCog,
     PencilLine,
     Plus,
-    PlugZap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -29,7 +28,6 @@ const CATEGORY_ICON_MAP: Record<HardwareComponentCategory, LucideIcon> = {
     ram: MemoryStick,
     storage: HardDrive,
     motherboard: CircuitBoard,
-    psu: PlugZap,
 };
 
 interface HardwareDetailCardProps {

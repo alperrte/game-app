@@ -29,6 +29,7 @@ import type {
     ApiHardwareReview,
     ApiUserHardwareResponse,
     ApiUserHardwareUpsertRequest,
+    ApiHardwareComponentCreateRequest,
 } from "../types/hardware.types";
 import type {
     FpsReport,
@@ -49,9 +50,17 @@ import type {
 
 /* ─────────────────────────── yardımcı fonksiyonlar ─────────────────────────── */
 
-function formatRam(ramGb: number | null, ramType: string | null): string {
+function formatRam(
+    ramGb: number | null,
+    ramType: string | null,
+): string {
     if (!ramGb) return "—";
-    return ramType ? `${ramGb}GB ${ramType}` : `${ramGb}GB`;
+    return [`${ramGb}GB`, ramType].filter(Boolean).join(" ");
+}
+
+function formatGpu(gpu: ApiUserHardwareResponse["gpuComponent"]): string {
+    if (!gpu?.modelName) return "—";
+    return [gpu.brandName, gpu.modelName].filter(Boolean).join(" ");
 }
 
 function formatStorage(storageGb: number | null, storageType: string | null): string {
@@ -212,7 +221,7 @@ function mapHwToMySystemOverview(hw: ApiUserHardwareResponse): MySystemOverview 
     const score = calcCompletionRate(hw);
     return {
         specs: [
-            { label: "GPU", value: hw.gpuComponent?.modelName ?? "—", icon: "gpu" },
+            { label: "GPU", value: formatGpu(hw.gpuComponent), icon: "gpu" },
             { label: "CPU", value: hw.cpuComponent?.modelName ?? "—", icon: "cpu" },
             { label: "RAM", value: formatRam(hw.ramGb, hw.ramType), icon: "ram" },
             {
@@ -236,7 +245,7 @@ function mapHwToSystemSummary(hw: ApiUserHardwareResponse): SystemSummary {
         lastUpdatedLabel: formatRelativeTime(hw.updatedAt),
         completionRate: calcCompletionRate(hw),
         chips: [
-            { label: "GPU", value: hw.gpuComponent?.modelName ?? "—", icon: "gpu" },
+            { label: "GPU", value: formatGpu(hw.gpuComponent), icon: "gpu" },
             { label: "CPU", value: hw.cpuComponent?.modelName ?? "—", icon: "cpu" },
             { label: "RAM", value: formatRam(hw.ramGb, hw.ramType), icon: "ram" },
             {
@@ -246,6 +255,7 @@ function mapHwToSystemSummary(hw: ApiUserHardwareResponse): SystemSummary {
             },
         ],
         compatibility: resolveCompatibilityBadges(hw),
+        rigImageUrl: hw.rigImageUrl ?? null,
     };
 }
 
@@ -322,12 +332,6 @@ function mapHwToComponents(hw: ApiUserHardwareResponse): HardwareComponent[] {
             name: hw.motherboardComponent?.modelName ?? undefined,
             filled: !!hw.motherboardComponent,
         },
-        {
-            id: "psu",
-            category: "psu",
-            label: "Güç Kaynağı",
-            filled: false,
-        },
     ];
 }
 
@@ -337,7 +341,6 @@ function mapHwToMissingInfo(hw: ApiUserHardwareResponse): MissingHardwareInfo {
     if (!hw.gpuComponent) items.push("Ekran Kartı");
     if (!hw.ramGb) items.push("RAM");
     if (!hw.storageGb) items.push("Depolama");
-    if (!hw.motherboardComponent) items.push("Anakart");
     if (!hw.operatingSystem) items.push("İşletim Sistemi");
     return { count: items.length, items };
 }
@@ -350,16 +353,6 @@ function buildUpgradeRecommendations(
     hw: ApiUserHardwareResponse,
 ): UpgradeRecommendation[] {
     const upgrades: UpgradeRecommendation[] = [];
-
-    if (!hw.motherboardComponent) {
-        upgrades.push({
-            id: "motherboard",
-            title: "Anakart Bilgisi",
-            description:
-                "Anakart bilgisi eklemek sistem uyumluluk analizini güçlendirir.",
-            priority: "high",
-        });
-    }
 
     if (!hw.monitorComponent) {
         upgrades.push({
@@ -473,7 +466,7 @@ function mapApiReviewToFrontend(review: ApiHardwareReview): HardwareReview {
 
 const STATIC_HERO = {
     statusBadge: "SİSTEM ANALİZİ AKTİF",
-    title: "LTZ Donanım Servisi",
+    title: "LTZ Donanım Merkezi",
     description:
         "Sistemini analiz et, oyun performansını karşılaştır, donanım fırsatlarını yakala.",
     actions: [
@@ -702,5 +695,56 @@ export const hardwareService = {
         userId: number,
     ): Promise<ApiUserHardwareResponse | null> {
         return tryGetUserHardware(userId);
+    },
+
+    /*
+     * Kullanıcının elle girdiği, sistemde bulunmayan bir bileşeni
+     * verified=false olarak kaydeder. Admin panelinde onaylanacak.
+     */
+    async createUnverifiedComponent(
+        componentType: ApiComponentType,
+        category: ApiComponentCategory,
+        modelName: string,
+        brandName: string | null,
+        createdByUserId: number,
+    ): Promise<ApiHardwareComponent> {
+        const brandId = brandName
+            ? await hardwareService
+                  .getBrandIdByName(brandName)
+                  .catch(() => null)
+            : null;
+        const resolvedModelName =
+            brandName && !brandId && !modelName.toLowerCase().includes(brandName.toLowerCase())
+                ? `${brandName} ${modelName}`
+                : modelName;
+
+        const request: ApiHardwareComponentCreateRequest = {
+            componentType,
+            category,
+            modelName: resolvedModelName,
+            brandId: brandId ?? undefined,
+            verified: false,
+            createdByUserId,
+        };
+
+        return apiClient.post<ApiHardwareComponent, ApiHardwareComponentCreateRequest>(
+            HARDWARE_API_ENDPOINTS.components,
+            request,
+        );
+    },
+
+    /*
+     * Marka adından brand ID'sini bulur (createUnverifiedComponent için).
+     * Eşleşme bulunamazsa null döner.
+     */
+    async getBrandIdByName(brandName: string): Promise<number | null> {
+        try {
+            const brands = await apiClient.get<{ id: number; name: string }[]>(
+                HARDWARE_API_ENDPOINTS.brandsActive,
+            );
+            return brands.find((b) => b.name === brandName)?.id ?? null;
+        } catch {
+            return null;
+        }
     },
 };

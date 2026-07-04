@@ -16,6 +16,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Card } from "../../../components/ui/Card";
 import { cn } from "../../../utils/cn";
+import { getImageUrl } from "../../user/utils/profileImage";
 import type { SystemSpec, SystemSummary } from "../types/hardware.types";
 
 const SPEC_ICON_MAP: Record<SystemSpec["icon"], LucideIcon> = {
@@ -55,20 +56,30 @@ export function MainSystemCard({ summary, onEdit }: MainSystemCardProps) {
             </div>
 
             <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1fr]">
-                {/* Sol: büyük gaming PC görsel placeholder */}
-                <div className="relative grid min-h-52 place-items-center overflow-hidden rounded-2xl border border-violet-400/25 bg-[radial-gradient(circle_at_50%_30%,rgba(124,58,237,0.28),transparent_60%)]">
-                    <div
-                        aria-hidden="true"
-                        className="absolute inset-0 opacity-[0.10] mix-blend-overlay bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.6)_0px,rgba(255,255,255,0.6)_1px,transparent_1px,transparent_5px)]"
-                    />
-                    <div className="relative flex flex-col items-center gap-3 text-center">
-                        <span className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/40 bg-violet-500/15 text-violet-200 shadow-[0_0_36px_rgba(147,51,234,0.45)]">
-                            <MonitorCog size={40} strokeWidth={1.75} />
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                            {summary.name} Rig
-                        </span>
-                    </div>
+                {/* Sol: rig görseli veya placeholder */}
+                <div className="relative min-h-52 overflow-hidden rounded-2xl border border-violet-400/25">
+                    {summary.rigImageUrl ? (
+                        <img
+                            src={getImageUrl(summary.rigImageUrl)}
+                            alt={`${summary.name} rig`}
+                            className="h-full min-h-52 w-full object-cover"
+                        />
+                    ) : (
+                        <div className="grid h-full min-h-52 place-items-center bg-[radial-gradient(circle_at_50%_30%,rgba(124,58,237,0.28),transparent_60%)]">
+                            <div
+                                aria-hidden="true"
+                                className="absolute inset-0 opacity-[0.10] mix-blend-overlay bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.6)_0px,rgba(255,255,255,0.6)_1px,transparent_1px,transparent_5px)]"
+                            />
+                            <div className="relative flex flex-col items-center gap-3 text-center">
+                                <span className="grid h-20 w-20 place-items-center rounded-2xl border border-violet-400/40 bg-violet-500/15 text-violet-200 shadow-[0_0_36px_rgba(147,51,234,0.45)]">
+                                    <MonitorCog size={40} strokeWidth={1.75} />
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                                    {summary.name} Rig
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Sağ: sistem özet chipleri */}

@@ -45,5 +45,8 @@ public class UserHardwareUpsertRequest {
     @Min(value = 1, message = "Monitör yenileme hızı en az 1 Hz olmalıdır.")
     private Integer monitorRefreshRate;
 
+    @Size(max = 500, message = "Rig görseli URL en fazla 500 karakter olabilir.")
+    private String rigImageUrl;
+
     private HardwareVisibility visibility;
 }

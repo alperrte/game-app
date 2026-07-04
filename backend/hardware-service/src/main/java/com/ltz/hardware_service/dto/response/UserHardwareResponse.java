@@ -42,6 +42,8 @@ public class UserHardwareResponse {
 
     private Integer monitorRefreshRate;
 
+    private String rigImageUrl;
+
     private HardwareVisibility visibility;
 
     private LocalDateTime createdAt;

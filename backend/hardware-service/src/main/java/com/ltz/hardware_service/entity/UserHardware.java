@@ -79,6 +79,9 @@ public class UserHardware extends BaseTimeEntity {
     @Column(name = "monitor_refresh_rate")
     private Integer monitorRefreshRate;
 
+    @Column(name = "rig_image_url", length = 500)
+    private String rigImageUrl;
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false, length = 50)

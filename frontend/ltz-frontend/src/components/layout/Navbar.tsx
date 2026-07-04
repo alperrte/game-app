@@ -200,7 +200,7 @@ const contentCornerItems: NavItem[] = [
 
 const hardwareServiceItems: NavItem[] = [
     {
-        label: "Hardware Center",
+        label: "Donanım Merkezi",
         href: HARDWARE_ROUTES.center,
         icon: MonitorCog,
     },

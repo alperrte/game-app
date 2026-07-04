@@ -33,13 +33,6 @@ import { HardwareSetupChoice } from "../components/HardwareSetupChoice";
 import { ManualHardwareForm } from "../components/ManualHardwareForm";
 import { SystemScoreDetailCard } from "../components/SystemScoreDetailCard";
 
-const FOOTER_LINKS = [
-    "Gizlilik Politikası",
-    "Kullanım Koşulları",
-    "Destek",
-    "İletişim",
-];
-
 type PageMode = "view" | "form";
 
 /* ─── Skeleton ─── */
@@ -157,8 +150,8 @@ export default function MySystemPage() {
         <div className="relative bg-[#020817] text-white">
             <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(88,28,255,0.22),transparent_34%),radial-gradient(circle_at_82%_0%,rgba(168,85,247,0.12),transparent_30%),linear-gradient(180deg,#050b18_0%,#020817_48%,#02111f_100%)]" />
 
-            <div className="relative flex min-h-screen flex-col">
-                <main className="mx-auto w-full max-w-[1840px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
+            <div className="relative">
+                <main className="mx-auto w-full max-w-[1840px] px-4 py-8 sm:px-6 lg:px-8">
                     {/* Loading */}
                     {loading ? <MySystemSkeleton /> : null}
 
@@ -224,37 +217,6 @@ export default function MySystemPage() {
                         </div>
                     ) : null}
                 </main>
-
-                {/* Footer */}
-                <footer className="relative border-t border-white/5 bg-slate-950/40 backdrop-blur-xl">
-                    <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/60 to-transparent"
-                    />
-
-                    <div className="mx-auto flex w-full max-w-[1840px] flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-                        <div>
-                            <div className="text-base font-black tracking-tight text-white">
-                                LobbyTwoZero
-                            </div>
-                            <div className="mt-0.5 text-xs text-slate-500">
-                                © 2024 LobbyTwoZero. Tüm Hakları Saklıdır.
-                            </div>
-                        </div>
-
-                        <nav className="flex flex-wrap gap-x-5 gap-y-2">
-                            {FOOTER_LINKS.map((link) => (
-                                <a
-                                    key={link}
-                                    href="#"
-                                    className="text-xs font-semibold text-slate-400 transition-colors hover:text-violet-200"
-                                >
-                                    {link}
-                                </a>
-                            ))}
-                        </nav>
-                    </div>
-                </footer>
             </div>
         </div>
     );

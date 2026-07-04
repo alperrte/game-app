@@ -18,9 +18,10 @@ import type {
 } from "../types/hardware.types";
 
 export interface ComponentSelection {
-    id: number;
+    id: number | null;
     modelName: string;
     brandName: string | null;
+    isCustom?: boolean;
 }
 
 function toDisplayName(s: ComponentSelection): string {
@@ -50,6 +51,11 @@ export function ComponentSearchInput({
     const [results, setResults] = useState<ApiHardwareComponent[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+
+    /* selected prop dışarıdan değiştiğinde inputValue'yu senkronize et */
+    useEffect(() => {
+        setInputValue(selected ? toDisplayName(selected) : "");
+    }, [selected]);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

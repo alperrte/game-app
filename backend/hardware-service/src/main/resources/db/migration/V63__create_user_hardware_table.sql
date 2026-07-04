@@ -22,6 +22,8 @@ CREATE TABLE user_hardware (
                                monitor_resolution NVARCHAR(50) NULL,
                                monitor_refresh_rate INT NULL,
 
+                               rig_image_url NVARCHAR(500) NULL,
+
                                visibility NVARCHAR(50) NOT NULL DEFAULT 'PRIVATE',
 
                                created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),

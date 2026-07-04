@@ -48,6 +48,7 @@ public class UserHardwareService {
         userHardware.setMouseComponent(hardwareComponentService.findComponentByIdOrNull(request.getMouseComponentId()));
         userHardware.setHeadsetComponent(hardwareComponentService.findComponentByIdOrNull(request.getHeadsetComponentId()));
 
+        userHardware.setRigImageUrl(request.getRigImageUrl());
         userHardware.setOperatingSystem(request.getOperatingSystem());
         userHardware.setMonitorResolution(request.getMonitorResolution());
         userHardware.setMonitorRefreshRate(request.getMonitorRefreshRate());

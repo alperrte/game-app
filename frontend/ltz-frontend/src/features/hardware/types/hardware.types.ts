@@ -117,9 +117,25 @@ export interface ApiUserHardwareResponse {
     operatingSystem: string | null;
     monitorResolution: string | null;
     monitorRefreshRate: number | null;
+    rigImageUrl: string | null;
     visibility: ApiHardwareVisibility;
     createdAt: string;
     updatedAt: string;
+}
+
+/*
+ * HardwareComponentCreateRequest — POST /api/hardware/components
+ * verified=false → admin onayı bekleyen kullanıcı katkısı.
+ */
+export interface ApiHardwareComponentCreateRequest {
+    componentType: ApiComponentType;
+    category: ApiComponentCategory;
+    brandId?: number | null;
+    seriesName?: string | null;
+    modelName: string;
+    verified?: boolean;
+    createdByUserId?: number | null;
+    extraSpecs?: string | null;
 }
 
 /*
@@ -140,6 +156,7 @@ export interface ApiUserHardwareUpsertRequest {
     operatingSystem?: string | null;
     monitorResolution?: string | null;
     monitorRefreshRate?: number | null;
+    rigImageUrl?: string | null;
     visibility?: ApiHardwareVisibility;
 }
 
@@ -378,6 +395,8 @@ export interface SystemSummary {
     chips: SystemSpec[];
     /* Uyumluluk rozetleri (1080p Ultra Ready vb.) */
     compatibility: SystemCompatibilityBadge[];
+    /* Kullanıcının yüklediği rig görseli URL'si */
+    rigImageUrl: string | null;
 }
 
 /*
@@ -389,8 +408,7 @@ export type HardwareComponentCategory =
     | "cpu"
     | "ram"
     | "storage"
-    | "motherboard"
-    | "psu";
+    | "motherboard";
 
 /*
  * Düzenlenebilir tek bir donanım bileşeni kartının verisi.

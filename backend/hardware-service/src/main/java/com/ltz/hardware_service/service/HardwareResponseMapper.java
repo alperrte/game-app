@@ -92,6 +92,7 @@ public class HardwareResponseMapper {
                 .operatingSystem(userHardware.getOperatingSystem())
                 .monitorResolution(userHardware.getMonitorResolution())
                 .monitorRefreshRate(userHardware.getMonitorRefreshRate())
+                .rigImageUrl(userHardware.getRigImageUrl())
                 .visibility(userHardware.getVisibility())
                 .createdAt(userHardware.getCreatedAt())
                 .updatedAt(userHardware.getUpdatedAt())
