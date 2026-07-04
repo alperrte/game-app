@@ -238,6 +238,13 @@ export const USER_API_ENDPOINTS = {
     adminUserBadges: (userId: string) => `/api/users/admin/${userId}/badges`,
     adminUserBadge: (userId: string, badgeKey: string) =>
         `/api/users/admin/${userId}/badges/${badgeKey}`,
+
+    userCommendations: (userId: number | string) =>
+        `/api/users/profile/${userId}/commendations`,
+    userCommendationsSummary: (userId: number | string) =>
+        `/api/users/profile/${userId}/commendations/summary`,
+    deleteUserCommendation: (reviewId: number | string) =>
+        `/api/users/profile/commendations/${reviewId}`,
 } as const;
 
 /*

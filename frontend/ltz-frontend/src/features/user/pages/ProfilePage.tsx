@@ -47,6 +47,7 @@ import { ProfileConnectionListModal } from "../components/profile/ProfileConnect
 import { ProfileDevNote } from "../components/ProfileDevNote";
 import type { ProfileIdentity } from "../hooks/useProfileIdentities";
 import { ProfileReviewsSection } from "../components/profile/ProfileReviewsSection";
+import { ProfileCommendationsSection } from "../components/profile/ProfileCommendationsSection";
 import {
   Lock,
   ChevronLeft,
@@ -1813,6 +1814,15 @@ export const ProfilePage: React.FC = () => {
 
           {mainSection === "reviews" && profileUserId ? (
             <ProfileReviewsSection userId={profileUserId} />
+          ) : null}
+
+          {mainSection === "commendations" && profile?.userId ? (
+            <ProfileCommendationsSection 
+              profileUserId={profile.userId} 
+              isOwnProfile={isOwnProfile} 
+              currentUserId={currentUserId?.toString()}
+              theme={themeClasses}
+            />
           ) : null}
 
         </div>

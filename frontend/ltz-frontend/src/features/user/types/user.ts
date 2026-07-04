@@ -118,3 +118,35 @@ export type AssignBadgeRequest = {
 
 export { BIO_MAX_LENGTH } from "./audit";
 export type { UserAuditLog } from "./audit";
+
+export type UserProfileReviewResponse = {
+  id: number;
+  reviewerId: string;
+  reviewerUsername: string;
+  reviewerDisplayName: string | null;
+  reviewerAvatarUrl: string | null;
+  reviewedId: string;
+  content: string;
+  friendlyPoint: boolean;
+  leaderPoint: boolean;
+  aimGodPoint: boolean;
+  tacticianPoint: boolean;
+  createdAt: string;
+};
+
+export type CreateProfileReviewRequest = {
+  content: string;
+  friendlyPoint: boolean;
+  leaderPoint: boolean;
+  aimGodPoint: boolean;
+  tacticianPoint: boolean;
+};
+
+export type UserProfileCommendationsSummary = {
+  totalReviews: number;
+  friendlyCount: number;
+  leaderCount: number;
+  aimGodCount: number;
+  tacticianCount: number;
+};
+

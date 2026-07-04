@@ -11,6 +11,9 @@ import type {
   AssignedBadgeResponse,
   BadgeCatalogItem,
   AssignBadgeRequest,
+  UserProfileReviewResponse,
+  CreateProfileReviewRequest,
+  UserProfileCommendationsSummary,
 } from "../types/user";
 import type { UserAuditLog } from "../types/audit";
 import type { SocialPostResponse } from "../../social/types/social.types";
@@ -89,4 +92,16 @@ export const userService = {
 
   removeAdminBadge: (userId: string, badgeKey: string) =>
     apiClient.delete(USER_API_ENDPOINTS.adminUserBadge(userId, badgeKey)),
+
+  getUserCommendations: (userId: number | string) =>
+    apiClient.get<UserProfileReviewResponse[]>(USER_API_ENDPOINTS.userCommendations(userId)),
+
+  getCommendationsSummary: (userId: number | string) =>
+    apiClient.get<UserProfileCommendationsSummary>(USER_API_ENDPOINTS.userCommendationsSummary(userId)),
+
+  createUserCommendation: (userId: number | string, request: CreateProfileReviewRequest) =>
+    apiClient.post<UserProfileReviewResponse>(USER_API_ENDPOINTS.userCommendations(userId), request),
+
+  deleteUserCommendation: (reviewId: number | string) =>
+    apiClient.delete(USER_API_ENDPOINTS.deleteUserCommendation(reviewId)),
 };
