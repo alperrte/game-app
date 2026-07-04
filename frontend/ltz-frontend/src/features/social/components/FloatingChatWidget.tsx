@@ -1086,7 +1086,7 @@ export function FloatingChatWidget() {
           <div className="shrink-0 border-t border-white/10 bg-[#0b1220] p-3">
             {error ? <p className="mb-2 text-xs text-amber-300">{error}</p> : null}
             <button
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-sm font-black text-white transition duration-150 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!groupName.trim() || selectedFriendIds.size === 0 || creatingGroup}
               onClick={() => void createGroup()}
               type="button"

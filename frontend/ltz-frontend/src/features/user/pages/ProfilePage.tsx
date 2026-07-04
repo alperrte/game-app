@@ -14,6 +14,8 @@ import { formatProfileDate, getYouTubeVideoId } from "../utils/profileHelpers";
 import { buildProfileBadges, mergeAssignedBadges } from "../utils/badges";
 import { normalizeRole } from "../utils/roleStyles";
 import { useProfileIdentities } from "../hooks/useProfileIdentities";
+import { cn } from "../../../utils/cn";
+import { getThemeClasses } from "../utils/theme";
 import { STORAGE_KEYS } from "../../../lib/constants";
 import { socialService } from "../../social/services/socialService";
 import { useChatWidget } from "../../social/context/ChatWidgetContext";
@@ -219,6 +221,8 @@ const getInitialState = (currentUserId: string | number | undefined): ProfileSta
   };
 };
 
+
+
 export const ProfilePage: React.FC = () => {
   const { openChat: openChatWidget } = useChatWidget();
   const { username } = useParams<{ username: string }>();
@@ -227,6 +231,7 @@ export const ProfilePage: React.FC = () => {
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const { showToast } = useToast();
   const {
+    profile: loggedInProfile,
     displayName: loggedInDisplayName,
     avatarUrl: loggedInAvatarUrl,
     refresh: refreshCurrentUserProfile,
@@ -264,6 +269,7 @@ export const ProfilePage: React.FC = () => {
   } = state;
 
   const setLoading = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { loading: val } }), []);
+  const themeClasses = useMemo(() => getThemeClasses(loggedInProfile?.profileThemeUrl), [loggedInProfile?.profileThemeUrl]);
   const setProfile = useCallback((val: UserProfileResponse | null) => dispatch({ type: "UPDATE_STATE", payload: { profile: val } }), []);
   const setIsRestricted = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { isRestricted: val } }), []);
   const setSettingsOpen = useCallback((val: boolean) => dispatch({ type: "UPDATE_STATE", payload: { settingsOpen: val } }), []);
@@ -1699,13 +1705,14 @@ export const ProfilePage: React.FC = () => {
           <div className="absolute inset-0 bg-zinc-950/90" />
         </div>
       ) : (
-        <>
-          <div className="pointer-events-none absolute -left-20 top-20 -z-10 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -right-20 top-40 -z-10 h-80 w-80 rounded-full bg-fuchsia-500/10 blur-3xl" />
-        </>
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute -left-20 top-20 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl" />
+          <div className="absolute -right-20 top-40 h-80 w-80 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        </div>
       )}
 
       <ProfileHero
+        theme={themeClasses}
         badges={badges}
         isOwnProfile={isOwnProfile}
         lastSeenLabel={lastSeenLabel}
@@ -1729,6 +1736,7 @@ export const ProfilePage: React.FC = () => {
       />
 
       <ProfileStatRibbon
+        theme={themeClasses}
         followers={formatStatCount(visibility.showFollowerList, counts.followers)}
         following={formatStatCount(visibility.showFollowerList, counts.following)}
         friends={formatStatCount(visibility.showFriendList, counts.friends)}
@@ -1740,6 +1748,7 @@ export const ProfilePage: React.FC = () => {
       />
 
       <ProfileQuickNav
+        theme={themeClasses}
         activeSection={settingsOpen ? "settings" : activeNavSection}
         onSectionChange={handleSectionChange}
         showHardware={hasHardware}
@@ -1864,9 +1873,9 @@ export const ProfilePage: React.FC = () => {
       {editModal}
 
       {musicVideoId && !editModalOpen && (
-        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-2xl border border-violet-500/35 bg-zinc-950 px-4 py-2.5 shadow-lg">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/10">
-            <Music className={`h-4 w-4 text-violet-400 ${isPlaying ? "opacity-100" : "opacity-60"}`} />
+        <div className={cn("fixed bottom-6 right-44 z-40 flex items-center gap-3 rounded-2xl border bg-zinc-950 px-4 py-2.5 shadow-lg", themeClasses.border, themeClasses.glow)}>
+          <div className={cn("flex h-9 w-9 items-center justify-center rounded-full border", themeClasses.border, themeClasses.bg)}>
+            <Music className={cn("h-4 w-4", themeClasses.text, isPlaying ? "opacity-100 animate-pulse" : "opacity-60")} />
           </div>
           <div className="flex max-w-[140px] flex-col select-none">
             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
@@ -1885,7 +1894,7 @@ export const ProfilePage: React.FC = () => {
             </span>
           </div>
           <button
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:opacity-40"
+            className={cn("flex h-8 w-8 items-center justify-center rounded-xl text-white transition-all duration-200 cursor-pointer disabled:opacity-40", themeClasses.text, themeClasses.border, themeClasses.bg, "hover:bg-white/10")}
             disabled={soundtrackLoading || soundtrackError}
             onClick={() => void togglePlayback()}
             type="button"

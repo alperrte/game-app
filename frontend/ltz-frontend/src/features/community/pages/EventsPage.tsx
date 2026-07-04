@@ -272,7 +272,7 @@ export default function EventsPage() {
               Topluluk turnuvalarını, oyun gecelerini ve buluşmaları keşfet; takımınla yerini erkenden ayır.
             </p>
           </div>
-          <button className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-fuchsia-950/40 transition hover:-translate-y-0.5 disabled:opacity-50" disabled={ownedCommunities.length === 0} onClick={openCreateForm}>
+          <button className="rounded-xl bg-violet-600 hover:bg-violet-500 px-6 py-3.5 font-bold text-white shadow-lg shadow-violet-950/40 transition hover:-translate-y-0.5 disabled:opacity-50" disabled={ownedCommunities.length === 0} onClick={openCreateForm}>
             {showCreate && !editingEventId ? "Formu kapat" : "+ Etkinlik oluştur"}
           </button>
         </div>
