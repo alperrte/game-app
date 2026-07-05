@@ -1806,7 +1806,12 @@ export const ProfilePage: React.FC = () => {
           ) : null}
 
           {mainSection === "about" ? (
-            <ProfileAboutSection categoriesList={categoriesList} profile={profile} />
+            <ProfileAboutSection 
+              categoriesList={categoriesList} 
+              profile={profile} 
+              theme={themeClasses}
+              isOwnProfile={isOwnProfile}
+            />
           ) : null}
 
           {mainSection === "hardware" && hasHardware ? (

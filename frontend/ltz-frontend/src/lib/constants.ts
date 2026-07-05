@@ -253,6 +253,8 @@ export const USER_API_ENDPOINTS = {
     userClips: (userId: number | string) => `/api/users/${userId}/clips`,
     addProfileClip: "/api/users/profile/clips",
     deleteProfileClip: (clipId: number | string) => `/api/users/profile/clips/${clipId}`,
+    userAvailability: (userId: number | string) => `/api/users/${userId}/availability`,
+    updateProfileAvailability: "/api/users/profile/availability",
 } as const;
 
 

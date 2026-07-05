@@ -15,6 +15,7 @@ import type {
   CreateProfileReviewRequest,
   UserProfileCommendationsSummary,
   UserProfileClipResponse,
+  AvailabilitySlot,
 } from "../types/user";
 import type { UserAuditLog } from "../types/audit";
 import type { SocialPostResponse } from "../../social/types/social.types";
@@ -123,6 +124,12 @@ export const userService = {
 
   deleteUserClip: (clipId: number | string) =>
     apiClient.delete(USER_API_ENDPOINTS.deleteProfileClip(clipId)),
+
+  getUserAvailability: (userId: number | string) =>
+    apiClient.get<AvailabilitySlot[]>(USER_API_ENDPOINTS.userAvailability(userId)),
+
+  updateUserAvailability: (request: { slots: AvailabilitySlot[] }) =>
+    apiClient.put<AvailabilitySlot[]>(USER_API_ENDPOINTS.updateProfileAvailability, request),
 };
 
 
