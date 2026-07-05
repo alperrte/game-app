@@ -18,5 +18,8 @@ public class UserProfileReviewResponse {
     private boolean leaderPoint;
     private boolean aimGodPoint;
     private boolean tacticianPoint;
+    private boolean reported;
+    private String reportReason;
     private LocalDateTime createdAt;
 }
+

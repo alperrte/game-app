@@ -245,7 +245,13 @@ export const USER_API_ENDPOINTS = {
         `/api/users/profile/${userId}/commendations/summary`,
     deleteUserCommendation: (reviewId: number | string) =>
         `/api/users/profile/commendations/${reviewId}`,
+    reportUserCommendation: (reviewId: number | string) =>
+        `/api/users/profile/commendations/${reviewId}/report`,
+    getReportedUserCommendations: "/api/users/profile/commendations/reported",
+    resolveReportedUserCommendation: (reviewId: number | string) =>
+        `/api/users/profile/commendations/${reviewId}/resolve`,
 } as const;
+
 
 /*
  * Game-service frontend route adresleri.

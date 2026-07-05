@@ -53,7 +53,15 @@ public class UserProfileReview {
     @Builder.Default
     private boolean tacticianPoint = false;
 
+    @Column(name = "reported", nullable = false)
+    @Builder.Default
+    private boolean reported = false;
+
+    @Column(name = "report_reason", length = 255)
+    private String reportReason;
+
     @Builder.Default
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+

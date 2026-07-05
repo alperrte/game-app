@@ -10,6 +10,8 @@ CREATE TABLE user_profile_reviews (
     leader_point BIT NOT NULL DEFAULT 0,
     aim_god_point BIT NOT NULL DEFAULT 0,
     tactician_point BIT NOT NULL DEFAULT 0,
+    reported BIT NOT NULL DEFAULT 0,
+    report_reason NVARCHAR(255) NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 

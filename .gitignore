@@ -137,3 +137,5 @@ failsafe-reports/
 .agents/
 .claude/
 .postman/
+.gemini/
+.qodo/

@@ -104,4 +104,15 @@ export const userService = {
 
   deleteUserCommendation: (reviewId: number | string) =>
     apiClient.delete(USER_API_ENDPOINTS.deleteUserCommendation(reviewId)),
+
+  reportUserProfileReview: (reviewId: number | string, reason: string) =>
+    apiClient.post(USER_API_ENDPOINTS.reportUserCommendation(reviewId), { reason }),
+
+  getReportedReviews: () =>
+    apiClient.get<UserProfileReviewResponse[]>(USER_API_ENDPOINTS.getReportedUserCommendations),
+
+  resolveReportedReview: (reviewId: number | string) =>
+    apiClient.post(USER_API_ENDPOINTS.resolveReportedUserCommendation(reviewId), {}),
 };
+
+

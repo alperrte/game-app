@@ -9,9 +9,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.ltz.user_service.dto.request.ReportReviewRequest;
+import com.ltz.user_service.exception.BadRequestException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/users")
@@ -47,8 +50,39 @@ public class UserProfileReviewController {
             @PathVariable Long reviewId,
             @AuthenticationPrincipal JwtUserPrincipal principal) {
         String authenticatedUserId = principal.userId().toString();
+        // TODO: Gelecekte MODERATOR rolünün de yorumları silebilmesi için "|| "MODERATOR".equalsIgnoreCase(principal.role())" eklenebilir.
         boolean isAdmin = "ROLE_ADMIN".equalsIgnoreCase(principal.role()) || "ADMIN".equalsIgnoreCase(principal.role());
         reviewService.deleteReview(reviewId, authenticatedUserId, isAdmin);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/profile/commendations/{reviewId}/report")
+    public ResponseEntity<Void> reportReview(
+            @PathVariable Long reviewId,
+            @Valid @RequestBody ReportReviewRequest request) {
+        reviewService.reportReview(reviewId, request.getReason());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/profile/commendations/reported")
+    public ResponseEntity<List<UserProfileReviewResponse>> getReportedReviews(
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
+        // TODO: Gelecekte MODERATOR rolünün de şikayet listesini görebilmesi için koşula MODERATOR kontrolü eklenebilir.
+        if (!"ROLE_ADMIN".equalsIgnoreCase(principal.role()) && !"ADMIN".equalsIgnoreCase(principal.role())) {
+            throw new BadRequestException("Only administrators can view reported reviews");
+        }
+        return ResponseEntity.ok(reviewService.getReportedReviews());
+    }
+
+    @PostMapping("/profile/commendations/{reviewId}/resolve")
+    public ResponseEntity<Void> resolveReport(
+            @PathVariable Long reviewId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
+        // TODO: Gelecekte MODERATOR rolünün de şikayeti çözebilmesi için koşula MODERATOR kontrolü eklenebilir.
+        if (!"ROLE_ADMIN".equalsIgnoreCase(principal.role()) && !"ADMIN".equalsIgnoreCase(principal.role())) {
+            throw new BadRequestException("Only administrators can resolve reports");
+        }
+        reviewService.resolveReport(reviewId);
+        return ResponseEntity.ok().build();
     }
 }

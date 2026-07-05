@@ -11,7 +11,10 @@ public interface UserProfileReviewRepository extends JpaRepository<UserProfileRe
 
     List<UserProfileReview> findByReviewedIdOrderByCreatedAtDesc(String reviewedId);
 
+    List<UserProfileReview> findByReportedTrueOrderByCreatedAtDesc();
+
     long countByReviewedId(String reviewedId);
+
 
     @Query("SELECT COUNT(r) FROM UserProfileReview r WHERE r.reviewedId = :reviewedId AND r.friendlyPoint = true")
     long countFriendlyPoints(@Param("reviewedId") String reviewedId);

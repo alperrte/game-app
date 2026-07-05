@@ -131,8 +131,11 @@ export type UserProfileReviewResponse = {
   leaderPoint: boolean;
   aimGodPoint: boolean;
   tacticianPoint: boolean;
+  reported?: boolean;
+  reportReason?: string | null;
   createdAt: string;
 };
+
 
 export type CreateProfileReviewRequest = {
   content: string;

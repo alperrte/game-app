@@ -1,20 +1,22 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Link2, Settings, Shield, Terminal, X } from "lucide-react";
+import { Link2, Settings, Shield, Terminal, X, AlertOctagon } from "lucide-react";
 
 import { ConnectedAccountsTab } from "../ConnectedAccountsTab";
 import { PrivacySettingsTab } from "../PrivacySettingsTab";
 import { ActivityLogTab } from "../ActivityLogTab";
 import { AdminBadgePanel } from "../AdminBadgePanel";
+import { AdminReportsPanel } from "../AdminReportsPanel";
 import { cn } from "../../../../utils/cn";
 
-export type SettingsPanelTab = "privacy" | "accounts" | "activity" | "admin-badges";
+export type SettingsPanelTab = "privacy" | "accounts" | "activity" | "admin-badges" | "admin-reports";
 
 const TABS: { id: SettingsPanelTab; label: string; icon: typeof Settings; adminOnly?: boolean }[] = [
   { id: "privacy", label: "Gizlilik", icon: Settings },
   { id: "accounts", label: "Bağlı Hesaplar", icon: Link2 },
   { id: "activity", label: "Aktivite", icon: Terminal },
   { id: "admin-badges", label: "Rozetler", icon: Shield, adminOnly: true },
+  { id: "admin-reports", label: "Şikayetler", icon: AlertOctagon, adminOnly: true },
 ];
 
 type ProfileSettingsPanelProps = {
@@ -50,6 +52,7 @@ export function ProfileSettingsPanel({
 
   if (!open) return null;
 
+  // TODO: Gelecekte moderatörlerin de bu panelleri (Şikayetler vb.) yönetebilmesi için "isAdmin" yerine "isAdmin || isModerator" kontrolü eklenebilir.
   const visibleTabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
   return createPortal(
@@ -109,6 +112,7 @@ export function ProfileSettingsPanel({
           {activeTab === "accounts" ? <ConnectedAccountsTab /> : null}
           {activeTab === "activity" ? <ActivityLogTab /> : null}
           {activeTab === "admin-badges" && isAdmin ? <AdminBadgePanel /> : null}
+          {activeTab === "admin-reports" && isAdmin ? <AdminReportsPanel /> : null}
         </div>
 
         {/* Footer */}

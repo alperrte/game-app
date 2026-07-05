@@ -72,6 +72,8 @@ public class UserProfileReviewService {
                             .leaderPoint(review.isLeaderPoint())
                             .aimGodPoint(review.isAimGodPoint())
                             .tacticianPoint(review.isTacticianPoint())
+                            .reported(review.isReported())
+                            .reportReason(review.getReportReason())
                             .createdAt(review.getCreatedAt());
 
                     if (reviewerProfile != null) {
@@ -114,6 +116,31 @@ public class UserProfileReviewService {
         reviewRepository.delete(review);
     }
 
+    @Transactional
+    public void reportReview(Long reviewId, String reason) {
+        UserProfileReview review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        review.setReported(true);
+        review.setReportReason(reason);
+        reviewRepository.save(review);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileReviewResponse> getReportedReviews() {
+        return reviewRepository.findByReportedTrueOrderByCreatedAtDesc().stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional
+    public void resolveReport(Long reviewId) {
+        UserProfileReview review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        review.setReported(false);
+        review.setReportReason(null);
+        reviewRepository.save(review);
+    }
+
     private UserProfileReviewResponse mapToResponse(UserProfileReview review) {
         return UserProfileReviewResponse.builder()
                 .id(review.getId())
@@ -127,7 +154,10 @@ public class UserProfileReviewService {
                 .leaderPoint(review.isLeaderPoint())
                 .aimGodPoint(review.isAimGodPoint())
                 .tacticianPoint(review.isTacticianPoint())
+                .reported(review.isReported())
+                .reportReason(review.getReportReason())
                 .createdAt(review.getCreatedAt())
                 .build();
     }
 }
+

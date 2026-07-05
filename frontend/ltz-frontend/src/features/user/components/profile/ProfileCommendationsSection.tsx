@@ -9,8 +9,13 @@ import {
   Trash2, 
   Send,
   MessageSquare,
-  AlertOctagon
+  AlertOctagon,
+  Flag,
+  Eye,
+  EyeOff
 } from "lucide-react";
+import { useAuthStore } from "../../../../store/authStore";
+
 import { userService } from "../../services/userService";
 import type { 
   UserProfileReviewResponse, 
@@ -45,6 +50,21 @@ export function ProfileCommendationsSection({
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Authentication & Auth Roles
+  const { user: authUser } = useAuthStore();
+  // TODO: Gelecekte moderatörlerin de şikayetleri inline olarak yönetebilmesi için "|| authUser?.role === 'MODERATOR'" veya "|| authUser?.role === 'ROLE_MODERATOR'" eklenebilir.
+  const isAdmin = authUser?.role === "ADMIN" || authUser?.role === "ROLE_ADMIN";
+
+  // Reporting State
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const [reportFormError, setReportFormError] = useState<string | null>(null);
+
+  // Blurlanan yorumları lokalde geçici gösterme durumu
+  const [revealedReviews, setRevealedReviews] = useState<Record<number, boolean>>({});
+
   // Form State
   const [content, setContent] = useState("");
   const [friendly, setFriendly] = useState(false);
@@ -52,6 +72,7 @@ export function ProfileCommendationsSection({
   const [aimGod, setAimGod] = useState(false);
   const [tactician, setTactician] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
 
   const hasReviewed = reviews.some(r => r.reviewerId === currentUserId);
 
@@ -131,6 +152,40 @@ export function ProfileCommendationsSection({
     }
   };
 
+  const handleReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reportingReviewId || !reportReason) return;
+
+    setReporting(true);
+    setReportFormError(null);
+
+    try {
+      await userService.reportUserProfileReview(reportingReviewId, reportReason);
+      setReportModalOpen(false);
+      setReportReason("");
+      setReportingReviewId(null);
+      setRefreshTrigger(prev => prev + 1);
+      alert("Yorum şikayeti başarıyla iletildi. İnceleme başlatılacaktır.");
+    } catch (err) {
+      console.error("Raporlama sırasında hata oluştu:", err);
+      setReportFormError("Şikayet iletilirken bir hata oluştu.");
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  const handleResolve = async (reviewId: number) => {
+    if (!confirm("Bu yorumun şikayetini temizlemek ve onaylamak istediğinize emin misiniz?")) return;
+    try {
+      await userService.resolveReportedReview(reviewId);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Şikayet çözülürken hata oluştu:", err);
+      alert("İşlem gerçekleştirilemedi.");
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-white/10 bg-[#0a101c]/80 px-6 py-12 text-center text-zinc-400">
@@ -207,12 +262,76 @@ export function ProfileCommendationsSection({
                   const isReviewer = review.reviewerId === currentUserId;
                   const isProfileOwner = isOwnProfile;
                   const canDelete = isReviewer || isProfileOwner;
+                  const isReported = !!review.reported;
+                  const isRevealed = !!revealedReviews[review.id];
+
+                  if (isReported && !isAdmin && !isRevealed) {
+                    return (
+                      <div 
+                        key={review.id}
+                        className="relative overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-950/5 p-5 text-center transition hover:border-rose-500/30"
+                      >
+                        <div className="absolute inset-0 bg-zinc-950/20 backdrop-blur-[6px] pointer-events-none" />
+                        <div className="relative flex flex-col items-center justify-center py-2">
+                          <AlertOctagon className="h-6 w-6 text-rose-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse" />
+                          <p className="mt-2 text-xs font-black tracking-wide text-rose-300 uppercase">
+                            Yorum Şikayet Edildi
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-400 max-w-md">
+                            Bu yorum topluluk kurallarını ihlal ettiği gerekçesiyle şikayet edilmiş olup inceleme altındadır.
+                          </p>
+                          <button
+                            onClick={() => setRevealedReviews(prev => ({ ...prev, [review.id]: true }))}
+                            className="mt-3 flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> İçeriği Göster (Yine de Oku)
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div 
                       key={review.id}
-                      className="group relative rounded-2xl border border-white/5 bg-slate-950/40 p-5 transition hover:border-white/10 hover:bg-slate-950/60"
+                      className={`group relative rounded-2xl border p-5 transition hover:bg-slate-950/60 ${
+                        isReported 
+                          ? "border-rose-500/30 bg-rose-950/5 hover:border-rose-500/40" 
+                          : "border-white/5 bg-slate-950/40 hover:border-white/10"
+                      }`}
                     >
+                      {/* Reported Status Notice for Admins / Toggled Viewers */}
+                      {isReported && (
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs font-semibold text-rose-300">
+                          <div className="flex items-center gap-1.5">
+                            <AlertOctagon className="h-4 w-4 shrink-0 text-rose-400" />
+                            <span>
+                              {isAdmin 
+                                ? `ŞİKAYET EDİLDİ: "${review.reportReason || "Belirtilmedi"}"` 
+                                : "Bu yorum topluluk kuralları ihlali nedeniyle şikayet edilmiştir."}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isAdmin && (
+                              <button
+                                onClick={() => void handleResolve(review.id)}
+                                className="rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-400 hover:bg-emerald-500 hover:text-white transition cursor-pointer"
+                              >
+                                Şikayeti Kaldır
+                              </button>
+                            )}
+                            {isRevealed && !isAdmin && (
+                              <button
+                                onClick={() => setRevealedReviews(prev => ({ ...prev, [review.id]: false }))}
+                                className="flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-white cursor-pointer"
+                              >
+                                <EyeOff className="h-3 w-3" /> Gizle
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Reviewer Header */}
                       <div className="flex items-start justify-between gap-3">
                         <Link 
@@ -247,17 +366,35 @@ export function ProfileCommendationsSection({
                           </div>
                         </Link>
 
-                        {/* Delete Button */}
-                        {canDelete && (
-                          <button
-                            onClick={() => void handleDelete(review.id)}
-                            className="opacity-0 group-hover:opacity-100 transition duration-150 p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
-                            title="Yorumu Sil"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition duration-150">
+                          {/* Report Button (if not own review) */}
+                          {!isReviewer && currentUserId && !isReported && (
+                            <button
+                              onClick={() => {
+                                setReportingReviewId(review.id);
+                                setReportModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                              title="Şikayet Et"
+                            >
+                              <Flag className="h-4 w-4" />
+                            </button>
+                          )}
+
+                          {/* Delete Button */}
+                          {canDelete && (
+                            <button
+                              onClick={() => void handleDelete(review.id)}
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                              title="Yorumu Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
+
 
                       {/* Commendation Tags Substituted inside comment */}
                       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -427,6 +564,70 @@ export function ProfileCommendationsSection({
 
         </div>
       </div>
+
+      {/* Report Modal */}
+      {reportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm cursor-pointer"
+            onClick={() => setReportModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-rose-500/35 bg-[#0e1626] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="flex items-center gap-2 text-base font-extrabold text-white uppercase tracking-wider">
+              <AlertOctagon className="h-5 w-5 text-rose-500" />
+              Yorum Rapor Et
+            </h3>
+            <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
+              Lütfen topluluk kurallarımızı (küfür, nefret söylemi, spam, taciz) ihlal eden bu yorum için şikayet nedenini belirtin.
+            </p>
+
+            {reportFormError && (
+              <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300 font-bold">
+                {reportFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleReport} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wide mb-1.5">
+                  Şikayet Nedeni
+                </label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/95 p-3 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-rose-500 cursor-pointer"
+                >
+                  <option value="" disabled className="bg-slate-950">Seçiniz...</option>
+                  <option value="Küfür / Hakaret" className="bg-slate-950">Küfür / Hakaret</option>
+                  <option value="Spam / Yanıltıcı İçerik" className="bg-slate-950">Spam / Yanıltıcı İçerik</option>
+                  <option value="Nefret Söylemi / Ayrımcılık" className="bg-slate-950">Nefret Söylemi / Ayrımcılık</option>
+                  <option value="Taciz / Tehdit" className="bg-slate-950">Taciz / Tehdit</option>
+                  <option value="Diğer / Kurallara Aykırı" className="bg-slate-950">Diğer / Kurallara Aykırı</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReportModalOpen(false)}
+                  className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2.5 text-xs font-bold text-zinc-300 cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={reporting}
+                  className="rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 px-4 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/20 hover:shadow-rose-500/45 transition duration-150 cursor-pointer"
+                >
+                  {reporting ? "İletiliyor..." : "Şikayeti İlet"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </SectionPanel>
   );
 }
+
