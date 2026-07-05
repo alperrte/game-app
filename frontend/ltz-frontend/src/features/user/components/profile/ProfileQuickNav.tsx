@@ -1,11 +1,12 @@
 import { cn } from "../../../../utils/cn";
 import type { ProfileThemeClasses } from "../../utils/theme";
 
-export type ProfileNavSection = "wall" | "about" | "hardware" | "settings" | "reviews" | "commendations";
+export type ProfileNavSection = "wall" | "about" | "hardware" | "settings" | "reviews" | "commendations" | "clips";
 
 
 const NAV_ITEMS: { id: ProfileNavSection; label: string }[] = [
   { id: "wall", label: "Duvar" },
+  { id: "clips", label: "Klipler" },
   { id: "commendations", label: "Takdirler (+Rep)" },
   { id: "reviews", label: "İncelemeler" },
   { id: "about", label: "Hakkında" },

@@ -14,6 +14,7 @@ import type {
   UserProfileReviewResponse,
   CreateProfileReviewRequest,
   UserProfileCommendationsSummary,
+  UserProfileClipResponse,
 } from "../types/user";
 import type { UserAuditLog } from "../types/audit";
 import type { SocialPostResponse } from "../../social/types/social.types";
@@ -113,6 +114,15 @@ export const userService = {
 
   resolveReportedReview: (reviewId: number | string) =>
     apiClient.post(USER_API_ENDPOINTS.resolveReportedUserCommendation(reviewId), {}),
+
+  getUserClips: (userId: number | string) =>
+    apiClient.get<UserProfileClipResponse[]>(USER_API_ENDPOINTS.userClips(userId)),
+
+  addUserClip: (request: { title: string; videoUrl: string }) =>
+    apiClient.post<UserProfileClipResponse>(USER_API_ENDPOINTS.addProfileClip, request),
+
+  deleteUserClip: (clipId: number | string) =>
+    apiClient.delete(USER_API_ENDPOINTS.deleteProfileClip(clipId)),
 };
 
 

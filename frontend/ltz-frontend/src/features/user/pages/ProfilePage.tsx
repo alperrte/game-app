@@ -41,6 +41,7 @@ import {
 import { useCurrentUserProfile } from "../context/CurrentUserProfileContext";
 import { ProfileWallSection } from "../components/profile/ProfileWallSection";
 import { ProfileAboutSection } from "../components/profile/ProfileAboutSection";
+import { ProfileClipsSection } from "../components/profile/ProfileClipsSection";
 import { ProfileHardwareSection } from "../components/profile/ProfileHardwareSection";
 import { ProfileSocialSidebar } from "../components/profile/ProfileSocialSidebar";
 import { ProfileConnectionListModal } from "../components/profile/ProfileConnectionListModal";
@@ -1821,6 +1822,14 @@ export const ProfilePage: React.FC = () => {
               profileUserId={profile.userId} 
               isOwnProfile={isOwnProfile} 
               currentUserId={currentUserId?.toString()}
+              theme={themeClasses}
+            />
+          ) : null}
+
+          {mainSection === "clips" && profile?.userId ? (
+            <ProfileClipsSection 
+              userId={profile.userId} 
+              isOwnProfile={isOwnProfile}
               theme={themeClasses}
             />
           ) : null}

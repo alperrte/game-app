@@ -153,3 +153,12 @@ export type UserProfileCommendationsSummary = {
   tacticianCount: number;
 };
 
+export type UserProfileClipResponse = {
+  id: number;
+  userId: string;
+  title: string;
+  videoUrl: string;
+  platform: "YOUTUBE" | "TWITCH";
+  createdAt: string;
+};
+

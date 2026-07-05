@@ -250,6 +250,9 @@ export const USER_API_ENDPOINTS = {
     getReportedUserCommendations: "/api/users/profile/commendations/reported",
     resolveReportedUserCommendation: (reviewId: number | string) =>
         `/api/users/profile/commendations/${reviewId}/resolve`,
+    userClips: (userId: number | string) => `/api/users/${userId}/clips`,
+    addProfileClip: "/api/users/profile/clips",
+    deleteProfileClip: (clipId: number | string) => `/api/users/profile/clips/${clipId}`,
 } as const;
 
 
