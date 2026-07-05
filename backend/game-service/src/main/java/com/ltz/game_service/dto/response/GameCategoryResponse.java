@@ -1,6 +1,6 @@
 package com.ltz.game_service.dto.response;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 
 import java.time.LocalDateTime;
 

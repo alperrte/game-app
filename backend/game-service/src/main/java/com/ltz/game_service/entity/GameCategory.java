@@ -1,6 +1,6 @@
 package com.ltz.game_service.entity;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

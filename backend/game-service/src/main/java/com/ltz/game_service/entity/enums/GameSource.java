@@ -1,4 +1,4 @@
-package com.ltz.game_service.enums;
+package com.ltz.game_service.entity.enums;
 
 public enum GameSource {
     STEAM,

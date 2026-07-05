@@ -1,6 +1,6 @@
 package com.ltz.game_service.dto.request;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -29,9 +29,6 @@ public class GameRequest {
 
     @Size(max = 150, message = "Geliştirici bilgisi en fazla 150 karakter olabilir.")
     private String developer;
-
-    @Size(max = 150, message = "Yayıncı bilgisi en fazla 150 karakter olabilir.")
-    private String publisher;
 
     @Size(max = 2000, message = "Minimum sistem gereksinimleri en fazla 2000 karakter olabilir.")
     private String minimumSystemRequirements;
@@ -120,14 +117,6 @@ public class GameRequest {
 
     public void setDeveloper(String developer) {
         this.developer = developer;
-    }
-
-    public String getPublisher() {
-        return publisher;
-    }
-
-    public void setPublisher(String publisher) {
-        this.publisher = publisher;
     }
 
     public String getMinimumSystemRequirements() {

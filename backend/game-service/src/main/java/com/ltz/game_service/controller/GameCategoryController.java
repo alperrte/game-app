@@ -2,7 +2,7 @@ package com.ltz.game_service.controller;
 
 import com.ltz.game_service.dto.request.GameCategoryRequest;
 import com.ltz.game_service.dto.response.GameCategoryResponse;
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import com.ltz.game_service.service.GameCategoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

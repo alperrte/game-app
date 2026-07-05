@@ -6,12 +6,9 @@ import type {
   GameCategoryRequest,
   GameDeveloper,
   GameDeveloperRequest,
-  GameFilterOptions,
   GameListOptions,
   GamePlatform,
   GamePlatformRequest,
-  GamePublisher,
-  GamePublisherRequest,
   GameRequest,
   GameSystemRequirement,
   GameSystemRequirementRequest,
@@ -19,8 +16,24 @@ import type {
   PageResponse,
 } from "../types/gameTypes";
 
-export const getGamesByFilter = (filters: GameFilterOptions = {}) =>
-    apiClient.get<PageResponse<Game>>(GAME_API_ENDPOINTS.filterGames, filters);
+export const getGames = (options: GameListOptions = {}) =>
+    apiClient.get<PageResponse<Game>>(GAME_API_ENDPOINTS.games, options);
+
+// Legacy filtre parametrelerini (source/categoryId/title/genre) yeni /api/games
+// sözleşmesine (store/category/search) eşleyen geriye-uyumlu yardımcı.
+const toGamesQuery = (filters: GameListOptions = {}): GameListOptions => {
+  const { source, categoryId, title, genre, ...rest } = filters;
+
+  return {
+    ...rest,
+    store: rest.store ?? source,
+    category: rest.category ?? categoryId,
+    search: rest.search ?? title ?? genre ?? undefined,
+  };
+};
+
+export const getGamesByFilter = (filters: GameListOptions = {}) =>
+    apiClient.get<PageResponse<Game>>(GAME_API_ENDPOINTS.games, toGamesQuery(filters));
 
 export const createGame = (request: GameRequest) =>
     apiClient.post<Game>(GAME_API_ENDPOINTS.games, request);
@@ -32,8 +45,7 @@ export const createGameCategory = (request: GameCategoryRequest) =>
     apiClient.post<GameCategory>(GAME_API_ENDPOINTS.categories, request);
 
 export const gameService = {
-  getGames: (options: GameListOptions = {}) =>
-      apiClient.get<PageResponse<Game>>(GAME_API_ENDPOINTS.games, options),
+  getGames,
 
   filterGames: getGamesByFilter,
 
@@ -122,22 +134,4 @@ export const gameService = {
 
   deleteDeveloper: (id: number) =>
       apiClient.delete(GAME_API_ENDPOINTS.developerById(id)),
-
-  getPublishers: () =>
-      apiClient.get<GamePublisher[]>(GAME_API_ENDPOINTS.publishers),
-
-  getPublisherById: (id: number) =>
-      apiClient.get<GamePublisher>(GAME_API_ENDPOINTS.publisherById(id)),
-
-  createPublisher: (request: GamePublisherRequest) =>
-      apiClient.post<GamePublisher>(GAME_API_ENDPOINTS.publishers, request),
-
-  updatePublisher: (id: number, request: GamePublisherRequest) =>
-      apiClient.put<GamePublisher>(
-          GAME_API_ENDPOINTS.publisherById(id),
-          request
-      ),
-
-  deletePublisher: (id: number) =>
-      apiClient.delete(GAME_API_ENDPOINTS.publisherById(id)),
 };

@@ -1,6 +1,6 @@
 package com.ltz.game_service.dto.response.external;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 
 public class ExternalGameSearchResponse {
 

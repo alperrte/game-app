@@ -5,10 +5,13 @@ import { apiClient } from "../../../lib/axios";
 import { useAuthStore } from "../../../store/authStore";
 import { reviewService } from "../services/reviewService";
 import type {
+    CreateReviewRequest,
     GameSource,
+    ReviewFormValues,
     ReviewResponse,
 } from "../types/review.types";
 import { ReviewCard } from "./ReviewCard";
+import { ReviewForm } from "./ReviewForm";
 import { ReviewReportModal } from "./ReviewReportModal";
 
 type ReviewSectionProps = {
@@ -54,6 +57,22 @@ function getProfileDisplayName(profile: UserProfileSummary) {
     );
 }
 
+function toNullableText(value: string) {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+}
+
+function toNullableNumber(value: string) {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+        return null;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function ReviewSection({
                                   gameSource = "INTERNAL",
                                   gameId = null,
@@ -86,6 +105,12 @@ export function ReviewSection({
 
     const [selectedDeleteReview, setSelectedDeleteReview] =
         useState<ReviewResponse | null>(null);
+
+    const [showForm, setShowForm] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
+        null,
+    );
 
     const normalizedGameSource = gameSource.toUpperCase() as GameSource;
     const isExternalGame = normalizedGameSource !== "INTERNAL";
@@ -343,6 +368,68 @@ export function ReviewSection({
         }
     };
 
+    const openReviewForm = () => {
+        setCreateErrorMessage(null);
+        setShowForm(true);
+    };
+
+    const handleCreateReview = async (values: ReviewFormValues) => {
+        setCreating(true);
+        setCreateErrorMessage(null);
+
+        const commonFields = {
+            rating: values.rating,
+            reviewText: values.reviewText.trim(),
+            graphicsReview: toNullableText(values.graphicsReview),
+            gameplayReview: toNullableText(values.gameplayReview),
+            storyReview: toNullableText(values.storyReview),
+            performanceReview: toNullableText(values.performanceReview),
+            pros: toNullableText(values.pros),
+            cons: toNullableText(values.cons),
+            recommended: values.recommended,
+            playtimeHours: toNullableNumber(values.playtimeHours),
+            playtimeMinutes: toNullableNumber(values.playtimeMinutes),
+            platform: toNullableText(values.platform),
+            hardwareInfo: toNullableText(values.hardwareInfo),
+        };
+
+        const request: CreateReviewRequest = isExternalGame
+            ? {
+                gameSource: normalizedGameSource,
+                gameId: null,
+                externalGameId: String(externalGameId),
+                ...commonFields,
+            }
+            : {
+                gameSource: normalizedGameSource,
+                gameId: Number(gameId),
+                externalGameId: null,
+                ...commonFields,
+            };
+
+        try {
+            await reviewService.createReview(request);
+            setShowForm(false);
+            await refreshReviews();
+        } catch (error) {
+            const status = getErrorStatus(error);
+
+            if (status === 409) {
+                setCreateErrorMessage("Bu oyun için zaten inceleme oluşturdun.");
+                return;
+            }
+
+            if (status === 401 || status === 403) {
+                setCreateErrorMessage("İnceleme yazmak için giriş yapmalısın.");
+                return;
+            }
+
+            setCreateErrorMessage("İncelemen oluşturulurken bir sorun oluştu.");
+        } finally {
+            setCreating(false);
+        }
+    };
+
     return (
         <section className="mt-10 space-y-6">
             <div>
@@ -350,11 +437,11 @@ export function ReviewSection({
                     Oyuncu yorumları
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
-                    İncelemeler
+                    Topluluk İncelemeleri
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                    Oyuncuların deneyimlerini, puanlarını ve tavsiye durumlarını buradan
-                    inceleyebilirsin.
+                    Oyuncuların bu oyun hakkındaki deneyimlerini, puanlarını ve
+                    yorumlarını keşfet.
                 </p>
             </div>
 
@@ -370,10 +457,30 @@ export function ReviewSection({
                         Tüm incelemeler
                     </h3>
 
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                        {reviews.length} inceleme
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                            {reviews.length} inceleme
+                        </span>
+
+                        {isAuthenticated && !showForm && sortedReviews.length > 0 ? (
+                            <button
+                                type="button"
+                                onClick={openReviewForm}
+                                className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
+                            >
+                                İnceleme Yaz
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
+
+                {showForm ? (
+                    <ReviewForm
+                        submitting={creating}
+                        errorMessage={createErrorMessage}
+                        onSubmit={handleCreateReview}
+                    />
+                ) : null}
 
                 {loading ? (
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
@@ -401,11 +508,23 @@ export function ReviewSection({
                 ) : (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-950">
                         <h4 className="text-base font-semibold text-slate-950 dark:text-white">
-                            Henüz inceleme yok
+                            Henüz bu oyun için inceleme yazılmamış.
                         </h4>
                         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                            Bu oyun için henüz inceleme yazılmamış.
+                            Bu oyun hakkında deneyimini paylaşan ilk oyunculardan biri
+                            ol. Görüşlerin diğer oyuncuların karar vermesine yardımcı
+                            olabilir.
                         </p>
+
+                        {isAuthenticated && !showForm ? (
+                            <button
+                                type="button"
+                                onClick={openReviewForm}
+                                className="mt-5 inline-flex rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+                            >
+                                İlk İncelemeyi Yaz
+                            </button>
+                        ) : null}
                     </div>
                 )}
             </div>

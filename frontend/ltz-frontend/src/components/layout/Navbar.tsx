@@ -27,7 +27,6 @@ import {
 } from "react-router-dom";
 import {
     Brain,
-    Building2,
     CalendarDays,
     ChevronDown,
     Code2,
@@ -37,7 +36,6 @@ import {
     Gift,
     History,
     Home,
-    LayoutGrid,
     LogOut,
     MessageSquareText,
     MonitorSmartphone,
@@ -82,6 +80,7 @@ type NavItem = {
     label: string;
     href: string;
     icon: LucideIcon;
+    adminOnly?: boolean;
 };
 
 const mainNavItems: NavItem[] = [
@@ -114,24 +113,16 @@ const gameServiceItems: NavItem[] = [
         icon: Gamepad2,
     },
     {
-        label: "Kategoriler",
-        href: "/games/categories",
-        icon: LayoutGrid,
-    },
-    {
-        label: "Platformlar",
-        href: "/games/platforms",
-        icon: MonitorSmartphone,
-    },
-    {
         label: "Geliştiriciler",
         href: "/games/developers",
         icon: Code2,
     },
+    // Admin paneli gelene kadar geçici: yalnızca admin rolü navbar'da görür.
     {
-        label: "Yayıncılar",
-        href: "/games/publishers",
-        icon: Building2,
+        label: "Platformlar",
+        href: "/games/platforms",
+        icon: MonitorSmartphone,
+        adminOnly: true,
     },
 ];
 
@@ -226,10 +217,8 @@ function resolveActiveHref(pathname: string): string {
 function isGameServiceDropdownPath(pathname: string): boolean {
     return (
         pathname === "/games" ||
-        pathname.startsWith("/games/categories") ||
         pathname.startsWith("/games/platforms") ||
         pathname.startsWith("/games/developers") ||
-        pathname.startsWith("/games/publishers") ||
         pathname.startsWith("/games/external")
     );
 }
@@ -440,6 +429,13 @@ export function Navbar() {
     const displayName = getUserDisplayName(user);
     const roleLabel = getUserRoleLabel(user);
     const initials = getUserInitials(user);
+
+    const normalizedRole = (user?.role ?? "").toUpperCase();
+    const isAdmin = normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
+
+    const visibleGameServiceItems = gameServiceItems.filter(
+        (item) => !item.adminOnly || isAdmin,
+    );
 
     const activeHref = resolveActiveHref(location.pathname);
 
@@ -819,7 +815,7 @@ export function Navbar() {
 
                             {isGameMenuOpen
                                 ? renderNavDropdownPanel(
-                                    gameServiceItems,
+                                    visibleGameServiceItems,
                                     activeHref,
                                     "GAME SERVICE",
                                     () => setIsGameMenuOpen(false),

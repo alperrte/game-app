@@ -1,5 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import { getExternalGamePlatforms } from "../services/externalGameService";
@@ -626,6 +627,33 @@ const GamePlatformsPage = () => {
       setDeletingPlatformId(null);
     }
   };
+
+  // Karar #7: Platform yönetimi yalnızca admin. Normal kullanıcı bu sayfayı görüntüleyemez.
+  if (!isAdmin) {
+    return (
+        <div className="relative bg-[#020817] text-white">
+          <main className="mx-auto grid min-h-[calc(100vh-80px)] max-w-[900px] place-items-center px-8 py-8">
+            <section className="w-full rounded-3xl border border-white/10 bg-slate-950/55 p-10 text-center">
+              <h1 className="text-2xl font-bold text-white">
+                Bu sayfa yalnızca yöneticiler içindir
+              </h1>
+
+              <p className="mt-3 text-sm text-slate-400">
+                Platform yönetimi admin paneli altında yapılır. Bu sayfayı
+                görüntüleme yetkin bulunmuyor.
+              </p>
+
+              <Link
+                  className="mt-6 inline-flex rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white"
+                  to="/games"
+              >
+                Oyunlara dön
+              </Link>
+            </section>
+          </main>
+        </div>
+    );
+  }
 
   return (
       <div className="relative bg-[#020817] text-white">

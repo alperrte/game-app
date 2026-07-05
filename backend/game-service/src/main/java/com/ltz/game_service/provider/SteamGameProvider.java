@@ -11,7 +11,7 @@ import com.ltz.game_service.dto.response.external.ExternalGameTagResponse;
 import com.ltz.game_service.dto.steam.SteamAppDetailsResponse;
 import com.ltz.game_service.dto.steam.SteamSearchResultsResponse;
 import com.ltz.game_service.dto.steam.SteamStoreSearchResponse;
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import com.ltz.game_service.exception.ExternalGameContentBlockedException;
 import com.ltz.game_service.exception.ExternalGameServiceUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
@@ -384,7 +384,6 @@ public class SteamGameProvider implements ExternalGameProvider {
                 mapPlatforms(data),
                 mapReleaseDate(data),
                 joinList(data.getDevelopers()),
-                joinList(data.getPublishers()),
                 data.getPcRequirements() != null ? cleanHtml(data.getPcRequirements().getMinimum()) : null,
                 data.getPcRequirements() != null ? cleanHtml(data.getPcRequirements().getRecommended()) : null,
                 cleanHtml(data.getSupportedLanguages()),
@@ -437,6 +436,92 @@ public class SteamGameProvider implements ExternalGameProvider {
                 "Valve Corporation",
                 "Steam Store API",
                 null
+        );
+    }
+
+    @Override
+    public List<ExternalGameSearchResponse> getImportCandidates() {
+        Map<String, ExternalGameSearchResponse> candidates = new LinkedHashMap<>();
+
+        // Önce popüler oyunlar (öncelikli), sonra tüm app listesi (geniş kapsam)
+        try {
+            for (ExternalGameSearchResponse popular : getPopularGames()) {
+                if (popular.getExternalId() != null && !popular.getExternalId().isBlank()) {
+                    candidates.putIfAbsent(popular.getExternalId(), popular);
+                }
+            }
+        } catch (Exception ignored) {
+            // Popüler liste alınamazsa app listesiyle devam edilir.
+        }
+
+        try {
+            for (ExternalGameSearchResponse app : getCachedSteamAppList()) {
+                if (app.getExternalId() != null && !app.getExternalId().isBlank()) {
+                    candidates.putIfAbsent(app.getExternalId(), app);
+                }
+            }
+        } catch (Exception ignored) {
+            // App listesi alınamazsa eldeki adaylarla devam edilir.
+        }
+
+        return new ArrayList<>(candidates.values());
+    }
+
+    @Override
+    public ExternalGameImportData fetchImportData(String externalId) {
+        SteamAppDetailsResponse steamResponse = fetchSteamGameDetail(externalId);
+
+        if (steamResponse == null || !steamResponse.isSuccess() || steamResponse.getData() == null) {
+            return null;
+        }
+
+        SteamAppDetailsResponse.SteamGameData data = steamResponse.getData();
+
+        if (isBlockedAdultGameTitle(data.getName())) {
+            return null;
+        }
+
+        Integer priceFinal = null;
+        Integer priceInitial = null;
+        Integer discountPercent = null;
+        String currency = null;
+
+        if (data.getPriceOverview() != null) {
+            priceFinal = data.getPriceOverview().getFinalPrice();
+            priceInitial = data.getPriceOverview().getInitial();
+            discountPercent = data.getPriceOverview().getDiscountPercent();
+            currency = data.getPriceOverview().getCurrency();
+        }
+
+        boolean onSale = discountPercent != null && discountPercent > 0;
+
+        ExternalGameDetailResponse detail = new ExternalGameDetailResponse(
+                GameSource.STEAM,
+                String.valueOf(data.getSteamAppId()),
+                data.getName(),
+                cleanHtml(data.getShortDescription()),
+                mapGenres(data),
+                mapPlatforms(data),
+                mapReleaseDate(data),
+                joinList(data.getDevelopers()),
+                data.getPcRequirements() != null ? cleanHtml(data.getPcRequirements().getMinimum()) : null,
+                data.getPcRequirements() != null ? cleanHtml(data.getPcRequirements().getRecommended()) : null,
+                cleanHtml(data.getSupportedLanguages()),
+                data.getHeaderImage(),
+                false,
+                onSale,
+                hasTurkishLanguage(data.getSupportedLanguages())
+        );
+
+        return new ExternalGameImportData(
+                detail,
+                data.getType(),
+                data.isFree(),
+                priceFinal,
+                priceInitial,
+                currency,
+                discountPercent,
+                buildSteamStoreUrl(data.getSteamAppId())
         );
     }
 
@@ -1383,6 +1468,10 @@ public class SteamGameProvider implements ExternalGameProvider {
 
     private String buildSteamHeaderImageUrl(Integer appId) {
         return "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appId + "/header.jpg";
+    }
+
+    private String buildSteamStoreUrl(Integer appId) {
+        return "https://store.steampowered.com/app/" + appId;
     }
 
     private String cleanHtml(String value) {

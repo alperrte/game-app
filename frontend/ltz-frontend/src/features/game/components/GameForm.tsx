@@ -129,16 +129,6 @@ const GameForm = ({
             value={value.developer ?? ""}
           />
         </label>
-
-        <label className="grid gap-2 text-sm">
-          <span className="text-slate-300">Yayıncı</span>
-          <input
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            maxLength={150}
-            onChange={(event) => setField("publisher", event.target.value)}
-            value={value.publisher ?? ""}
-          />
-        </label>
       </div>
 
       <label className="grid gap-2 text-sm">

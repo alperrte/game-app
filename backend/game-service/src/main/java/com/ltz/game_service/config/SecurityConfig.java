@@ -54,7 +54,19 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
+                        // Admin import endpoints - only ADMIN
+                        .requestMatchers("/api/games/admin/**").hasRole("ADMIN")
+
+                        // Platform yönetimi (Karar #7): okuma public (GamesPage kaynak
+                        // logoları için gerekli), CRUD (yazma) yalnızca ADMIN — admin panelden yönetilir
+                        .requestMatchers(HttpMethod.GET, "/api/games/platforms", "/api/games/platforms/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/games/platforms", "/api/games/platforms/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/games/platforms/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/games/platforms/**").hasRole("ADMIN")
+
                         // Public game read endpoints
+                        // (external canlı okuma uçları hibrit katalog için public; canlı çekim
+                        //  yalnızca okuma/arama amaçlıdır, import yine admin /admin uçlarındadır)
                         .requestMatchers(HttpMethod.GET, "/api/games").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/games/**").permitAll()
 
