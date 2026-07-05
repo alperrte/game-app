@@ -16,7 +16,6 @@ const initialValue: GameRequest = {
   platform: "",
   releaseDate: "",
   developer: "",
-  publisher: "",
   supportedLanguages: "",
   coverImageUrl: "",
   earlyAccess: false,
@@ -70,7 +69,6 @@ const normalizeGameRequest = (value: GameRequest): GameRequest => {
     platform: emptyToNull(value.platform),
     releaseDate: emptyToNull(value.releaseDate),
     developer: emptyToNull(value.developer),
-    publisher: emptyToNull(value.publisher),
     supportedLanguages: emptyToNull(value.supportedLanguages),
     coverImageUrl: emptyToNull(value.coverImageUrl),
     earlyAccess: value.earlyAccess ?? false,
@@ -218,11 +216,6 @@ const GameCreatePage = () => {
       {
         label: "Geliştirici",
         complete: Boolean(formValue.developer?.trim()),
-        required: false,
-      },
-      {
-        label: "Yayıncı",
-        complete: Boolean(formValue.publisher?.trim()),
         required: false,
       },
     ],
@@ -386,19 +379,6 @@ const GameCreatePage = () => {
                   />
                 </label>
 
-                <label className="grid gap-2">
-                  <FieldLabel>Yayıncı</FieldLabel>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                    maxLength={150}
-                    onChange={(event) =>
-                      setField("publisher", event.target.value)
-                    }
-                    placeholder="Yayıncı adını girin"
-                    value={formValue.publisher ?? ""}
-                  />
-                </label>
-
                 <label className="grid gap-2 lg:col-span-2">
                   <FieldLabel>Desteklenen Diller</FieldLabel>
                   <select
@@ -546,8 +526,7 @@ const GameCreatePage = () => {
                       {formValue.releaseDate || "Çıkış Tarihi"}
                     </p>
                     <p className="text-sm text-slate-400">
-                      {formValue.developer || "Geliştirici"} ·{" "}
-                      {formValue.publisher || "Yayıncı"}
+                      {formValue.developer || "Geliştirici"}
                     </p>
                     <p className="text-sm leading-6 text-slate-300">
                       {formValue.description ||

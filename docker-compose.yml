@@ -113,7 +113,7 @@ services:
 
   game-service:
     build: ./backend/game-service
-    container_name: game-app-game-service
+    container_name: game-service
     env_file:
       - .env
     depends_on:

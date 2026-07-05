@@ -252,10 +252,8 @@ export const GAME_ROUTES = {
     gameSystemRequirements: (id: number | string) =>
         `/games/${id}/system-requirements`,
     systemRequirements: "/games/system-requirements",
-    categories: "/games/categories",
     platforms: "/games/platforms",
     developers: "/games/developers",
-    publishers: "/games/publishers",
     externalGameDetail: (source: string, externalId: string) =>
         `/games/external/${source}/${externalId}`,
 } as const;
@@ -265,7 +263,6 @@ export const GAME_ROUTES = {
  */
 export const GAME_API_ENDPOINTS = {
     games: "/api/games",
-    filterGames: "/api/games/filter",
     popularGames: "/api/games/popular",
     gameById: (id: number | string) => `/api/games/${id}`,
     gameSystemRequirements: (gameId: number | string) =>
@@ -279,9 +276,6 @@ export const GAME_API_ENDPOINTS = {
 
     developers: "/api/games/developers",
     developerById: (id: number | string) => `/api/games/developers/${id}`,
-
-    publishers: "/api/games/publishers",
-    publisherById: (id: number | string) => `/api/games/publishers/${id}`,
 
     externalGameSearch: "/api/games/external/search",
     externalApps: "/api/games/external/apps",

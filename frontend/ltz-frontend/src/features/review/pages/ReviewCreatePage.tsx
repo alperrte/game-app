@@ -100,7 +100,6 @@ function isManualGameMatchedByQuery(game: Game, query: string) {
         game.genre,
         game.platform,
         game.developer,
-        game.publisher,
         game.categoryName,
     ]
         .map(toSearchableText)

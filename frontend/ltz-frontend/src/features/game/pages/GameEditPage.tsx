@@ -77,7 +77,6 @@ const mapGameToForm = (game: Game): EditGameForm => {
     genre: game.genre ?? "",
     subcategory: "Simulation",
     developer: game.developer ?? "",
-    publisher: game.publisher ?? "",
     releaseDate: game.releaseDate ?? "",
     price: "29.99",
     platform: game.platform ?? "",
@@ -101,7 +100,6 @@ const normalizeGameRequest = (value: EditGameForm): GameRequest => {
     platform: emptyToNull(value.platform),
     releaseDate: emptyToNull(value.releaseDate),
     developer: emptyToNull(value.developer),
-    publisher: emptyToNull(value.publisher),
     supportedLanguages: emptyToNull(value.supportedLanguages),
     coverImageUrl: emptyToNull(value.coverImageUrl),
     earlyAccess: value.earlyAccess ?? false,
@@ -475,18 +473,6 @@ const GameEditPage = () => {
                       setField("developer", event.target.value)
                     }
                     value={formValue.developer ?? ""}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <FieldLabel required>Yayıncı</FieldLabel>
-                  <input
-                    className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none focus:border-violet-400/70"
-                    maxLength={150}
-                    onChange={(event) =>
-                      setField("publisher", event.target.value)
-                    }
-                    value={formValue.publisher ?? ""}
                   />
                 </label>
 

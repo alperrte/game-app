@@ -1,6 +1,6 @@
 package com.ltz.game_service.entity;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -47,10 +47,6 @@ public class Game {
     @Size(max = 150, message = "Geliştirici bilgisi en fazla 150 karakter olabilir.")
     @Column(name = "developer", length = 150)
     private String developer;
-
-    @Size(max = 150, message = "Yayıncı bilgisi en fazla 150 karakter olabilir.")
-    @Column(name = "publisher", length = 150)
-    private String publisher;
 
     @Size(max = 2000, message = "Minimum sistem gereksinimleri en fazla 2000 karakter olabilir.")
     @Column(name = "minimum_system_requirements", length = 2000)
@@ -208,14 +204,6 @@ public class Game {
 
     public void setDeveloper(String developer) {
         this.developer = developer;
-    }
-
-    public String getPublisher() {
-        return publisher;
-    }
-
-    public void setPublisher(String publisher) {
-        this.publisher = publisher;
     }
 
     public String getMinimumSystemRequirements() {

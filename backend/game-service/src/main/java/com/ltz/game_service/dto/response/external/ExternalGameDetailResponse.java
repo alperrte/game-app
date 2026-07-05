@@ -1,6 +1,6 @@
 package com.ltz.game_service.dto.response.external;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 
 public class ExternalGameDetailResponse {
 
@@ -13,7 +13,6 @@ public class ExternalGameDetailResponse {
     private String platform;
     private String releaseDate;
     private String developer;
-    private String publisher;
     private String minimumSystemRequirements;
     private String recommendedSystemRequirements;
     private String supportedLanguages;
@@ -35,7 +34,6 @@ public class ExternalGameDetailResponse {
             String platform,
             String releaseDate,
             String developer,
-            String publisher,
             String minimumSystemRequirements,
             String recommendedSystemRequirements,
             String supportedLanguages,
@@ -52,7 +50,6 @@ public class ExternalGameDetailResponse {
         this.platform = platform;
         this.releaseDate = releaseDate;
         this.developer = developer;
-        this.publisher = publisher;
         this.minimumSystemRequirements = minimumSystemRequirements;
         this.recommendedSystemRequirements = recommendedSystemRequirements;
         this.supportedLanguages = supportedLanguages;
@@ -124,14 +121,6 @@ public class ExternalGameDetailResponse {
 
     public void setDeveloper(String developer) {
         this.developer = developer;
-    }
-
-    public String getPublisher() {
-        return publisher;
-    }
-
-    public void setPublisher(String publisher) {
-        this.publisher = publisher;
     }
 
     public String getMinimumSystemRequirements() {

@@ -15,10 +15,8 @@ import GamesPage from "../features/game/pages/GamesPage";
 import GameCreatePage from "../features/game/pages/GameCreatePage";
 import GameDetailPage from "../features/game/pages/GameDetailPage";
 import GameEditPage from "../features/game/pages/GameEditPage";
-import GameCategoriesPage from "../features/game/pages/GameCategoriesPage";
 import GamePlatformsPage from "../features/game/pages/GamePlatformsPage";
 import GameDevelopersPage from "../features/game/pages/GameDevelopersPage";
-import GamePublishersPage from "../features/game/pages/GamePublishersPage";
 import GameSystemRequirementsPage from "../features/game/pages/GameSystemRequirementsPage";
 
 import ReviewCreatePage from "../features/review/pages/ReviewCreatePage";
@@ -145,11 +143,7 @@ export function AppRouter() {
             />
 
             {/* Oyun servisinin alt sayfaları */}
-            <Route
-                path={GAME_ROUTES.categories}
-                element={<GameCategoriesPage />}
-            />
-
+            {/* Platformlar yalnızca admin (sayfa içinde guard); Navbar'da link yok */}
             <Route
                 path={GAME_ROUTES.platforms}
                 element={<GamePlatformsPage />}
@@ -158,11 +152,6 @@ export function AppRouter() {
             <Route
                 path={GAME_ROUTES.developers}
                 element={<GameDevelopersPage />}
-            />
-
-            <Route
-                path={GAME_ROUTES.publishers}
-                element={<GamePublishersPage />}
             />
 
             <Route

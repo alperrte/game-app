@@ -1,7 +1,7 @@
 package com.ltz.game_service.repository;
 
 import com.ltz.game_service.entity.Game;
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

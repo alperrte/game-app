@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from "react";
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent, SVGProps } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { GAME_ROUTES } from "../../../lib/constants";
@@ -20,10 +20,25 @@ type GameCardProps = {
     viewMode: GameCardViewMode;
 };
 
+const MAX_CATEGORY_CHIPS = 3;
+
 const cardOptimizationStyle: CSSProperties = {
     contentVisibility: "auto",
     containIntrinsicSize: "320px",
 };
+
+const SteamLogo = (props: SVGProps<SVGSVGElement>) => (
+    <svg
+        aria-hidden="true"
+        fill="currentColor"
+        role="img"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        {...props}
+    >
+        <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.252 0-2.265-1.014-2.265-2.265z" />
+    </svg>
+);
 
 const isExternalGame = (
     game: GameCardData
@@ -31,14 +46,57 @@ const isExternalGame = (
     return "externalId" in game;
 };
 
-const getSubtitle = (game: GameCardData) => {
+const getCategoryChips = (game: GameCardData): string[] => {
     if (isExternalGame(game)) {
-        return "Harici oyun";
+        return [];
     }
 
-    return [game.categoryName, game.genre, game.platform]
-        .filter(Boolean)
-        .join(" • ");
+    const rawValues = [
+        game.categoryName,
+        ...(game.genre ? game.genre.split(",") : []),
+    ];
+
+    const seen = new Set<string>();
+    const chips: string[] = [];
+
+    for (const value of rawValues) {
+        const trimmed = value?.trim();
+
+        if (!trimmed) {
+            continue;
+        }
+
+        const key = trimmed.toLocaleLowerCase("tr");
+
+        if (seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        chips.push(trimmed);
+
+        if (chips.length >= MAX_CATEGORY_CHIPS) {
+            break;
+        }
+    }
+
+    return chips;
+};
+
+const getShortDescription = (game: GameCardData): string | null => {
+    if (isExternalGame(game)) {
+        return null;
+    }
+
+    return game.description?.trim() || null;
+};
+
+const getDeveloperLabel = (game: GameCardData): string | null => {
+    if (isExternalGame(game)) {
+        return null;
+    }
+
+    return game.developer?.trim() || null;
 };
 
 const getDetailPath = (game: GameCardData) => {
@@ -53,13 +111,13 @@ const GameCard = ({
                       favorite = false,
                       game,
                       onToggleFavorite,
-                      origin,
                       viewMode,
                   }: GameCardProps) => {
     const navigate = useNavigate();
     const [imageFailed, setImageFailed] = useState(false);
 
     const isList = viewMode === "list";
+    const isSteam = game.source === "STEAM";
 
     const externalGame = useMemo(
         () => (isExternalGame(game) ? game : null),
@@ -67,7 +125,9 @@ const GameCard = ({
     );
 
     const detailPath = useMemo(() => getDetailPath(game), [game]);
-    const subtitle = useMemo(() => getSubtitle(game), [game]);
+    const categoryChips = useMemo(() => getCategoryChips(game), [game]);
+    const shortDescription = useMemo(() => getShortDescription(game), [game]);
+    const developerLabel = useMemo(() => getDeveloperLabel(game), [game]);
 
     const imageUrl = useMemo(() => {
         if (imageFailed) {
@@ -84,8 +144,6 @@ const GameCard = ({
 
         return game.coverImageUrl?.trim() || null;
     }, [externalGame, game, imageFailed]);
-
-    const originLabel = origin === "external" ? "Harici" : "Manuel";
 
     const openDetail = useCallback(() => {
         if (detailPath) {
@@ -153,28 +211,27 @@ const GameCard = ({
                         src={imageUrl}
                     />
                 ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 text-sm text-slate-400">
-                        Kapak görseli yok
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 text-slate-400">
+                        <span className="text-2xl font-black tracking-widest text-violet-300/80">
+                            LTZ
+                        </span>
+                        <span className="text-xs text-slate-500">
+                            Kapak görseli yok
+                        </span>
                     </div>
                 )}
 
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-slate-950/10" />
 
-                <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          <span className="rounded-full border border-cyan-300/30 bg-cyan-500/15 px-3 py-1 text-xs font-semibold text-cyan-100">
-            {game.source}
-          </span>
-
+                {isSteam ? (
                     <span
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                            origin === "external"
-                                ? "border-violet-300/30 bg-violet-500/15 text-violet-100"
-                                : "border-emerald-300/30 bg-emerald-500/15 text-emerald-100"
-                        }`}
+                        aria-label="Steam"
+                        className="absolute left-3 top-3 grid h-7 w-7 place-items-center rounded-lg bg-[#1b2838]/90 ring-1 ring-white/10"
+                        title="Steam"
                     >
-            {originLabel}
-          </span>
-                </div>
+                        <SteamLogo className="h-4 w-4 text-white" />
+                    </span>
+                ) : null}
 
                 {externalGame && onToggleFavorite ? (
                     <button
@@ -189,17 +246,34 @@ const GameCard = ({
             </div>
 
             <div className="flex flex-1 flex-col p-4">
-                <div>
-                    <h2 className="line-clamp-2 min-h-[56px] text-lg font-bold leading-7 text-white">
-                        {game.title}
-                    </h2>
+                <h2 className="line-clamp-2 min-h-[56px] text-lg font-bold leading-7 text-white">
+                    {game.title}
+                </h2>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                        <span>{game.source}</span>
-                        <span className="h-1 w-1 rounded-full bg-slate-600" />
-                        <span>{subtitle || "Manuel kayıt"}</span>
+                {categoryChips.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {categoryChips.map((chip) => (
+                            <span
+                                className="rounded-full border border-violet-300/20 bg-violet-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-violet-100"
+                                key={chip}
+                            >
+                                {chip}
+                            </span>
+                        ))}
                     </div>
-                </div>
+                ) : null}
+
+                {shortDescription ? (
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">
+                        {shortDescription}
+                    </p>
+                ) : null}
+
+                {developerLabel ? (
+                    <p className="mt-2 text-xs font-medium text-slate-500">
+                        {developerLabel}
+                    </p>
+                ) : null}
 
                 <div className="mt-auto pt-4">
                     <a

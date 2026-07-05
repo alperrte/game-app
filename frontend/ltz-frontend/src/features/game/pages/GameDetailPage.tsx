@@ -316,23 +316,6 @@ const InfoRow = ({
   );
 };
 
-const TextBlock = ({
-                     title,
-                     value,
-                   }: {
-  title: string;
-  value: string | null | undefined;
-}) => {
-  return (
-      <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 backdrop-blur-xl">
-        <h2 className="mb-4 text-lg font-bold text-white">{title}</h2>
-        <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">
-          {toDisplayText(value) || "Bilgi bulunmuyor."}
-        </p>
-      </section>
-  );
-};
-
 const RequirementBlock = ({
                             title,
                             value,
@@ -344,17 +327,8 @@ const RequirementBlock = ({
 
   return (
       <section className="rounded-3xl border border-white/10 bg-slate-950/55 p-6 backdrop-blur-xl">
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-200">
-              Sistem Gereksinimleri
-            </p>
-            <h2 className="mt-2 text-xl font-black text-white">{title}</h2>
-          </div>
-
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-violet-300/20 bg-violet-500/15 text-lg font-black text-violet-100">
-            PC
-          </div>
+        <div className="mb-5">
+          <h2 className="text-xl font-black text-white">{title}</h2>
         </div>
 
         {requirementRows.length > 0 ? (
@@ -519,6 +493,19 @@ const GameDetailPage = () => {
           ? `https://store.steampowered.com/app/${game.externalId}`
           : null;
 
+  // Harici oyunlarda Steam mağaza linki; DB oyunlarında import edilen storeUrl.
+  const purchaseUrl = game
+      ? isExternalDetailGame(game)
+          ? steamStoreUrl
+          : game.storeUrl?.trim() || null
+      : null;
+
+  const scrollToReviews = () => {
+    document
+        .getElementById("game-reviews")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   if (visibleError) {
     return (
         <div className="relative bg-[#020817] text-white">
@@ -602,8 +589,13 @@ const GameDetailPage = () => {
                           src={detailImageUrl}
                       />
                   ) : (
-                      <div className="grid aspect-[460/215] w-full place-items-center rounded-2xl border border-white/15 bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 text-sm text-slate-400">
-                        Kapak görseli yok
+                      <div className="flex aspect-[460/215] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-white/15 bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 text-slate-400">
+                        <span className="text-3xl font-black tracking-widest text-violet-300/80">
+                          LTZ
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          Kapak görseli yok
+                        </span>
                       </div>
                   )}
 
@@ -615,8 +607,6 @@ const GameDetailPage = () => {
 
                 <div className="flex min-h-[360px] flex-col justify-center">
                   <div className="mb-4 flex flex-wrap gap-2">
-                    <Badge tone="cyan">{game.source}</Badge>
-
                     {game.turkishLanguageSupport ? (
                         <Badge tone="rose">Türkçe dil desteği</Badge>
                     ) : null}
@@ -645,16 +635,26 @@ const GameDetailPage = () => {
                         "Bu oyun için açıklama bulunmuyor."}
                   </p>
 
-                  {steamStoreUrl ? (
-                      <a
-                          className="mt-6 inline-flex w-fit cursor-pointer items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-cyan-950/40 transition hover:scale-[1.02] hover:from-emerald-400 hover:to-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-                          href={steamStoreUrl}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                      >
-                        Oyunu Satın Al
-                      </a>
-                  ) : null}
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    {purchaseUrl ? (
+                        <a
+                            className="inline-flex w-fit cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-cyan-950/40 transition hover:scale-[1.02] hover:from-emerald-400 hover:to-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+                            href={purchaseUrl}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                        >
+                          Oyunu Satın Al
+                        </a>
+                    ) : null}
+
+                    <button
+                        className="inline-flex w-fit cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-900/80 px-6 py-3 text-sm font-bold text-white transition hover:border-violet-300/60 hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                        onClick={scrollToReviews}
+                        type="button"
+                    >
+                      İnceleme Yaz
+                    </button>
+                  </div>
                 </div>
 
                 <aside className="rounded-2xl border border-white/10 bg-slate-950/70 p-6 backdrop-blur-xl">
@@ -667,15 +667,6 @@ const GameDetailPage = () => {
                     <InfoRow label="Platform" value={game.platform} />
                     <InfoRow label="Çıkış tarihi" value={game.releaseDate} />
                     <InfoRow label="Geliştirici" value={game.developer} />
-                    <InfoRow label="Yayıncı" value={game.publisher} />
-                    <InfoRow label="Kaynak" value={game.source} />
-
-                    {!isExternalDetailGame(game) ? (
-                        <>
-                          <InfoRow label="Oyun ID" value={game.id} />
-                          <InfoRow label="Kategori" value={game.categoryName} />
-                        </>
-                    ) : null}
                   </dl>
 
                   <div className="mt-6">
@@ -713,13 +704,13 @@ const GameDetailPage = () => {
               />
             </div>
 
-            <TextBlock title="Desteklenen diller" value={game.supportedLanguages} />
-
-            {isExternalRoute && isExternalDetailGame(game) ? (
-                <ReviewSection gameSource={game.source} externalGameId={game.externalId} />
-            ) : backendGameId ? (
-                <ReviewSection gameSource="INTERNAL" gameId={backendGameId} />
-            ) : null}
+            <div id="game-reviews">
+              {isExternalRoute && isExternalDetailGame(game) ? (
+                  <ReviewSection gameSource={game.source} externalGameId={game.externalId} />
+              ) : backendGameId ? (
+                  <ReviewSection gameSource="INTERNAL" gameId={backendGameId} />
+              ) : null}
+            </div>
           </main>
         </div>
       </div>

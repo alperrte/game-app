@@ -3,7 +3,7 @@ package com.ltz.game_service.service;
 import com.ltz.game_service.dto.request.GameCategoryRequest;
 import com.ltz.game_service.dto.response.GameCategoryResponse;
 import com.ltz.game_service.entity.GameCategory;
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import com.ltz.game_service.repository.GameCategoryRepository;
 import org.springframework.stereotype.Service;
 

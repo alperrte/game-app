@@ -1,6 +1,6 @@
 package com.ltz.game_service.dto.request;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 

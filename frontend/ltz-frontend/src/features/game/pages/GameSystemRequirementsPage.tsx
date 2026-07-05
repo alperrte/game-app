@@ -194,7 +194,6 @@ const toGameRequestFromExternalDetail = (
   genre: truncateNullable(externalGame.genre, 100),
   onSale: externalGame.onSale,
   platform: truncateNullable(externalGame.platform, 100),
-  publisher: truncateNullable(externalGame.publisher, 150),
   releaseDate: toIsoDateOrNull(externalGame.releaseDate),
   source: externalGame.source,
   supportedLanguages: truncateNullable(externalGame.supportedLanguages, 500),

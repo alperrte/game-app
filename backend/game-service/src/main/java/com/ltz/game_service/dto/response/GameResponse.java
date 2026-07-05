@@ -1,6 +1,6 @@
 package com.ltz.game_service.dto.response;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,11 +17,11 @@ public class GameResponse {
     private String platform;
     private LocalDate releaseDate;
     private String developer;
-    private String publisher;
     private String minimumSystemRequirements;
     private String recommendedSystemRequirements;
     private String supportedLanguages;
     private String coverImageUrl;
+    private String storeUrl;
     private Boolean earlyAccess;
     private Boolean onSale;
     private Boolean turkishLanguageSupport;
@@ -44,11 +44,11 @@ public class GameResponse {
             String platform,
             LocalDate releaseDate,
             String developer,
-            String publisher,
             String minimumSystemRequirements,
             String recommendedSystemRequirements,
             String supportedLanguages,
             String coverImageUrl,
+            String storeUrl,
             Boolean earlyAccess,
             Boolean onSale,
             Boolean turkishLanguageSupport,
@@ -67,11 +67,11 @@ public class GameResponse {
         this.platform = platform;
         this.releaseDate = releaseDate;
         this.developer = developer;
-        this.publisher = publisher;
         this.minimumSystemRequirements = minimumSystemRequirements;
         this.recommendedSystemRequirements = recommendedSystemRequirements;
         this.supportedLanguages = supportedLanguages;
         this.coverImageUrl = coverImageUrl;
+        this.storeUrl = storeUrl;
         this.earlyAccess = earlyAccess;
         this.onSale = onSale;
         this.turkishLanguageSupport = turkishLanguageSupport;
@@ -121,10 +121,6 @@ public class GameResponse {
         return developer;
     }
 
-    public String getPublisher() {
-        return publisher;
-    }
-
     public String getMinimumSystemRequirements() {
         return minimumSystemRequirements;
     }
@@ -139,6 +135,10 @@ public class GameResponse {
 
     public String getCoverImageUrl() {
         return coverImageUrl;
+    }
+
+    public String getStoreUrl() {
+        return storeUrl;
     }
 
     public Boolean getEarlyAccess() {

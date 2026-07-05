@@ -24,7 +24,6 @@ export type ExternalGameDetailResponse = {
   platform: string | null;
   releaseDate: string | null;
   developer: string | null;
-  publisher: string | null;
   minimumSystemRequirements: string | null;
   recommendedSystemRequirements: string | null;
   supportedLanguages: string | null;
