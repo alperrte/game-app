@@ -1,9 +1,10 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.DailyTriviaRequest;
-import com.ltz.content_service.model.entity.DailyTrivia;
+import com.ltz.content_service.dto.DailyTriviaRequest;
+import com.ltz.content_service.dto.DailyTriviaResponse;
 import com.ltz.content_service.security.JwtUserPrincipal;
 import com.ltz.content_service.service.TriviaService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -39,30 +40,16 @@ public class TriviaController {
     }
 
     @PostMapping("/admin")
-    public ResponseEntity<DailyTrivia> createTrivia(@RequestBody DailyTriviaRequest triviaRequest) {
-        DailyTrivia trivia = DailyTrivia.builder()
-                .question(triviaRequest.getQuestion())
-                .optionsJson(triviaRequest.getOptionsJson())
-                .correctOptionIndex(triviaRequest.getCorrectOptionIndex())
-                .triviaDate(triviaRequest.getTriviaDate())
-                .build();
-        DailyTrivia created = triviaService.createTrivia(trivia);
-        return ResponseEntity.ok(created);
+    public ResponseEntity<DailyTriviaResponse> createTrivia(@Valid @RequestBody DailyTriviaRequest triviaRequest) {
+        return ResponseEntity.ok(triviaService.createTrivia(triviaRequest));
     }
 
     @PutMapping("/admin/{id}")
-    public ResponseEntity<DailyTrivia> updateTrivia(
+    public ResponseEntity<DailyTriviaResponse> updateTrivia(
             @PathVariable Long id,
-            @RequestBody DailyTriviaRequest triviaRequest
+            @Valid @RequestBody DailyTriviaRequest triviaRequest
     ) {
-        DailyTrivia trivia = DailyTrivia.builder()
-                .question(triviaRequest.getQuestion())
-                .optionsJson(triviaRequest.getOptionsJson())
-                .correctOptionIndex(triviaRequest.getCorrectOptionIndex())
-                .triviaDate(triviaRequest.getTriviaDate())
-                .build();
-        DailyTrivia updated = triviaService.updateTrivia(id, trivia);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(triviaService.updateTrivia(id, triviaRequest));
     }
 
     @DeleteMapping("/admin/{id}")

@@ -1,7 +1,7 @@
 package com.ltz.content_service.service.client;
 
-import com.ltz.content_service.model.entity.EsportMatch;
-import com.ltz.content_service.model.enums.MatchStatus;
+import com.ltz.content_service.entity.EsportMatch;
+import com.ltz.content_service.enums.MatchStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

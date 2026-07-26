@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 import { cn } from "../../../../utils/cn";
 import type { SpotlightBanner } from "../../types/spotlight.types";
@@ -10,16 +10,17 @@ interface SpotlightCarouselProps {
 
 export function SpotlightCarousel({ banners }: SpotlightCarouselProps) {
     const [index, setIndex] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
 
     useEffect(() => {
-        if (banners.length <= 1) return;
+        if (banners.length <= 1 || isPaused) return;
 
         const timer = window.setInterval(() => {
             setIndex((current) => (current + 1) % banners.length);
         }, 7000);
 
         return () => window.clearInterval(timer);
-    }, [banners.length]);
+    }, [banners.length, isPaused]);
 
     if (banners.length === 0) return null;
 
@@ -36,7 +37,13 @@ export function SpotlightCarousel({ banners }: SpotlightCarouselProps) {
     }
 
     return (
-        <section className="relative mb-6 overflow-hidden rounded-3xl border border-violet-400/25 shadow-[0_0_60px_rgba(124,58,237,0.15)]">
+        <section
+            className="relative mb-6 overflow-hidden rounded-3xl border border-violet-400/25 shadow-[0_0_60px_rgba(124,58,237,0.15)]"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+            onFocus={() => setIsPaused(true)}
+            onBlur={() => setIsPaused(false)}
+        >
             <a
                 href={banner.targetUrl}
                 target="_blank"
@@ -85,21 +92,34 @@ export function SpotlightCarousel({ banners }: SpotlightCarouselProps) {
                         <ChevronRight size={18} />
                     </button>
 
-                    <div className="absolute bottom-4 right-6 flex gap-2">
-                        {banners.map((item, dotIndex) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                aria-label={`Banner ${dotIndex + 1}`}
-                                onClick={() => setIndex(dotIndex)}
-                                className={cn(
-                                    "h-2 rounded-full transition-all",
-                                    dotIndex === index
-                                        ? "w-6 bg-fuchsia-400 shadow-[0_0_12px_rgba(217,70,239,0.8)]"
-                                        : "w-2 bg-white/30 hover:bg-white/50",
-                                )}
-                            />
-                        ))}
+                    <div className="absolute bottom-4 right-6 flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsPaused((current) => !current)}
+                            aria-label={isPaused ? "Otomatik geçişi başlat" : "Otomatik geçişi duraklat"}
+                            aria-pressed={isPaused}
+                            className="grid h-7 w-7 place-items-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur transition hover:border-violet-400/40"
+                        >
+                            {isPaused ? <Play size={12} /> : <Pause size={12} />}
+                        </button>
+
+                        <div className="flex gap-2">
+                            {banners.map((item, dotIndex) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    aria-label={`Banner ${dotIndex + 1}`}
+                                    aria-pressed={dotIndex === index}
+                                    onClick={() => setIndex(dotIndex)}
+                                    className={cn(
+                                        "h-2 rounded-full transition-all",
+                                        dotIndex === index
+                                            ? "w-6 bg-fuchsia-400 shadow-[0_0_12px_rgba(217,70,239,0.8)]"
+                                            : "w-2 bg-white/30 hover:bg-white/50",
+                                    )}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </>
             ) : null}

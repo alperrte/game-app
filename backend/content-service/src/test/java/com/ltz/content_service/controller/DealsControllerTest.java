@@ -1,7 +1,7 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.DealCompareResponse;
-import com.ltz.content_service.model.entity.DealCampaign;
+import com.ltz.content_service.dto.DealCampaignResponse;
+import com.ltz.content_service.dto.DealCompareResponse;
 import com.ltz.content_service.service.DealsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,8 +49,8 @@ class DealsControllerTest {
                 .build();
     }
 
-    private DealCampaign buildSampleDeal(Long id, String gameTitle, int discount) {
-        return DealCampaign.builder()
+    private DealCampaignResponse buildSampleDeal(Long id, String gameTitle, int discount) {
+        return DealCampaignResponse.builder()
                 .id(id)
                 .gameTitle(gameTitle)
                 .storeName("Steam")
@@ -68,11 +68,11 @@ class DealsControllerTest {
     @Test
     @DisplayName("GET /api/content/deals → 200 OK, paginated deals döner")
     void getActiveDeals_shouldReturn200WithPaginatedDeals() throws Exception {
-        Page<DealCampaign> page = new PageImpl<>(
+        Page<DealCampaignResponse> page = new PageImpl<>(
                 List.of(buildSampleDeal(1L, "Cyberpunk 2077", 50)),
                 PageRequest.of(0, 20), 1
         );
-        when(dealsService.getActiveDeals(isNull(), org.mockito.ArgumentMatchers.<Pageable>any()))
+        when(dealsService.getActiveDeals(isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/content/deals"))
@@ -86,11 +86,11 @@ class DealsControllerTest {
     @Test
     @DisplayName("GET /api/content/deals?minDiscount=75 → yüksek indirim filtresi çalışır")
     void getActiveDeals_withMinDiscount_shouldReturnFilteredDeals() throws Exception {
-        Page<DealCampaign> page = new PageImpl<>(
+        Page<DealCampaignResponse> page = new PageImpl<>(
                 List.of(buildSampleDeal(2L, "Witcher 3", 80)),
                 PageRequest.of(0, 20), 1
         );
-        when(dealsService.getActiveDeals(eq(75), org.mockito.ArgumentMatchers.<Pageable>any()))
+        when(dealsService.getActiveDeals(eq(75), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/content/deals")
@@ -130,7 +130,7 @@ class DealsControllerTest {
     @Test
     @DisplayName("GET /api/content/deals/free-games → ücretsiz oyunlar döner")
     void getFreeGames_shouldReturn200WithFreeGames() throws Exception {
-        DealCampaign freeGame = DealCampaign.builder()
+        DealCampaignResponse freeGame = DealCampaignResponse.builder()
                 .id(10L)
                 .gameTitle("Rocket League")
                 .isFree(true)
@@ -140,7 +140,7 @@ class DealsControllerTest {
                 .originalPrice(BigDecimal.ZERO)
                 .dealUrl("https://epicgames.com/rocketleague")
                 .build();
-        when(dealsService.getFreeGames()).thenReturn(List.of(freeGame));
+        when(dealsService.getFreeGames(isNull())).thenReturn(List.of(freeGame));
 
         mockMvc.perform(get("/api/content/deals/free-games"))
                 .andExpect(status().isOk())

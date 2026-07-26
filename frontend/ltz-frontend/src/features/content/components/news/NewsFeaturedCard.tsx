@@ -1,31 +1,14 @@
 import { ExternalLink } from "lucide-react";
 
 import { cn } from "../../../../utils/cn";
-import type { NewsArticle, NewsCategory } from "../../types/news.types";
+import type { NewsArticle } from "../../types/news.types";
+import { NEWS_CATEGORY_LABELS, formatNewsDate } from "../../utils/newsFormatting";
 import { normalizeReactions } from "../../utils/reactions";
 import { ReactionBar } from "../shared/ReactionBar";
-
-const categoryLabels: Record<NewsCategory, string> = {
-    GLOBAL: "Genel",
-    HARDWARE: "Donanım",
-    PATCH_NOTES: "Yama Notları",
-};
 
 interface NewsFeaturedCardProps {
     article: NewsArticle;
     onReactionChange?: (article: NewsArticle) => void;
-}
-
-function formatNewsDate(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-
-    return new Intl.DateTimeFormat("tr-TR", {
-        day: "numeric",
-        month: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-    }).format(date);
 }
 
 export function NewsFeaturedCard({
@@ -52,11 +35,11 @@ export function NewsFeaturedCard({
                             Öne Çıkan
                         </span>
                         <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2.5 py-1 font-bold uppercase tracking-[0.14em] text-violet-100">
-                            {categoryLabels[article.category]}
+                            {NEWS_CATEGORY_LABELS[article.category]}
                         </span>
                         <span className="text-slate-500">
                             {article.sourceName} ·{" "}
-                            {formatNewsDate(article.createdAt)}
+                            {formatNewsDate(article.createdAt, "long")}
                         </span>
                     </div>
 

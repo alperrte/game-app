@@ -1,6 +1,6 @@
 package com.ltz.content_service.repository;
 
-import com.ltz.content_service.model.entity.DealCampaign;
+import com.ltz.content_service.entity.DealCampaign;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

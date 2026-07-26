@@ -1,7 +1,7 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.DealCompareResponse;
-import com.ltz.content_service.model.entity.DealCampaign;
+import com.ltz.content_service.dto.DealCampaignResponse;
+import com.ltz.content_service.dto.DealCompareResponse;
 import com.ltz.content_service.security.JwtUserPrincipal;
 import com.ltz.content_service.service.DealsService;
 import lombok.RequiredArgsConstructor;
@@ -22,18 +22,20 @@ public class DealsController {
     private final DealsService dealsService;
 
     @GetMapping
-    public ResponseEntity<Page<DealCampaign>> getActiveDeals(
+    public ResponseEntity<Page<DealCampaignResponse>> getActiveDeals(
             @RequestParam(required = false) Integer minDiscount,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         if (size > 100) {
             size = 100;
         } else if (size <= 0) {
             size = 20;
         }
+        Long currentUserId = (principal != null) ? principal.userId() : null;
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "discountPercent"));
-        Page<DealCampaign> deals = dealsService.getActiveDeals(minDiscount, pageable);
+        Page<DealCampaignResponse> deals = dealsService.getActiveDeals(minDiscount, pageable, currentUserId);
         return ResponseEntity.ok(deals);
     }
 
@@ -48,8 +50,11 @@ public class DealsController {
     }
 
     @GetMapping("/free-games")
-    public ResponseEntity<List<DealCampaign>> getFreeGames() {
-        List<DealCampaign> freeGames = dealsService.getFreeGames();
+    public ResponseEntity<List<DealCampaignResponse>> getFreeGames(
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        Long currentUserId = (principal != null) ? principal.userId() : null;
+        List<DealCampaignResponse> freeGames = dealsService.getFreeGames(currentUserId);
         return ResponseEntity.ok(freeGames);
     }
 }

@@ -1,6 +1,6 @@
 package com.ltz.content_service.repository;
 
-import com.ltz.content_service.model.entity.HistoricalLow;
+import com.ltz.content_service.entity.HistoricalLow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 

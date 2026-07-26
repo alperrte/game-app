@@ -1,6 +1,6 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.entity.EsportMatch;
+import com.ltz.content_service.dto.EsportMatchResponse;
 import com.ltz.content_service.service.StatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,10 +28,10 @@ public class StatsController {
     }
 
     @GetMapping("/esports")
-    public ResponseEntity<List<EsportMatch>> getEsportMatches(
+    public ResponseEntity<List<EsportMatchResponse>> getEsportMatches(
             @RequestParam(required = false) String status
     ) {
-        List<EsportMatch> matches = statsService.getEsportMatches(status);
+        List<EsportMatchResponse> matches = statsService.getEsportMatches(status);
         return ResponseEntity.ok(matches);
     }
 }

@@ -53,7 +53,7 @@ export default function TriviaPage() {
             </section>
 
             {loading ? (
-                <div className="h-80 animate-pulse rounded-3xl bg-white/5" />
+                <div className="h-80 motion-reduce:animate-none animate-pulse rounded-3xl bg-white/5" />
             ) : null}
 
             {!loading && error ? (

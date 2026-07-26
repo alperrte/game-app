@@ -1,10 +1,11 @@
 package com.ltz.content_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ltz.content_service.dto.EsportMatchResponse;
 import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.entity.EsportMatch;
-import com.ltz.content_service.model.entity.LiveStat;
-import com.ltz.content_service.model.enums.MatchStatus;
+import com.ltz.content_service.entity.EsportMatch;
+import com.ltz.content_service.entity.LiveStat;
+import com.ltz.content_service.enums.MatchStatus;
 import com.ltz.content_service.repository.EsportMatchRepository;
 import com.ltz.content_service.repository.LiveStatRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
@@ -79,15 +81,34 @@ public class StatsService {
         log.info("Saved/updated live stat (and evicted cache) for key: {}", key);
     }
 
-    public List<EsportMatch> getEsportMatches(String status) {
+    public List<EsportMatchResponse> getEsportMatches(String status) {
+        List<EsportMatch> matches;
         if (status != null && !status.isBlank()) {
             try {
                 MatchStatus matchStatus = MatchStatus.valueOf(status.toUpperCase());
-                return esportMatchRepository.findByStatusOrderByMatchTimeAsc(matchStatus);
+                matches = esportMatchRepository.findByStatusOrderByMatchTimeAsc(matchStatus);
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid match status requested: {}, returning all", status);
+                matches = esportMatchRepository.findAll();
             }
+        } else {
+            matches = esportMatchRepository.findAll();
         }
-        return esportMatchRepository.findAll();
+        return matches.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    private EsportMatchResponse mapToResponse(EsportMatch match) {
+        return EsportMatchResponse.builder()
+                .id(match.getId())
+                .matchId(match.getMatchId())
+                .tournamentName(match.getTournamentName())
+                .teamAName(match.getTeamAName())
+                .teamBName(match.getTeamBName())
+                .teamAScore(match.getTeamAScore())
+                .teamBScore(match.getTeamBScore())
+                .gameName(match.getGameName())
+                .status(match.getStatus())
+                .matchTime(match.getMatchTime())
+                .build();
     }
 }

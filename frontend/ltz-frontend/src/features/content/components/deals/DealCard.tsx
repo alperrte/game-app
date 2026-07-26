@@ -6,6 +6,8 @@ import { formatTimeRemaining } from "../../../../utils/formatTimeRemaining";
 import { cn } from "../../../../utils/cn";
 import { optimizeImageUrl } from "../../../../utils/optimizeImageUrl";
 import type { DealCampaign } from "../../types/deals.types";
+import { normalizeReactions } from "../../utils/reactions";
+import { ReactionBar } from "../shared/ReactionBar";
 import { SteamDeckBadge } from "./SteamDeckBadge";
 
 interface DealCardProps {
@@ -15,6 +17,8 @@ interface DealCardProps {
 
 export function DealCard({ deal, highlight = false }: DealCardProps) {
     const [imageFailed, setImageFailed] = useState(false);
+    const [reactions, setReactions] = useState(deal.reactions);
+    const [userReaction, setUserReaction] = useState(deal.userReaction ?? null);
     const endsLabel = deal.endsAt
         ? formatTimeRemaining(deal.endsAt)
         : null;
@@ -36,6 +40,7 @@ export function DealCard({ deal, highlight = false }: DealCardProps) {
                     <img
                         src={optimizedUrl}
                         alt={deal.gameTitle}
+                        loading="lazy"
                         className="h-full w-full object-cover"
                         onError={() => setImageFailed(true)}
                     />
@@ -120,6 +125,17 @@ export function DealCard({ deal, highlight = false }: DealCardProps) {
                         <ExternalLink size={14} />
                     </a>
                 </div>
+
+                <ReactionBar
+                    contentId={deal.id}
+                    contentType="CAMPAIGN"
+                    reactions={normalizeReactions(reactions)}
+                    userReaction={userReaction}
+                    onChange={({ reactions: next, userReaction: nextUser }) => {
+                        setReactions(next);
+                        setUserReaction(nextUser);
+                    }}
+                />
             </div>
         </article>
     );

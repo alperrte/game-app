@@ -102,6 +102,7 @@ export default function EsportsPage() {
                         <button
                             key={filter.label}
                             type="button"
+                            aria-pressed={active}
                             onClick={() => {
                                 setStatus(filter.value);
                                 setGameFilter(undefined);
@@ -123,6 +124,7 @@ export default function EsportsPage() {
                 <div className="mb-6 flex flex-wrap gap-2">
                     <button
                         type="button"
+                        aria-pressed={!gameFilter}
                         onClick={() => setGameFilter(undefined)}
                         className={cn(
                             "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
@@ -137,6 +139,7 @@ export default function EsportsPage() {
                         <button
                             key={game}
                             type="button"
+                            aria-pressed={gameFilter === game}
                             onClick={() => setGameFilter(game)}
                             className={cn(
                                 "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
@@ -156,7 +159,7 @@ export default function EsportsPage() {
                     {Array.from({ length: 4 }).map((_, index) => (
                         <div
                             key={index}
-                            className="h-40 animate-pulse rounded-2xl bg-white/5"
+                            className="h-40 motion-reduce:animate-none animate-pulse rounded-2xl bg-white/5"
                         />
                     ))}
                 </div>

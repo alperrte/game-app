@@ -1,11 +1,10 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.SpotlightBannerRequest;
-import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.entity.SpotlightBanner;
-import com.ltz.content_service.repository.SpotlightBannerRepository;
+import com.ltz.content_service.dto.SpotlightBannerRequest;
+import com.ltz.content_service.dto.SpotlightBannerResponse;
+import com.ltz.content_service.service.SpotlightBannerService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -13,58 +12,31 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/content")
 @RequiredArgsConstructor
-@Slf4j
 public class AdminCmsController {
 
-    private final SpotlightBannerRepository spotlightBannerRepository;
+    private final SpotlightBannerService spotlightBannerService;
 
     @GetMapping("/spotlight")
-    public ResponseEntity<List<SpotlightBanner>> getActiveBanners() {
-        List<SpotlightBanner> banners = spotlightBannerRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
-        return ResponseEntity.ok(banners);
+    public ResponseEntity<List<SpotlightBannerResponse>> getActiveBanners() {
+        return ResponseEntity.ok(spotlightBannerService.getActiveBanners());
     }
 
     @PostMapping("/admin/spotlight")
-    public ResponseEntity<SpotlightBanner> createBanner(@RequestBody SpotlightBannerRequest bannerRequest) {
-        log.info("Creating spotlight banner: {}", bannerRequest.getTitle());
-        SpotlightBanner banner = SpotlightBanner.builder()
-                .title(bannerRequest.getTitle())
-                .subtitle(bannerRequest.getSubtitle())
-                .imageUrl(bannerRequest.getImageUrl())
-                .targetUrl(bannerRequest.getTargetUrl())
-                .displayOrder(bannerRequest.getDisplayOrder())
-                .isActive(bannerRequest.isActive())
-                .build();
-        SpotlightBanner created = spotlightBannerRepository.save(banner);
-        return ResponseEntity.ok(created);
+    public ResponseEntity<SpotlightBannerResponse> createBanner(@Valid @RequestBody SpotlightBannerRequest bannerRequest) {
+        return ResponseEntity.ok(spotlightBannerService.createBanner(bannerRequest));
     }
 
     @PutMapping("/admin/spotlight/{id}")
-    public ResponseEntity<SpotlightBanner> updateBanner(
+    public ResponseEntity<SpotlightBannerResponse> updateBanner(
             @PathVariable Long id,
-            @RequestBody SpotlightBannerRequest bannerDetails
+            @Valid @RequestBody SpotlightBannerRequest bannerDetails
     ) {
-        SpotlightBanner banner = spotlightBannerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Spotlight banner not found with id: " + id));
-
-        banner.setTitle(bannerDetails.getTitle());
-        banner.setSubtitle(bannerDetails.getSubtitle());
-        banner.setImageUrl(bannerDetails.getImageUrl());
-        banner.setTargetUrl(bannerDetails.getTargetUrl());
-        banner.setDisplayOrder(bannerDetails.getDisplayOrder());
-        banner.setActive(bannerDetails.isActive());
-
-        log.info("Updating spotlight banner id: {}", id);
-        SpotlightBanner updated = spotlightBannerRepository.save(banner);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(spotlightBannerService.updateBanner(id, bannerDetails));
     }
 
     @DeleteMapping("/admin/spotlight/{id}")
     public ResponseEntity<Void> deleteBanner(@PathVariable Long id) {
-        SpotlightBanner banner = spotlightBannerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Spotlight banner not found with id: " + id));
-        spotlightBannerRepository.delete(banner);
-        log.info("Deleted spotlight banner id: {}", id);
+        spotlightBannerService.deleteBanner(id);
         return ResponseEntity.noContent().build();
     }
 }

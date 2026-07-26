@@ -1,9 +1,9 @@
 package com.ltz.content_service.service;
 
 import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.dto.NewsArticleResponse;
-import com.ltz.content_service.model.entity.NewsArticle;
-import com.ltz.content_service.model.enums.NewsCategory;
+import com.ltz.content_service.dto.NewsArticleResponse;
+import com.ltz.content_service.entity.NewsArticle;
+import com.ltz.content_service.enums.NewsCategory;
 import com.ltz.content_service.repository.NewsArticleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +29,9 @@ class NewsServiceTest {
 
     @Mock
     private NewsArticleRepository newsArticleRepository;
+
+    @Mock
+    private NewsQueryCache newsQueryCache;
 
     @Mock
     private ReactionsService reactionsService;
@@ -58,66 +61,77 @@ class NewsServiceTest {
     // ─── getNews: Kategori Yok ──────────────────────────────────────────────
 
     @Test
-    @DisplayName("getNews() → kategori null → findAll çağrılır")
+    @DisplayName("getNews() → kategori null → search(null, null, ...) çağrılır")
     void getNews_whenCategoryIsNull_shouldReturnAllNews() {
         Page<NewsArticle> mockPage = new PageImpl<>(List.of(sampleArticle), pageable, 1);
-        when(newsArticleRepository.findAll(pageable)).thenReturn(mockPage);
+        when(newsQueryCache.search(isNull(), isNull(), eq(pageable))).thenReturn(mockPage);
         when(reactionsService.getReactionsSummary(anyLong(), anyString())).thenReturn(Map.of("HYPE", 0L));
         when(reactionsService.getUserReaction(any(), anyLong(), anyString())).thenReturn(null);
 
-        Page<NewsArticleResponse> result = newsService.getNews(null, pageable, null);
+        Page<NewsArticleResponse> result = newsService.getNews(null, null, pageable, null);
 
         assertThat(result).isNotNull();
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Haber Başlığı");
-        verify(newsArticleRepository).findAll(pageable);
-        verify(newsArticleRepository, never()).findByCategory(any(), any());
+        verify(newsQueryCache).search(isNull(), isNull(), eq(pageable));
     }
 
     @Test
-    @DisplayName("getNews() → kategori boş string → findAll çağrılır")
+    @DisplayName("getNews() → kategori boş string → search(null, null, ...) çağrılır")
     void getNews_whenCategoryIsBlank_shouldReturnAllNews() {
         Page<NewsArticle> mockPage = new PageImpl<>(List.of(sampleArticle), pageable, 1);
-        when(newsArticleRepository.findAll(pageable)).thenReturn(mockPage);
+        when(newsQueryCache.search(isNull(), isNull(), eq(pageable))).thenReturn(mockPage);
         when(reactionsService.getReactionsSummary(anyLong(), anyString())).thenReturn(Map.of());
         when(reactionsService.getUserReaction(any(), anyLong(), anyString())).thenReturn(null);
 
-        Page<NewsArticleResponse> result = newsService.getNews("  ", pageable, null);
+        Page<NewsArticleResponse> result = newsService.getNews("  ", null, pageable, null);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(newsArticleRepository).findAll(pageable);
+        verify(newsQueryCache).search(isNull(), isNull(), eq(pageable));
     }
 
     // ─── getNews: Geçerli Kategori ──────────────────────────────────────────
 
     @Test
-    @DisplayName("getNews() → geçerli kategori GLOBAL → findByCategory çağrılır")
+    @DisplayName("getNews() → geçerli kategori GLOBAL → search(GLOBAL, ...) çağrılır")
     void getNews_whenValidCategory_shouldFilterByCategory() {
         Page<NewsArticle> mockPage = new PageImpl<>(List.of(sampleArticle), pageable, 1);
-        when(newsArticleRepository.findByCategory(NewsCategory.GLOBAL, pageable)).thenReturn(mockPage);
+        when(newsQueryCache.search(eq(NewsCategory.GLOBAL), isNull(), eq(pageable))).thenReturn(mockPage);
         when(reactionsService.getReactionsSummary(anyLong(), anyString())).thenReturn(Map.of());
         when(reactionsService.getUserReaction(any(), anyLong(), anyString())).thenReturn(null);
 
-        Page<NewsArticleResponse> result = newsService.getNews("GLOBAL", pageable, 42L);
+        Page<NewsArticleResponse> result = newsService.getNews("GLOBAL", null, pageable, 42L);
 
         assertThat(result.getContent()).hasSize(1);
-        verify(newsArticleRepository).findByCategory(NewsCategory.GLOBAL, pageable);
-        verify(newsArticleRepository, never()).findAll(any(Pageable.class));
+        verify(newsQueryCache).search(eq(NewsCategory.GLOBAL), isNull(), eq(pageable));
     }
 
     @Test
-    @DisplayName("getNews() → geçersiz kategori → fallback findAll çağrılır")
-    void getNews_whenInvalidCategory_shouldFallbackToAll() {
+    @DisplayName("getNews() → kaynak belirtilmiş → search(null, source, ...) çağrılır")
+    void getNews_whenSourceProvided_shouldFilterBySource() {
         Page<NewsArticle> mockPage = new PageImpl<>(List.of(sampleArticle), pageable, 1);
-        when(newsArticleRepository.findAll(pageable)).thenReturn(mockPage);
+        when(newsQueryCache.search(isNull(), eq("IGN"), eq(pageable))).thenReturn(mockPage);
         when(reactionsService.getReactionsSummary(anyLong(), anyString())).thenReturn(Map.of());
         when(reactionsService.getUserReaction(any(), anyLong(), anyString())).thenReturn(null);
 
-        Page<NewsArticleResponse> result = newsService.getNews("INVALID_CATEGORY", pageable, null);
+        Page<NewsArticleResponse> result = newsService.getNews(null, "IGN", pageable, null);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(newsQueryCache).search(isNull(), eq("IGN"), eq(pageable));
+    }
+
+    @Test
+    @DisplayName("getNews() → geçersiz kategori → filtre yok sayılır, search(null, null, ...) çağrılır")
+    void getNews_whenInvalidCategory_shouldFallbackToAll() {
+        Page<NewsArticle> mockPage = new PageImpl<>(List.of(sampleArticle), pageable, 1);
+        when(newsQueryCache.search(isNull(), isNull(), eq(pageable))).thenReturn(mockPage);
+        when(reactionsService.getReactionsSummary(anyLong(), anyString())).thenReturn(Map.of());
+        when(reactionsService.getUserReaction(any(), anyLong(), anyString())).thenReturn(null);
+
+        Page<NewsArticleResponse> result = newsService.getNews("INVALID_CATEGORY", null, pageable, null);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(newsArticleRepository).findAll(pageable);
-        verify(newsArticleRepository, never()).findByCategory(any(), any());
+        verify(newsQueryCache).search(isNull(), isNull(), eq(pageable));
     }
 
     // ─── getNewsById ────────────────────────────────────────────────────────

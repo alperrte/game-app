@@ -1,8 +1,9 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.GamingHistoryRequest;
-import com.ltz.content_service.model.entity.GamingHistory;
+import com.ltz.content_service.dto.GamingHistoryRequest;
+import com.ltz.content_service.dto.GamingHistoryResponse;
 import com.ltz.content_service.service.HistoryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,49 +17,29 @@ public class HistoryController {
     private final HistoryService historyService;
 
     @GetMapping("/today")
-    public ResponseEntity<List<GamingHistory>> getTodayHistory() {
-        List<GamingHistory> history = historyService.getTodayHistory();
-        return ResponseEntity.ok(history);
+    public ResponseEntity<List<GamingHistoryResponse>> getTodayHistory() {
+        return ResponseEntity.ok(historyService.getTodayHistory());
     }
 
     @GetMapping("/date")
-    public ResponseEntity<List<GamingHistory>> getHistoryByDate(
+    public ResponseEntity<List<GamingHistoryResponse>> getHistoryByDate(
             @RequestParam int month,
             @RequestParam int day
     ) {
-        List<GamingHistory> history = historyService.getHistoryByDate(month, day);
-        return ResponseEntity.ok(history);
+        return ResponseEntity.ok(historyService.getHistoryByDate(month, day));
     }
 
     @PostMapping("/admin")
-    public ResponseEntity<GamingHistory> createHistoryEvent(@RequestBody GamingHistoryRequest request) {
-        GamingHistory event = GamingHistory.builder()
-                .eventDay(request.getEventDay())
-                .eventMonth(request.getEventMonth())
-                .eventYear(request.getEventYear())
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .imageUrl(request.getImageUrl())
-                .build();
-        GamingHistory created = historyService.createHistoryEvent(event);
-        return ResponseEntity.ok(created);
+    public ResponseEntity<GamingHistoryResponse> createHistoryEvent(@Valid @RequestBody GamingHistoryRequest request) {
+        return ResponseEntity.ok(historyService.createHistoryEvent(request));
     }
 
     @PutMapping("/admin/{id}")
-    public ResponseEntity<GamingHistory> updateHistoryEvent(
+    public ResponseEntity<GamingHistoryResponse> updateHistoryEvent(
             @PathVariable Long id,
-            @RequestBody GamingHistoryRequest request
+            @Valid @RequestBody GamingHistoryRequest request
     ) {
-        GamingHistory event = GamingHistory.builder()
-                .eventDay(request.getEventDay())
-                .eventMonth(request.getEventMonth())
-                .eventYear(request.getEventYear())
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .imageUrl(request.getImageUrl())
-                .build();
-        GamingHistory updated = historyService.updateHistoryEvent(id, event);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(historyService.updateHistoryEvent(id, request));
     }
 
     @DeleteMapping("/admin/{id}")

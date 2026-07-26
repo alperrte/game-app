@@ -45,6 +45,7 @@ function ReleaseCover({
         <img
             src={optimizedUrl}
             alt={title}
+            loading="lazy"
             className="aspect-[450/253] w-full object-cover"
             onError={() => setFailed(true)}
         />

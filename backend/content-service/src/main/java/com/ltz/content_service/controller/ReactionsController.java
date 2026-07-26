@@ -1,6 +1,6 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.ReactionRequest;
+import com.ltz.content_service.dto.ReactionRequest;
 import com.ltz.content_service.security.JwtUserPrincipal;
 import com.ltz.content_service.service.ReactionsService;
 import jakarta.validation.Valid;

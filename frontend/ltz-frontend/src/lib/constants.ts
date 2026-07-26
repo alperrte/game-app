@@ -376,6 +376,7 @@ export const CONTENT_API_ENDPOINTS = {
     statByKey: (key: string) => `/api/content/stats/${key}`,
     esports: "/api/content/stats/esports",
     news: "/api/content/news",
+    newsSources: "/api/content/news/sources",
     newsById: (id: number | string) => `/api/content/news/${id}`,
     deals: "/api/content/deals",
     dealsSearch: "/api/content/deals/search",

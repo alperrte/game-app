@@ -1,6 +1,6 @@
 package com.ltz.content_service.repository;
 
-import com.ltz.content_service.model.entity.ContentReaction;
+import com.ltz.content_service.entity.ContentReaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 

@@ -28,6 +28,7 @@ function HubDealCard({ deal }: { deal: DealCampaign }) {
                     <img
                         src={optimizedUrl}
                         alt={deal.gameTitle}
+                        loading="lazy"
                         className="h-full w-full object-cover"
                         onError={() => setImageFailed(true)}
                     />

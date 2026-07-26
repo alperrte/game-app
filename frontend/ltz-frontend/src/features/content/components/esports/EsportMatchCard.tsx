@@ -2,6 +2,7 @@ import { Radio } from "lucide-react";
 
 import { cn } from "../../../../utils/cn";
 import type { EsportMatch } from "../../types/esport.types";
+import { esportStatusLabel, esportStatusTone } from "../../utils/esportStatus";
 
 interface EsportMatchCardProps {
     match: EsportMatch;
@@ -17,22 +18,6 @@ function formatMatchTime(value: string): string {
         hour: "2-digit",
         minute: "2-digit",
     }).format(date);
-}
-
-function statusLabel(status: EsportMatch["status"]): string {
-    if (status === "LIVE") return "Canlı";
-    if (status === "UPCOMING") return "Yakında";
-    return "Bitti";
-}
-
-function statusTone(status: EsportMatch["status"]): string {
-    if (status === "LIVE") {
-        return "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200";
-    }
-    if (status === "UPCOMING") {
-        return "border-violet-400/30 bg-violet-500/10 text-violet-200";
-    }
-    return "border-white/10 bg-white/[0.04] text-slate-300";
 }
 
 export function EsportMatchCard({ match }: EsportMatchCardProps) {
@@ -51,13 +36,13 @@ export function EsportMatchCard({ match }: EsportMatchCardProps) {
                 <span
                     className={cn(
                         "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-                        statusTone(match.status),
+                        esportStatusTone(match.status),
                     )}
                 >
                     {match.status === "LIVE" ? (
                         <Radio size={12} className="animate-pulse" />
                     ) : null}
-                    {statusLabel(match.status)}
+                    {esportStatusLabel(match.status)}
                 </span>
             </div>
 

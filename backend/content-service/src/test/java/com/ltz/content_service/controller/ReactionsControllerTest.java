@@ -1,8 +1,8 @@
 package com.ltz.content_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ltz.content_service.model.dto.ReactionRequest;
-import com.ltz.content_service.model.enums.ReactionType;
+import com.ltz.content_service.dto.ReactionRequest;
+import com.ltz.content_service.enums.ReactionType;
 import com.ltz.content_service.service.ReactionsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

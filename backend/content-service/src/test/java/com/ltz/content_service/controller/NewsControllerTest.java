@@ -1,7 +1,7 @@
 package com.ltz.content_service.controller;
 
-import com.ltz.content_service.model.dto.NewsArticleResponse;
-import com.ltz.content_service.model.enums.NewsCategory;
+import com.ltz.content_service.dto.NewsArticleResponse;
+import com.ltz.content_service.enums.NewsCategory;
 import com.ltz.content_service.service.NewsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -73,7 +73,7 @@ class NewsControllerTest {
                 List.of(buildSampleResponse(1L, "Haber Başlığı 1")),
                 PageRequest.of(0, 20), 1
         );
-        when(newsService.getNews(isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
+        when(newsService.getNews(isNull(), isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
                 .thenReturn(samplePage);
 
         mockMvc.perform(get("/api/content/news"))
@@ -88,7 +88,7 @@ class NewsControllerTest {
     @DisplayName("GET /api/content/news?page=0&size=5 → sayfalama parametreleri kabul edilir")
     void getNews_withPageParams_shouldReturn200() throws Exception {
         Page<NewsArticleResponse> samplePage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
-        when(newsService.getNews(isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
+        when(newsService.getNews(isNull(), isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
                 .thenReturn(samplePage);
 
         mockMvc.perform(get("/api/content/news")
@@ -105,7 +105,7 @@ class NewsControllerTest {
                 List.of(buildSampleResponse(2L, "Global Haberi")),
                 PageRequest.of(0, 20), 1
         );
-        when(newsService.getNews(eq("GLOBAL"), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
+        when(newsService.getNews(eq("GLOBAL"), isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
                 .thenReturn(samplePage);
 
         mockMvc.perform(get("/api/content/news")
@@ -118,7 +118,7 @@ class NewsControllerTest {
     @DisplayName("GET /api/content/news → boş sayfa → 200 OK, boş content")
     void getNews_whenEmpty_shouldReturn200WithEmptyContent() throws Exception {
         Page<NewsArticleResponse> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
-        when(newsService.getNews(isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
+        when(newsService.getNews(isNull(), isNull(), org.mockito.ArgumentMatchers.<Pageable>any(), isNull()))
                 .thenReturn(emptyPage);
 
         mockMvc.perform(get("/api/content/news"))

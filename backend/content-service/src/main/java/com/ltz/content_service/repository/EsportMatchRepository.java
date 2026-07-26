@@ -1,7 +1,7 @@
 package com.ltz.content_service.repository;
 
-import com.ltz.content_service.model.entity.EsportMatch;
-import com.ltz.content_service.model.enums.MatchStatus;
+import com.ltz.content_service.entity.EsportMatch;
+import com.ltz.content_service.enums.MatchStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -1,5 +1,7 @@
 package com.ltz.content_service.service.client;
 
+import com.ltz.content_service.service.client.dto.TwitchCategoryStat;
+import com.ltz.content_service.service.client.dto.TwitchLiveStreamStat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,7 +55,7 @@ public class TwitchClient {
     }
 
     @SuppressWarnings("unchecked")
-    public Mono<List<Map<String, Object>>> getTopCategories() {
+    public Mono<List<TwitchCategoryStat>> getTopCategories() {
         return getAccessToken()
                 .flatMap(token -> webClient.get()
                         .uri("https://api.twitch.tv/helix/games/top?first=5")
@@ -63,15 +65,12 @@ public class TwitchClient {
                         .bodyToMono(Map.class)
                         .map(response -> {
                             List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
-                            List<Map<String, Object>> categories = new ArrayList<>();
+                            List<TwitchCategoryStat> categories = new ArrayList<>();
                             Random random = new Random();
                             for (Map<String, Object> game : data) {
                                 String name = (String) game.get("name");
                                 long estimatedViewers = 80000L + random.nextInt(300000);
-                                categories.add(Map.of(
-                                        "gameTitle", name,
-                                        "viewers", estimatedViewers
-                                ));
+                                categories.add(new TwitchCategoryStat(name, estimatedViewers));
                             }
                             return categories;
                         }))
@@ -82,7 +81,7 @@ public class TwitchClient {
     }
 
     @SuppressWarnings("unchecked")
-    public Mono<List<Map<String, Object>>> getLiveStreams() {
+    public Mono<List<TwitchLiveStreamStat>> getLiveStreams() {
         return getAccessToken()
                 .flatMap(token -> webClient.get()
                         .uri("https://api.twitch.tv/helix/streams?first=5&language=tr")
@@ -92,7 +91,7 @@ public class TwitchClient {
                         .bodyToMono(Map.class)
                         .map(response -> {
                             List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
-                            List<Map<String, Object>> streams = new ArrayList<>();
+                            List<TwitchLiveStreamStat> streams = new ArrayList<>();
                             for (Map<String, Object> stream : data) {
                                 String broadcaster = (String) stream.get("user_name");
                                 String title = (String) stream.get("title");
@@ -103,13 +102,13 @@ public class TwitchClient {
                                 String userLogin = (String) stream.get("user_login");
                                 String streamUrl = "https://twitch.tv/" + userLogin;
 
-                                streams.add(Map.of(
-                                        "broadcaster", broadcaster,
-                                        "title", title,
-                                        "gameName", gameName,
-                                        "viewers", viewers.longValue(),
-                                        "thumbnailUrl", thumbnailUrl,
-                                        "streamUrl", streamUrl
+                                streams.add(new TwitchLiveStreamStat(
+                                        broadcaster,
+                                        title,
+                                        gameName,
+                                        viewers.longValue(),
+                                        thumbnailUrl,
+                                        streamUrl
                                 ));
                             }
                             return streams;
@@ -120,49 +119,49 @@ public class TwitchClient {
                 });
     }
 
-    private List<Map<String, Object>> getMockTopCategories() {
-        List<Map<String, Object>> twitchTop = new ArrayList<>();
-        twitchTop.add(Map.of("gameTitle", "Just Chatting", "viewers", 380000L));
-        twitchTop.add(Map.of("gameTitle", "Grand Theft Auto V", "viewers", 210000L));
-        twitchTop.add(Map.of("gameTitle", "League of Legends", "viewers", 175000L));
-        twitchTop.add(Map.of("gameTitle", "Valorant", "viewers", 135000L));
-        twitchTop.add(Map.of("gameTitle", "Counter-Strike 2", "viewers", 110000L));
+    private List<TwitchCategoryStat> getMockTopCategories() {
+        List<TwitchCategoryStat> twitchTop = new ArrayList<>();
+        twitchTop.add(new TwitchCategoryStat("Just Chatting", 380000L));
+        twitchTop.add(new TwitchCategoryStat("Grand Theft Auto V", 210000L));
+        twitchTop.add(new TwitchCategoryStat("League of Legends", 175000L));
+        twitchTop.add(new TwitchCategoryStat("Valorant", 135000L));
+        twitchTop.add(new TwitchCategoryStat("Counter-Strike 2", 110000L));
         return twitchTop;
     }
 
-    private List<Map<String, Object>> getMockLiveStreams() {
-        List<Map<String, Object>> liveStreams = new ArrayList<>();
-        liveStreams.add(Map.of(
-                "broadcaster", "wtcN",
-                "title", "CS2 FPL ve Dereceli Maçlar | !sub !discord",
-                "gameName", "Counter-Strike 2",
-                "viewers", 18500L,
-                "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_wtcn-320x180.jpg",
-                "streamUrl", "https://twitch.tv/wtcn"
+    private List<TwitchLiveStreamStat> getMockLiveStreams() {
+        List<TwitchLiveStreamStat> liveStreams = new ArrayList<>();
+        liveStreams.add(new TwitchLiveStreamStat(
+                "wtcN",
+                "CS2 FPL ve Dereceli Maçlar | !sub !discord",
+                "Counter-Strike 2",
+                18500L,
+                "https://static-cdn.jtvnw.net/previews-ttv/live_user_wtcn-320x180.jpg",
+                "https://twitch.tv/wtcn"
         ));
-        liveStreams.add(Map.of(
-                "broadcaster", "Elraenn",
-                "title", "Gıybet, Eğlence, GTA V Roleplay | !youtube !instagram",
-                "gameName", "Grand Theft Auto V",
-                "viewers", 34000L,
-                "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_elraenn-320x180.jpg",
-                "streamUrl", "https://twitch.tv/elraenn"
+        liveStreams.add(new TwitchLiveStreamStat(
+                "Elraenn",
+                "Gıybet, Eğlence, GTA V Roleplay | !youtube !instagram",
+                "Grand Theft Auto V",
+                34000L,
+                "https://static-cdn.jtvnw.net/previews-ttv/live_user_elraenn-320x180.jpg",
+                "https://twitch.tv/elraenn"
         ));
-        liveStreams.add(Map.of(
-                "broadcaster", "Shroud",
-                "title", "Valorant Ranked with friends | !specs",
-                "gameName", "Valorant",
-                "viewers", 14200L,
-                "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_shroud-320x180.jpg",
-                "streamUrl", "https://twitch.tv/shroud"
+        liveStreams.add(new TwitchLiveStreamStat(
+                "Shroud",
+                "Valorant Ranked with friends | !specs",
+                "Valorant",
+                14200L,
+                "https://static-cdn.jtvnw.net/previews-ttv/live_user_shroud-320x180.jpg",
+                "https://twitch.tv/shroud"
         ));
-        liveStreams.add(Map.of(
-                "broadcaster", "Ninja",
-                "title", "Fright Night & Fortnite Wins | !prime",
-                "gameName", "Fortnite",
-                "viewers", 8500L,
-                "thumbnailUrl", "https://static-cdn.jtvnw.net/previews-ttv/live_user_ninja-320x180.jpg",
-                "streamUrl", "https://twitch.tv/ninja"
+        liveStreams.add(new TwitchLiveStreamStat(
+                "Ninja",
+                "Fright Night & Fortnite Wins | !prime",
+                "Fortnite",
+                8500L,
+                "https://static-cdn.jtvnw.net/previews-ttv/live_user_ninja-320x180.jpg",
+                "https://twitch.tv/ninja"
         ));
         return liveStreams;
     }

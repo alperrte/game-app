@@ -37,6 +37,7 @@ export function FreeGamesStrip({ games }: FreeGamesStripProps) {
                             <img
                                 src={game.imageUrl}
                                 alt={game.gameTitle}
+                                loading="lazy"
                                 className="h-16 w-16 shrink-0 rounded-xl object-cover"
                             />
                         ) : (

@@ -1,10 +1,11 @@
 package com.ltz.content_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ltz.content_service.dto.EsportMatchResponse;
 import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.entity.EsportMatch;
-import com.ltz.content_service.model.entity.LiveStat;
-import com.ltz.content_service.model.enums.MatchStatus;
+import com.ltz.content_service.entity.EsportMatch;
+import com.ltz.content_service.entity.LiveStat;
+import com.ltz.content_service.enums.MatchStatus;
 import com.ltz.content_service.repository.EsportMatchRepository;
 import com.ltz.content_service.repository.LiveStatRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -185,7 +186,7 @@ class StatsServiceTest {
                 .build();
         when(esportMatchRepository.findAll()).thenReturn(List.of(match));
 
-        List<EsportMatch> result = statsService.getEsportMatches(null);
+        List<EsportMatchResponse> result = statsService.getEsportMatches(null);
 
         assertThat(result).hasSize(1);
         verify(esportMatchRepository).findAll();
@@ -207,7 +208,7 @@ class StatsServiceTest {
         when(esportMatchRepository.findByStatusOrderByMatchTimeAsc(MatchStatus.LIVE))
                 .thenReturn(List.of(liveMatch));
 
-        List<EsportMatch> result = statsService.getEsportMatches("LIVE");
+        List<EsportMatchResponse> result = statsService.getEsportMatches("LIVE");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStatus()).isEqualTo(MatchStatus.LIVE);
@@ -229,7 +230,7 @@ class StatsServiceTest {
                 .build();
         when(esportMatchRepository.findAll()).thenReturn(List.of(match));
 
-        List<EsportMatch> result = statsService.getEsportMatches("GECERSIZ_STATUS");
+        List<EsportMatchResponse> result = statsService.getEsportMatches("GECERSIZ_STATUS");
 
         assertThat(result).hasSize(1);
         verify(esportMatchRepository).findAll();

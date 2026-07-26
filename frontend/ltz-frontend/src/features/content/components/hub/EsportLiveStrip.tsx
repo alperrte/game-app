@@ -3,20 +3,11 @@ import { Radio, Swords } from "lucide-react";
 import { CONTENT_ROUTES } from "../../../../lib/constants";
 import type { EsportMatch } from "../../types/esport.types";
 import { cn } from "../../../../utils/cn";
+import { esportStatusLabel, esportStatusTone } from "../../utils/esportStatus";
 import { HubWidgetCard } from "./HubWidgetCard";
 
 interface EsportLiveStripProps {
     matches: EsportMatch[];
-}
-
-function statusBadge(status: EsportMatch["status"]): string {
-    if (status === "LIVE") {
-        return "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200";
-    }
-    if (status === "UPCOMING") {
-        return "border-violet-400/30 bg-violet-500/10 text-violet-200";
-    }
-    return "border-white/10 bg-white/[0.04] text-slate-300";
 }
 
 export function EsportLiveStrip({ matches }: EsportLiveStripProps) {
@@ -55,7 +46,7 @@ export function EsportLiveStrip({ matches }: EsportLiveStripProps) {
                                 <span
                                     className={cn(
                                         "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-                                        statusBadge(match.status),
+                                        esportStatusTone(match.status),
                                     )}
                                 >
                                     {match.status === "LIVE" ? (
@@ -64,11 +55,7 @@ export function EsportLiveStrip({ matches }: EsportLiveStripProps) {
                                             className="animate-pulse"
                                         />
                                     ) : null}
-                                    {match.status === "LIVE"
-                                        ? "Canlı"
-                                        : match.status === "UPCOMING"
-                                          ? "Yakında"
-                                          : "Bitti"}
+                                    {esportStatusLabel(match.status)}
                                 </span>
                             </div>
 

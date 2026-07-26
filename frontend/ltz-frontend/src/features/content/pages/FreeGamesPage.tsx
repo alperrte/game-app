@@ -95,7 +95,7 @@ export default function FreeGamesPage() {
                     {Array.from({ length: 6 }).map((_, index) => (
                         <div
                             key={index}
-                            className="h-72 animate-pulse rounded-2xl bg-white/5"
+                            className="h-72 motion-reduce:animate-none animate-pulse rounded-2xl bg-white/5"
                         />
                     ))}
                 </div>

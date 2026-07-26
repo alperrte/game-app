@@ -7,6 +7,7 @@ CREATE TABLE news_articles (
     source_name NVARCHAR(100) NOT NULL,
     category NVARCHAR(50) NOT NULL, 
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    published_at DATETIME2 NULL,
     CONSTRAINT ck_news_category CHECK (category IN ('GLOBAL', 'HARDWARE', 'PATCH_NOTES'))
 );
 

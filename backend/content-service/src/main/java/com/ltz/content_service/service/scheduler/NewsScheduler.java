@@ -1,10 +1,11 @@
 package com.ltz.content_service.service.scheduler;
 
-import com.ltz.content_service.model.entity.NewsArticle;
-import com.ltz.content_service.model.enums.NewsCategory;
+import com.ltz.content_service.entity.NewsArticle;
+import com.ltz.content_service.enums.NewsCategory;
 import com.ltz.content_service.repository.NewsArticleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -16,6 +17,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +48,7 @@ public class NewsScheduler {
             "Merlin'in Kazani", "https://www.merlininkazani.com/feed/");
 
     @Scheduled(cron = "0 0 * * * *")
+    @CacheEvict(value = "news", allEntries = true)
     public void fetchNews() {
         log.info("Starting news fetch job for multiple RSS sources...");
         RSS_SOURCES.forEach((sourceName, url) -> {
@@ -82,6 +86,7 @@ public class NewsScheduler {
                 String title = cleanHtml(getTagValue(item, "title"));
                 String description = cleanHtml(getTagValue(item, "description"));
                 String link = getTagValue(item, "link");
+                LocalDateTime publishedAt = parsePubDate(getTagValue(item, "pubDate"));
 
                 if (link == null || newsArticleRepository.existsByContentUrl(link)) {
                     continue;
@@ -122,6 +127,7 @@ public class NewsScheduler {
                         .sourceName(sourceName)
                         .category(category)
                         .createdAt(LocalDateTime.now())
+                        .publishedAt(publishedAt)
                         .build();
 
                 newsArticleRepository.save(article);
@@ -157,6 +163,8 @@ public class NewsScheduler {
                 if (link == null || link.isEmpty()) {
                     link = extractTagContent(itemContent, "guid");
                 }
+
+                LocalDateTime publishedAt = parsePubDate(extractTagContent(itemContent, "pubDate"));
 
                 title = cleanHtml(title);
                 description = cleanHtml(description);
@@ -200,6 +208,7 @@ public class NewsScheduler {
                         .sourceName(sourceName)
                         .category(category)
                         .createdAt(LocalDateTime.now())
+                        .publishedAt(publishedAt)
                         .build();
 
                 newsArticleRepository.save(article);
@@ -252,6 +261,26 @@ public class NewsScheduler {
                 .replace("&mdash;", "—")
                 .replace("&nbsp;", " ");
         return cleaned;
+    }
+
+    private static final DateTimeFormatter LOCAL_PUB_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    private LocalDateTime parsePubDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        try {
+            return ZonedDateTime.parse(trimmed, DateTimeFormatter.RFC_1123_DATE_TIME).toLocalDateTime();
+        } catch (Exception rfcEx) {
+            try {
+                return LocalDateTime.parse(trimmed, LOCAL_PUB_DATE_FORMAT);
+            } catch (Exception localEx) {
+                log.warn("Failed to parse RSS pubDate '{}': {}", trimmed, rfcEx.getMessage());
+                return null;
+            }
+        }
     }
 
     private String getTagValue(Element element, String tagName) {

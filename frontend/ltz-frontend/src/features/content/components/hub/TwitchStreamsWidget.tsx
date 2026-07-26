@@ -34,6 +34,7 @@ export function TwitchStreamsWidget({ streams }: TwitchStreamsWidgetProps) {
                                 <img
                                     src={stream.thumbnailUrl}
                                     alt={stream.title}
+                                    loading="lazy"
                                     className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                                 />
                             ) : (

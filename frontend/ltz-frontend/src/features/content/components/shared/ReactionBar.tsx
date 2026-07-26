@@ -1,6 +1,8 @@
 import { Flame, Meh, ThumbsDown, Wallet } from "lucide-react";
 
+import { useToast } from "../../../../components/ui/toastContext";
 import { cn } from "../../../../utils/cn";
+import { getErrorMessage } from "../../../../utils/getErrorMessage";
 import {
     contentService,
     type ReactionContentType,
@@ -38,6 +40,7 @@ export function ReactionBar({
     userReaction,
     onChange,
 }: ReactionBarProps) {
+    const { showToast } = useToast();
     const summary = normalizeReactions(reactions);
 
     async function handleReaction(type: ReactionType) {
@@ -60,8 +63,12 @@ export function ReactionBar({
 
             try {
                 await contentService.removeReaction(contentId, contentType);
-            } catch {
+            } catch (removeError) {
                 onChange?.(previous);
+                showToast(
+                    getErrorMessage(removeError, "Reaksiyon kaldırılamadı."),
+                    "error",
+                );
             }
             return;
         }
@@ -83,8 +90,12 @@ export function ReactionBar({
                 contentType,
                 reactionType: type,
             });
-        } catch {
+        } catch (reactError) {
             onChange?.(previous);
+            showToast(
+                getErrorMessage(reactError, "Reaksiyon gönderilemedi."),
+                "error",
+            );
         }
     }
 
@@ -97,6 +108,7 @@ export function ReactionBar({
                     <button
                         key={type}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => void handleReaction(type)}
                         className={cn(
                             "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition",

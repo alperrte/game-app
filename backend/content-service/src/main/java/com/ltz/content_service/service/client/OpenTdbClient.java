@@ -1,5 +1,6 @@
 package com.ltz.content_service.service.client;
 
+import com.ltz.content_service.service.client.dto.TriviaQuestion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ public class OpenTdbClient {
     private final WebClient webClient;
 
     @SuppressWarnings("unchecked")
-    public Mono<Map<String, Object>> fetchRandomTrivia() {
+    public Mono<TriviaQuestion> fetchRandomTrivia() {
         return webClient.get()
                 .uri("https://opentdb.com/api.php?amount=1&category=15&type=multiple")
                 .retrieve()
@@ -50,11 +51,7 @@ public class OpenTdbClient {
                     Collections.shuffle(options);
                     int correctOptionIndex = options.indexOf(correctAnswer);
 
-                    Map<String, Object> mapped = new HashMap<>();
-                    mapped.put("question", question);
-                    mapped.put("options", options);
-                    mapped.put("correctOptionIndex", correctOptionIndex);
-                    return mapped;
+                    return new TriviaQuestion(question, options, correctOptionIndex);
                 })
                 .onErrorResume(e -> {
                     log.error("Failed to fetch trivia from OpenTDB: ", e);

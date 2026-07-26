@@ -1,13 +1,15 @@
 package com.ltz.content_service.service;
 
-import com.ltz.content_service.model.dto.DealCompareResponse;
-import com.ltz.content_service.model.entity.DealCampaign;
-import com.ltz.content_service.model.entity.HistoricalLow;
+import com.ltz.content_service.dto.DealCampaignResponse;
+import com.ltz.content_service.dto.DealCompareResponse;
+import com.ltz.content_service.entity.DealCampaign;
+import com.ltz.content_service.entity.HistoricalLow;
 import com.ltz.content_service.repository.DealCampaignRepository;
 import com.ltz.content_service.repository.HistoricalLowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import org.springframework.stereotype.Service;
@@ -21,13 +23,57 @@ public class DealsService {
 
     private final DealCampaignRepository dealCampaignRepository;
     private final HistoricalLowRepository historicalLowRepository;
+    private final DealsQueryCache dealsQueryCache;
     private final ReactionsService reactionsService;
 
-    public Page<DealCampaign> getActiveDeals(Integer minDiscount, Pageable pageable) {
-        if (minDiscount != null && minDiscount > 0) {
-            return dealCampaignRepository.findByDiscountPercentGreaterThanEqual(minDiscount, pageable);
-        }
-        return dealCampaignRepository.findAll(pageable);
+    public Page<DealCampaignResponse> getActiveDeals(Integer minDiscount, Pageable pageable, Long currentUserId) {
+        List<DealCampaign> allDeals = (minDiscount != null && minDiscount > 0)
+                ? dealsQueryCache.findByMinDiscount(minDiscount)
+                : dealsQueryCache.findAllSortedByDiscount();
+
+        // Bir oyun birden fazla mağazada indirimdeyse aynı isim tekrar tekrar listelenmesin diye
+        // en yüksek indirimli satır tutulur (liste zaten indirime göre azalan sıralı).
+        List<DealCampaign> deduped = allDeals.stream()
+                .collect(Collectors.toMap(
+                        DealCampaign::getGameTitle,
+                        deal -> deal,
+                        (keepFirst, ignored) -> keepFirst,
+                        LinkedHashMap::new))
+                .values().stream()
+                .collect(Collectors.toList());
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), deduped.size());
+        List<DealCampaignResponse> pageContent = start >= deduped.size()
+                ? List.of()
+                : deduped.subList(start, end).stream()
+                        .map(deal -> mapToResponse(deal, currentUserId))
+                        .collect(Collectors.toList());
+
+        return new PageImpl<>(pageContent, pageable, deduped.size());
+    }
+
+    private DealCampaignResponse mapToResponse(DealCampaign deal, Long currentUserId) {
+        return DealCampaignResponse.builder()
+                .id(deal.getId())
+                .gameTitle(deal.getGameTitle())
+                .storeName(deal.getStoreName())
+                .dealUrl(deal.getDealUrl())
+                .imageUrl(deal.getImageUrl())
+                .originalPrice(deal.getOriginalPrice())
+                .discountedPrice(deal.getDiscountedPrice())
+                .discountPercent(deal.getDiscountPercent())
+                .currency(deal.getCurrency())
+                .steamDeckStatus(deal.getSteamDeckStatus())
+                .isCrossPlay(deal.isCrossPlay())
+                .isFree(deal.isFree())
+                .endsAt(deal.getEndsAt())
+                .metacriticScore(deal.getMetacriticScore())
+                .steamRatingPercent(deal.getSteamRatingPercent())
+                .lastUpdated(deal.getLastUpdated())
+                .reactions(reactionsService.getReactionsSummary(deal.getId(), "CAMPAIGN"))
+                .userReaction(reactionsService.getUserReaction(currentUserId, deal.getId(), "CAMPAIGN"))
+                .build();
     }
 
     public List<DealCompareResponse> searchAndCompareDeals(String title, Long currentUserId) {
@@ -99,7 +145,9 @@ public class DealsService {
                 .collect(Collectors.toList());
     }
 
-    public List<DealCampaign> getFreeGames() {
-        return dealCampaignRepository.findByIsFreeTrue();
+    public List<DealCampaignResponse> getFreeGames(Long currentUserId) {
+        return dealsQueryCache.findFreeGames().stream()
+                .map(deal -> mapToResponse(deal, currentUserId))
+                .collect(Collectors.toList());
     }
 }

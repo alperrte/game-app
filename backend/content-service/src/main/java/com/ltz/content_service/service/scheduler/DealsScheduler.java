@@ -1,13 +1,15 @@
 package com.ltz.content_service.service.scheduler;
 
-import com.ltz.content_service.model.entity.DealCampaign;
-import com.ltz.content_service.model.entity.HistoricalLow;
+import com.ltz.content_service.entity.DealCampaign;
+import com.ltz.content_service.entity.HistoricalLow;
 import com.ltz.content_service.repository.DealCampaignRepository;
 import com.ltz.content_service.repository.HistoricalLowRepository;
 import com.ltz.content_service.service.client.CheapSharkClient;
 import com.ltz.content_service.service.client.SteamClient;
+import com.ltz.content_service.service.client.dto.CheapSharkDeal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -37,11 +39,15 @@ public class DealsScheduler {
             "25", "Humble Store"
     );
 
+    private record DealWithStatus(CheapSharkDeal deal, String steamDeckStatus) {
+    }
+
     @Scheduled(cron = "0 0 */6 * * *")
+    @CacheEvict(value = "deals", allEntries = true)
     public void fetchDeals() {
         log.info("Starting deals fetch job...");
         try {
-            List<Map<String, Object>> deals = cheapSharkClient.getDeals().block();
+            List<CheapSharkDeal> deals = cheapSharkClient.getDeals().block();
             if (deals == null || deals.isEmpty()) {
                 log.warn("No deals returned from CheapShark API");
                 return;
@@ -49,9 +55,8 @@ public class DealsScheduler {
 
             Flux.fromIterable(deals)
                     .flatMap(deal -> {
-                        String storeId = (String) deal.get("storeID");
-                        String storeName = STORES_MAP.getOrDefault(storeId, "Other Store");
-                        String steamAppIDStr = (String) deal.get("steamAppID");
+                        String storeName = STORES_MAP.getOrDefault(deal.storeId(), "Other Store");
+                        String steamAppIDStr = deal.steamAppId();
 
                         Mono<String> statusMono;
                         if (storeName.equalsIgnoreCase("Steam") && steamAppIDStr != null && !steamAppIDStr.isEmpty() && !"0".equals(steamAppIDStr)) {
@@ -67,25 +72,22 @@ public class DealsScheduler {
                             statusMono = Mono.just("VERIFIED");
                         }
 
-                        return statusMono.map(status -> Map.of("deal", deal, "steamDeckStatus", status));
+                        return statusMono.map(status -> new DealWithStatus(deal, status));
                     }, 10) // Process up to 10 lookups concurrently
                     .doOnNext(result -> {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> deal = (Map<String, Object>) result.get("deal");
-                        String steamDeckStatus = (String) result.get("steamDeckStatus");
+                        CheapSharkDeal deal = result.deal();
+                        String steamDeckStatus = result.steamDeckStatus();
 
-                        String title = (String) deal.get("title");
-                        String storeId = (String) deal.get("storeID");
-                        String storeName = STORES_MAP.getOrDefault(storeId, "Other Store");
+                        String title = deal.title();
+                        String storeName = STORES_MAP.getOrDefault(deal.storeId(), "Other Store");
 
-                        String dealID = (String) deal.get("dealID");
-                        String dealUrl = "https://www.cheapshark.com/redirect?dealID=" + dealID;
+                        String dealUrl = "https://www.cheapshark.com/redirect?dealID=" + deal.dealId();
 
-                        BigDecimal normalPrice = new BigDecimal((String) deal.get("normalPrice"));
-                        BigDecimal salePrice = new BigDecimal((String) deal.get("salePrice"));
-                        Integer discountPercent = (int) Math.round(Double.parseDouble((String) deal.get("savings")));
+                        BigDecimal normalPrice = new BigDecimal(deal.normalPrice());
+                        BigDecimal salePrice = new BigDecimal(deal.salePrice());
+                        Integer discountPercent = (int) Math.round(Double.parseDouble(deal.savings()));
 
-                        String image = (String) deal.get("thumb");
+                        String image = deal.thumb();
                         if (image != null && image.contains("store-images.s-microsoft.com")) {
                             image = null;
                         }
@@ -93,7 +95,7 @@ public class DealsScheduler {
                         // Parse Metacritic score
                         Integer metacriticScore = null;
                         try {
-                            String mc = (String) deal.get("metacriticScore");
+                            String mc = deal.metacriticScore();
                             if (mc != null && !mc.isEmpty() && !"0".equals(mc)) {
                                 metacriticScore = Integer.parseInt(mc);
                             }
@@ -104,7 +106,7 @@ public class DealsScheduler {
                         // Parse Steam Rating
                         Integer steamRatingPercent = null;
                         try {
-                            String sr = (String) deal.get("steamRatingPercent");
+                            String sr = deal.steamRatingPercent();
                             if (sr != null && !sr.isEmpty() && !"0".equals(sr)) {
                                 steamRatingPercent = Integer.parseInt(sr);
                             }
@@ -175,95 +177,6 @@ public class DealsScheduler {
             log.info("Completed deals fetch job.");
         } catch (Exception e) {
             log.error("Error fetching deals: ", e);
-        }
-        
-        // Populate Console Deals
-        populateConsoleDeals();
-    }
-
-    private void populateConsoleDeals() {
-        log.info("Generating simulated console deals for PSN and Xbox stores...");
-        try {
-            // PlayStation Store Campaigns
-            createConsoleDeal("Marvel's Spider-Man 2", "PlayStation Store",
-                    "https://store.playstation.com/concept/10002456",
-                    "https://image.api.playstation.com/vulcan/ap/rnd/202306/1219/60de327d4d830573b218aeab95aaafcc246c0a0c4f3460b5.png",
-                    new BigDecimal("69.99"), new BigDecimal("49.99"), 28, "VERIFIED", false, 90, 92);
-
-            createConsoleDeal("The Last of Us Part I", "PlayStation Store",
-                    "https://store.playstation.com/concept/10004406",
-                    "https://image.api.playstation.com/vulcan/ap/rnd/202206/0720/eE7Dx27rWl37r24u35B07g94.png",
-                    new BigDecimal("69.99"), new BigDecimal("39.99"), 42, "VERIFIED", false, 89, 94);
-
-            createConsoleDeal("Halo Infinite", "Xbox Store",
-                    "https://www.xbox.com/games/store/halo-infinite-campaign/9np1p1w0dcc1",
-                    "https://shared.steamstatic.com/store_item_assets/steam/apps/1240440/capsule_616x353.jpg",
-                    new BigDecimal("59.99"), new BigDecimal("19.99"), 66, "VERIFIED", true, 87, 85);
-
-            createConsoleDeal("Forza Horizon 5", "Xbox Store",
-                    "https://www.xbox.com/games/store/forza-horizon-5-standard-edition/9nkx70bbcd18",
-                    "https://shared.steamstatic.com/store_item_assets/steam/apps/1551360/capsule_616x353.jpg",
-                    new BigDecimal("59.99"), new BigDecimal("29.99"), 50, "VERIFIED", true, 92, 91);
-        } catch (Exception e) {
-            log.error("Failed to populate console deals: ", e);
-        }
-    }
-
-    private void createConsoleDeal(String title, String storeName, String url, String img, BigDecimal original, BigDecimal discounted, int pct, 
-                                   String steamDeck, boolean crossPlay, Integer metacritic, Integer steamRating) {
-        try {
-            Optional<DealCampaign> existingDeal = dealCampaignRepository.findByGameTitleAndStoreName(title, storeName);
-            DealCampaign dealCampaign;
-            if (existingDeal.isPresent()) {
-                dealCampaign = existingDeal.get();
-                dealCampaign.setDealUrl(url);
-                dealCampaign.setImageUrl(img);
-                dealCampaign.setOriginalPrice(original);
-                dealCampaign.setDiscountedPrice(discounted);
-                dealCampaign.setDiscountPercent(pct);
-                dealCampaign.setSteamDeckStatus(steamDeck);
-                dealCampaign.setMetacriticScore(metacritic);
-                dealCampaign.setSteamRatingPercent(steamRating);
-                dealCampaign.setLastUpdated(LocalDateTime.now());
-            } else {
-                dealCampaign = DealCampaign.builder()
-                        .gameTitle(title)
-                        .storeName(storeName)
-                        .dealUrl(url)
-                        .imageUrl(img)
-                        .originalPrice(original)
-                        .discountedPrice(discounted)
-                        .discountPercent(pct)
-                        .steamDeckStatus(steamDeck)
-                        .isCrossPlay(crossPlay)
-                        .metacriticScore(metacritic)
-                        .steamRatingPercent(steamRating)
-                        .lastUpdated(LocalDateTime.now())
-                        .build();
-            }
-            dealCampaignRepository.save(dealCampaign);
-
-            // Also check and update HistoricalLow
-            Optional<HistoricalLow> existingLow = historicalLowRepository.findByGameTitleIgnoreCase(title);
-            if (existingLow.isPresent()) {
-                HistoricalLow low = existingLow.get();
-                if (discounted.compareTo(low.getLowestPrice()) < 0) {
-                    low.setLowestPrice(discounted);
-                    low.setStoreName(storeName);
-                    low.setRecordedAt(LocalDateTime.now());
-                    historicalLowRepository.save(low);
-                }
-            } else {
-                HistoricalLow low = HistoricalLow.builder()
-                        .gameTitle(title)
-                        .lowestPrice(discounted)
-                        .storeName(storeName)
-                        .recordedAt(LocalDateTime.now())
-                        .build();
-                historicalLowRepository.save(low);
-            }
-        } catch (Exception innerEx) {
-            log.error("Error saving console campaign for game {}: ", title, innerEx);
         }
     }
 }

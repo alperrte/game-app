@@ -1,8 +1,9 @@
 package com.ltz.content_service.controller;
 
+import com.ltz.content_service.exception.GlobalExceptionHandler;
 import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.entity.EsportMatch;
-import com.ltz.content_service.model.enums.MatchStatus;
+import com.ltz.content_service.dto.EsportMatchResponse;
+import com.ltz.content_service.enums.MatchStatus;
 import com.ltz.content_service.service.StatsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,7 +39,9 @@ class StatsControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(statsController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(statsController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     // ─── GET /api/content/stats ──────────────────────────────────────────────
@@ -99,7 +102,7 @@ class StatsControllerTest {
     @Test
     @DisplayName("GET /api/content/stats/esports → tüm maçlar döner")
     void getEsportMatches_shouldReturn200WithMatches() throws Exception {
-        EsportMatch match = EsportMatch.builder()
+        EsportMatchResponse match = EsportMatchResponse.builder()
                 .id(1L)
                 .matchId("match-001")
                 .tournamentName("ESL Pro League")
@@ -122,7 +125,7 @@ class StatsControllerTest {
     @Test
     @DisplayName("GET /api/content/stats/esports?status=LIVE → filtrelenmiş maçlar döner")
     void getEsportMatches_withStatusFilter_shouldReturn200() throws Exception {
-        EsportMatch liveMatch = EsportMatch.builder()
+        EsportMatchResponse liveMatch = EsportMatchResponse.builder()
                 .id(2L)
                 .matchId("match-002")
                 .tournamentName("BLAST Premier")

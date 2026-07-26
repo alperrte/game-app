@@ -39,4 +39,7 @@ public class NewsArticle {
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
 }

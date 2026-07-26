@@ -28,6 +28,7 @@ export function FreeGamePromoCard({ game }: FreeGamePromoCardProps) {
                     <img
                         src={optimizedUrl}
                         alt={game.gameTitle}
+                        loading="lazy"
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                         onError={() => setImageFailed(true)}
                     />

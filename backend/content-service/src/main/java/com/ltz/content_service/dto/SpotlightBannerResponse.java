@@ -1,15 +1,12 @@
-package com.ltz.content_service.model.dto;
+package com.ltz.content_service.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
-public class SpotlightBannerRequest {
+public class SpotlightBannerResponse {
+    private Long id;
     private String title;
     private String subtitle;
     private String imageUrl;

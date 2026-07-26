@@ -47,6 +47,7 @@ export function HistoryTimeline({ events }: HistoryTimelineProps) {
                             <img
                                 src={event.imageUrl}
                                 alt={event.title}
+                                loading="lazy"
                                 className="mt-4 max-h-56 w-full rounded-xl object-cover"
                             />
                         ) : null}

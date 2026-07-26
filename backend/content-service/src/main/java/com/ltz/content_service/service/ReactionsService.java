@@ -1,7 +1,7 @@
 package com.ltz.content_service.service;
 
-import com.ltz.content_service.model.entity.ContentReaction;
-import com.ltz.content_service.model.enums.ReactionType;
+import com.ltz.content_service.entity.ContentReaction;
+import com.ltz.content_service.enums.ReactionType;
 import com.ltz.content_service.repository.ContentReactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -45,12 +45,17 @@ export const contentService = {
         page?: number;
         size?: number;
         category?: NewsCategory;
+        source?: string;
     }) =>
         apiClient.get<SpringPage<NewsArticle>>(CONTENT_API_ENDPOINTS.news, {
             page: params.page ?? 0,
             size: params.size ?? 12,
             ...(params.category ? { category: params.category } : {}),
+            ...(params.source ? { source: params.source } : {}),
         }),
+
+    getNewsSources: () =>
+        apiClient.get<string[]>(CONTENT_API_ENDPOINTS.newsSources),
 
     getNewsById: (id: number) =>
         apiClient.get<NewsArticle>(CONTENT_API_ENDPOINTS.newsById(id)),

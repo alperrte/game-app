@@ -166,6 +166,7 @@ export default function DealsPage() {
                             <button
                                 key={filter.label}
                                 type="button"
+                                aria-pressed={minDiscount === filter.value}
                                 onClick={() => handleDiscountChange(filter.value)}
                                 className={
                                     minDiscount === filter.value
@@ -179,6 +180,7 @@ export default function DealsPage() {
 
                         <button
                             type="button"
+                            aria-pressed={deckOnly}
                             onClick={() => setDeckOnly((current) => !current)}
                             className={
                                 deckOnly
@@ -197,7 +199,7 @@ export default function DealsPage() {
                     {Array.from({ length: 6 }).map((_, index) => (
                         <div
                             key={index}
-                            className="h-72 animate-pulse rounded-2xl bg-white/5"
+                            className="h-72 motion-reduce:animate-none animate-pulse rounded-2xl bg-white/5"
                         />
                     ))}
                 </div>

@@ -110,7 +110,7 @@ export default function HistoryPage() {
                     {Array.from({ length: 3 }).map((_, index) => (
                         <div
                             key={index}
-                            className="h-32 animate-pulse rounded-2xl bg-white/5"
+                            className="h-32 motion-reduce:animate-none animate-pulse rounded-2xl bg-white/5"
                         />
                     ))}
                 </div>

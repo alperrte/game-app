@@ -1,9 +1,9 @@
 package com.ltz.content_service.service;
 
 import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.dto.NewsArticleResponse;
-import com.ltz.content_service.model.entity.NewsArticle;
-import com.ltz.content_service.model.enums.NewsCategory;
+import com.ltz.content_service.dto.NewsArticleResponse;
+import com.ltz.content_service.entity.NewsArticle;
+import com.ltz.content_service.enums.NewsCategory;
 import com.ltz.content_service.repository.NewsArticleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,29 +11,35 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class NewsService {
 
     private final NewsArticleRepository newsArticleRepository;
+    private final NewsQueryCache newsQueryCache;
     private final ReactionsService reactionsService;
 
-    public Page<NewsArticleResponse> getNews(String category, Pageable pageable, Long currentUserId) {
-        Page<NewsArticle> articles;
+    public Page<NewsArticleResponse> getNews(String category, String source, Pageable pageable, Long currentUserId) {
+        NewsCategory newsCategory = null;
         if (category != null && !category.isBlank()) {
             try {
-                NewsCategory newsCategory = NewsCategory.valueOf(category.toUpperCase());
-                articles = newsArticleRepository.findByCategory(newsCategory, pageable);
+                newsCategory = NewsCategory.valueOf(category.toUpperCase());
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid news category requested: {}, falling back to all", category);
-                articles = newsArticleRepository.findAll(pageable);
+                log.warn("Invalid news category requested: {}, ignoring filter", category);
             }
-        } else {
-            articles = newsArticleRepository.findAll(pageable);
         }
 
+        String sourceName = (source != null && !source.isBlank()) ? source : null;
+
+        Page<NewsArticle> articles = newsQueryCache.search(newsCategory, sourceName, pageable);
         return articles.map(article -> mapToResponse(article, currentUserId));
+    }
+
+    public List<String> getAvailableSources() {
+        return newsArticleRepository.findDistinctSourceNames();
     }
 
     public NewsArticleResponse getNewsById(Long id, Long currentUserId) {
@@ -51,7 +57,8 @@ public class NewsService {
                 .imageUrl(article.getImageUrl())
                 .sourceName(article.getSourceName())
                 .category(article.getCategory())
-                .createdAt(article.getCreatedAt())
+                // response "createdAt" gösterir gerçek yayın tarihini (RSS pubDate), ingestion zamanını değil
+                .createdAt(article.getPublishedAt() != null ? article.getPublishedAt() : article.getCreatedAt())
                 .reactions(reactionsService.getReactionsSummary(article.getId(), "NEWS"))
                 .userReaction(reactionsService.getUserReaction(currentUserId, article.getId(), "NEWS"))
                 .build();

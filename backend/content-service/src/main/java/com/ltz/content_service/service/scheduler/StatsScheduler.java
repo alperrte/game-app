@@ -1,9 +1,9 @@
 package com.ltz.content_service.service.scheduler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ltz.content_service.model.entity.EsportMatch;
+import com.ltz.content_service.entity.EsportMatch;
 
-import com.ltz.content_service.model.enums.MatchStatus;
+import com.ltz.content_service.enums.MatchStatus;
 import com.ltz.content_service.repository.EsportMatchRepository;
 
 import com.ltz.content_service.service.StatsService;
@@ -14,6 +14,12 @@ import com.ltz.content_service.service.client.PandaScoreClient;
 import com.ltz.content_service.service.client.SpeedrunClient;
 import com.ltz.content_service.service.client.SteamClient;
 import com.ltz.content_service.service.client.TwitchClient;
+import com.ltz.content_service.service.client.dto.FreeGameStat;
+import com.ltz.content_service.service.client.dto.SpeedrunRecordStat;
+import com.ltz.content_service.service.client.dto.SteamTopPlayedStat;
+import com.ltz.content_service.service.client.dto.TwitchCategoryStat;
+import com.ltz.content_service.service.client.dto.TwitchLiveStreamStat;
+import com.ltz.content_service.service.client.dto.UpcomingReleaseStat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -54,7 +60,7 @@ public class StatsScheduler {
             steamGamesMap.put("Destiny 2", new Long[] { 1085660L, 85000L });
             steamGamesMap.put("Team Fortress 2", new Long[] { 440L, 78000L });
 
-            List<Map<String, Object>> topPlayed = new ArrayList<>();
+            List<SteamTopPlayedStat> topPlayed = new ArrayList<>();
             int rank = 1;
             Long cs2CCU = null;
 
@@ -79,10 +85,7 @@ public class StatsScheduler {
                     cs2CCU = liveCCU;
                 }
 
-                topPlayed.add(Map.of(
-                        "rank", rank++,
-                        "gameTitle", gameTitle,
-                        "ccu", liveCCU));
+                topPlayed.add(new SteamTopPlayedStat(rank++, gameTitle, liveCCU));
             }
 
             // Platform Server Status
@@ -100,15 +103,15 @@ public class StatsScheduler {
             saveOrUpdateStat("steam_top_played", objectMapper.writeValueAsString(topPlayed));
 
             // Twitch Top 5 Categories
-            List<Map<String, Object>> twitchTop = twitchClient.getTopCategories().block();
+            List<TwitchCategoryStat> twitchTop = twitchClient.getTopCategories().block();
             saveOrUpdateStat("twitch_top_categories", objectMapper.writeValueAsString(twitchTop));
 
             // Twitch Live Streams
-            List<Map<String, Object>> liveStreams = twitchClient.getLiveStreams().block();
+            List<TwitchLiveStreamStat> liveStreams = twitchClient.getLiveStreams().block();
             saveOrUpdateStat("twitch_live_streams", objectMapper.writeValueAsString(liveStreams));
 
             // Game Release Calendar (Upcoming games)
-            List<Map<String, Object>> upcomingReleases = igdbClient.getUpcomingReleases().block();
+            List<UpcomingReleaseStat> upcomingReleases = igdbClient.getUpcomingReleases().block();
             saveOrUpdateStat("upcoming_releases", objectMapper.writeValueAsString(upcomingReleases));
 
         } catch (Exception e) {
@@ -120,7 +123,7 @@ public class StatsScheduler {
     public void fetchFreeGamesAndGiveaways() {
         log.info("Starting free games and giveaways fetch job...");
         try {
-            List<Map<String, Object>> freeGamesList = new ArrayList<>();
+            List<FreeGameStat> freeGamesList = new ArrayList<>();
 
             // 1. Fetch from Epic Games Store
             try {
@@ -169,13 +172,14 @@ public class StatsScheduler {
                                                 parseEx.getMessage());
                                     }
 
-                                    freeGamesList.add(Map.of(
-                                            "gameTitle", title,
-                                            "storeName", "Epic Games Store",
-                                            "imageUrl", imageUrl != null ? imageUrl : "",
-                                            "dealUrl", "https://store.epicgames.com/free-games",
-                                            "endsAt", endsAt.toString(),
-                                            "isGiveaway", false));
+                                    freeGamesList.add(new FreeGameStat(
+                                            title,
+                                            "Epic Games Store",
+                                            imageUrl != null ? imageUrl : "",
+                                            "https://store.epicgames.com/free-games",
+                                            endsAt.toString(),
+                                            false,
+                                            null));
                                 }
                             }
                         }
@@ -208,14 +212,14 @@ public class StatsScheduler {
                             }
                         }
 
-                        freeGamesList.add(Map.of(
-                                "gameTitle", title,
-                                "storeName", platform != null ? platform : "PC",
-                                "imageUrl", image != null ? image : "",
-                                "dealUrl", openGiveawayUrl != null ? openGiveawayUrl : "",
-                                "endsAt", endsAt.toString(),
-                                "isGiveaway", true,
-                                "worth", worth != null ? worth : "N/A"));
+                        freeGamesList.add(new FreeGameStat(
+                                title,
+                                platform != null ? platform : "PC",
+                                image != null ? image : "",
+                                openGiveawayUrl != null ? openGiveawayUrl : "",
+                                endsAt.toString(),
+                                true,
+                                worth != null ? worth : "N/A"));
                     }
                 }
             } catch (Exception gpEx) {
@@ -224,13 +228,14 @@ public class StatsScheduler {
 
             // If empty, save mock data to keep the widget populated
             if (freeGamesList.isEmpty()) {
-                freeGamesList.add(Map.of(
-                        "gameTitle", "Civilization VII",
-                        "storeName", "Epic Games Store",
-                        "imageUrl", "https://img.logo.com",
-                        "dealUrl", "https://store.epicgames.com/free-games",
-                        "endsAt", LocalDateTime.now().plusDays(5).toString(),
-                        "isGiveaway", false));
+                freeGamesList.add(new FreeGameStat(
+                        "Civilization VII",
+                        "Epic Games Store",
+                        "https://img.logo.com",
+                        "https://store.epicgames.com/free-games",
+                        LocalDateTime.now().plusDays(5).toString(),
+                        false,
+                        null));
             }
 
             saveOrUpdateStat("free_games", objectMapper.writeValueAsString(freeGamesList));
@@ -276,7 +281,7 @@ public class StatsScheduler {
     public void fetchSpeedrunRecords() {
         log.info("Starting speedrun records fetch job for multiple categories...");
         try {
-            List<Map<String, Object>> speedruns = new ArrayList<>();
+            List<SpeedrunRecordStat> speedruns = new ArrayList<>();
 
             for (SpeedrunConfig cfg : SPEEDRUN_CONFIGS) {
                 boolean success = false;
@@ -307,12 +312,12 @@ public class StatsScheduler {
 
                             String weblink = (String) runInfo.get("weblink");
 
-                            speedruns.add(Map.of(
-                                    "gameTitle", cfg.gameTitle,
-                                    "category", cfg.categoryName,
-                                    "runner", runnerName,
-                                    "time", formatDuration(timeSeconds),
-                                    "videoUrl", weblink != null ? weblink : ""));
+                            speedruns.add(new SpeedrunRecordStat(
+                                    cfg.gameTitle,
+                                    cfg.categoryName,
+                                    runnerName,
+                                    formatDuration(timeSeconds),
+                                    weblink != null ? weblink : ""));
                             success = true;
                         }
                     }
@@ -321,12 +326,12 @@ public class StatsScheduler {
                 }
 
                 if (!success) {
-                    speedruns.add(Map.of(
-                            "gameTitle", cfg.gameTitle,
-                            "category", cfg.categoryName,
-                            "runner", cfg.fallbackRunner,
-                            "time", cfg.fallbackTime,
-                            "videoUrl", cfg.fallbackVideo));
+                    speedruns.add(new SpeedrunRecordStat(
+                            cfg.gameTitle,
+                            cfg.categoryName,
+                            cfg.fallbackRunner,
+                            cfg.fallbackTime,
+                            cfg.fallbackVideo));
                 }
             }
 

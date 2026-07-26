@@ -1,18 +1,17 @@
-package com.ltz.content_service.model.dto;
+package com.ltz.content_service.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
-public class DailyTriviaRequest {
+public class DailyTriviaResponse {
+    private Long id;
     private String question;
     private String optionsJson;
     private int correctOptionIndex;
     private LocalDate triviaDate;
+    private LocalDateTime createdAt;
 }

@@ -4,6 +4,8 @@ import com.ltz.content_service.repository.DealCampaignRepository;
 import com.ltz.content_service.repository.NewsArticleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,10 @@ public class DataPruningScheduler {
 
     @Scheduled(cron = "0 0 4 * * *")
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "news", allEntries = true),
+            @CacheEvict(value = "deals", allEntries = true)
+    })
     public void pruneOldData() {
         log.info("Starting daily data pruning job...");
         try {

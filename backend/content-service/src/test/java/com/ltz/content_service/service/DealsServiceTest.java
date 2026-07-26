@@ -1,8 +1,9 @@
 package com.ltz.content_service.service;
 
-import com.ltz.content_service.model.dto.DealCompareResponse;
-import com.ltz.content_service.model.entity.DealCampaign;
-import com.ltz.content_service.model.entity.HistoricalLow;
+import com.ltz.content_service.dto.DealCampaignResponse;
+import com.ltz.content_service.dto.DealCompareResponse;
+import com.ltz.content_service.entity.DealCampaign;
+import com.ltz.content_service.entity.HistoricalLow;
 import com.ltz.content_service.repository.DealCampaignRepository;
 import com.ltz.content_service.repository.HistoricalLowRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,9 @@ class DealsServiceTest {
     private HistoricalLowRepository historicalLowRepository;
 
     @Mock
+    private DealsQueryCache dealsQueryCache;
+
+    @Mock
     private ReactionsService reactionsService;
 
     @InjectMocks
@@ -63,41 +67,64 @@ class DealsServiceTest {
     // ─── getActiveDeals ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("getActiveDeals() → minDiscount null → findAll çağrılır")
+    @DisplayName("getActiveDeals() → minDiscount null → cache'in findAllSortedByDiscount() çağrılır")
     void getActiveDeals_whenMinDiscountIsNull_shouldReturnAll() {
-        Page<DealCampaign> mockPage = new PageImpl<>(List.of(sampleDeal), pageable, 1);
-        when(dealCampaignRepository.findAll(pageable)).thenReturn(mockPage);
+        when(dealsQueryCache.findAllSortedByDiscount()).thenReturn(List.of(sampleDeal));
 
-        Page<DealCampaign> result = dealsService.getActiveDeals(null, pageable);
+        Page<DealCampaignResponse> result = dealsService.getActiveDeals(null, pageable, null);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(dealCampaignRepository).findAll(pageable);
-        verify(dealCampaignRepository, never()).findByDiscountPercentGreaterThanEqual(anyInt(), any());
+        verify(dealsQueryCache).findAllSortedByDiscount();
+        verify(dealsQueryCache, never()).findByMinDiscount(anyInt());
     }
 
     @Test
-    @DisplayName("getActiveDeals() → minDiscount 0 → findAll çağrılır (0 filtre etkisiz)")
+    @DisplayName("getActiveDeals() → minDiscount 0 → cache'in findAllSortedByDiscount() çağrılır (0 filtre etkisiz)")
     void getActiveDeals_whenMinDiscountIsZero_shouldReturnAll() {
-        Page<DealCampaign> mockPage = new PageImpl<>(List.of(sampleDeal), pageable, 1);
-        when(dealCampaignRepository.findAll(pageable)).thenReturn(mockPage);
+        when(dealsQueryCache.findAllSortedByDiscount()).thenReturn(List.of(sampleDeal));
 
-        Page<DealCampaign> result = dealsService.getActiveDeals(0, pageable);
+        Page<DealCampaignResponse> result = dealsService.getActiveDeals(0, pageable, null);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
-        verify(dealCampaignRepository).findAll(pageable);
+        verify(dealsQueryCache).findAllSortedByDiscount();
     }
 
     @Test
-    @DisplayName("getActiveDeals() → minDiscount 50 → findByDiscountPercent çağrılır")
+    @DisplayName("getActiveDeals() → minDiscount 50 → cache'in findByMinDiscount() çağrılır")
     void getActiveDeals_whenMinDiscount50_shouldFilterByDiscount() {
-        Page<DealCampaign> mockPage = new PageImpl<>(List.of(sampleDeal), pageable, 1);
-        when(dealCampaignRepository.findByDiscountPercentGreaterThanEqual(50, pageable)).thenReturn(mockPage);
+        when(dealsQueryCache.findByMinDiscount(50)).thenReturn(List.of(sampleDeal));
 
-        Page<DealCampaign> result = dealsService.getActiveDeals(50, pageable);
+        Page<DealCampaignResponse> result = dealsService.getActiveDeals(50, pageable, null);
 
         assertThat(result.getContent().get(0).getDiscountPercent()).isGreaterThanOrEqualTo(50);
-        verify(dealCampaignRepository).findByDiscountPercentGreaterThanEqual(50, pageable);
-        verify(dealCampaignRepository, never()).findAll(any(Pageable.class));
+        verify(dealsQueryCache).findByMinDiscount(50);
+        verify(dealsQueryCache, never()).findAllSortedByDiscount();
+    }
+
+    @Test
+    @DisplayName("getActiveDeals() → aynı oyun farklı mağazalarda → tek satıra tekilleştirilir")
+    void getActiveDeals_whenSameGameMultipleStores_shouldDeduplicateByGameTitle() {
+        DealCampaign steamDeal = DealCampaign.builder()
+                .id(1L)
+                .gameTitle("Cyberpunk 2077")
+                .storeName("Steam")
+                .discountPercent(50)
+                .discountedPrice(new BigDecimal("29.99"))
+                .build();
+        DealCampaign gogDeal = DealCampaign.builder()
+                .id(2L)
+                .gameTitle("Cyberpunk 2077")
+                .storeName("GOG")
+                .discountPercent(40)
+                .discountedPrice(new BigDecimal("35.99"))
+                .build();
+        // Cache ORDER BY discountPercent DESC ile döner: en yüksek indirim önce.
+        when(dealsQueryCache.findAllSortedByDiscount()).thenReturn(List.of(steamDeal, gogDeal));
+
+        Page<DealCampaignResponse> result = dealsService.getActiveDeals(null, pageable, null);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getStoreName()).isEqualTo("Steam");
     }
 
     // ─── getFreeGames ────────────────────────────────────────────────────────
@@ -111,21 +138,21 @@ class DealsServiceTest {
                 .isFree(true)
                 .discountedPrice(BigDecimal.ZERO)
                 .build();
-        when(dealCampaignRepository.findByIsFreeTrue()).thenReturn(List.of(freeDeal));
+        when(dealsQueryCache.findFreeGames()).thenReturn(List.of(freeDeal));
 
-        List<DealCampaign> result = dealsService.getFreeGames();
+        List<DealCampaignResponse> result = dealsService.getFreeGames(null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).isFree()).isTrue();
-        verify(dealCampaignRepository).findByIsFreeTrue();
+        verify(dealsQueryCache).findFreeGames();
     }
 
     @Test
     @DisplayName("getFreeGames() → veri yok → boş liste döner")
     void getFreeGames_whenNoFreeGames_shouldReturnEmptyList() {
-        when(dealCampaignRepository.findByIsFreeTrue()).thenReturn(List.of());
+        when(dealsQueryCache.findFreeGames()).thenReturn(List.of());
 
-        List<DealCampaign> result = dealsService.getFreeGames();
+        List<DealCampaignResponse> result = dealsService.getFreeGames(null);
 
         assertThat(result).isEmpty();
     }

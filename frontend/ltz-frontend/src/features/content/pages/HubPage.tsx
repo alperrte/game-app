@@ -31,18 +31,18 @@ function HubSkeleton() {
                 {Array.from({ length: 6 }).map((_, index) => (
                     <div
                         key={index}
-                        className="h-24 animate-pulse rounded-2xl bg-white/5"
+                        className="h-24 motion-reduce:animate-none animate-pulse rounded-2xl bg-white/5"
                     />
                 ))}
             </div>
             <div className="grid gap-6 xl:grid-cols-2">
-                <div className="h-96 animate-pulse rounded-3xl bg-white/5" />
-                <div className="h-96 animate-pulse rounded-3xl bg-white/5" />
+                <div className="h-96 motion-reduce:animate-none animate-pulse rounded-3xl bg-white/5" />
+                <div className="h-96 motion-reduce:animate-none animate-pulse rounded-3xl bg-white/5" />
             </div>
-            <div className="h-56 animate-pulse rounded-3xl bg-white/5" />
+            <div className="h-56 motion-reduce:animate-none animate-pulse rounded-3xl bg-white/5" />
             <div className="grid gap-6 xl:grid-cols-2">
-                <div className="h-80 animate-pulse rounded-3xl bg-white/5" />
-                <div className="h-80 animate-pulse rounded-3xl bg-white/5" />
+                <div className="h-80 motion-reduce:animate-none animate-pulse rounded-3xl bg-white/5" />
+                <div className="h-80 motion-reduce:animate-none animate-pulse rounded-3xl bg-white/5" />
             </div>
         </div>
     );

@@ -1,11 +1,14 @@
 package com.ltz.content_service.service;
 
 import com.ltz.content_service.service.client.OpenTdbClient;
+import com.ltz.content_service.service.client.dto.TriviaQuestion;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ltz.content_service.dto.DailyTriviaRequest;
+import com.ltz.content_service.dto.DailyTriviaResponse;
 import com.ltz.content_service.exception.ResourceNotFoundException;
-import com.ltz.content_service.model.entity.DailyTrivia;
-import com.ltz.content_service.model.entity.UserTriviaAnswer;
+import com.ltz.content_service.entity.DailyTrivia;
+import com.ltz.content_service.entity.UserTriviaAnswer;
 import com.ltz.content_service.repository.DailyTriviaRepository;
 import com.ltz.content_service.repository.UserTriviaAnswerRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +29,6 @@ public class TriviaService {
     private final OpenTdbClient openTdbClient;
     private final ObjectMapper objectMapper;
 
-    @SuppressWarnings("unchecked")
     public Map<String, Object> getTodayTrivia(Long currentUserId) {
         LocalDate today = LocalDate.now();
         Optional<DailyTrivia> triviaOpt = dailyTriviaRepository.findByTriviaDate(today);
@@ -35,23 +37,19 @@ public class TriviaService {
         if (triviaOpt.isPresent()) {
             trivia = triviaOpt.get();
         } else {
-            Map<String, Object> apiTrivia = null;
+            TriviaQuestion apiTrivia = null;
             try {
                 apiTrivia = openTdbClient.fetchRandomTrivia().block();
             } catch (Exception ex) {
                 log.warn("Failed to fetch live trivia from OpenTDB: {}", ex.getMessage());
             }
 
-            if (apiTrivia != null && !apiTrivia.isEmpty()) {
+            if (apiTrivia != null) {
                 try {
-                    String question = (String) apiTrivia.get("question");
-                    List<String> options = (List<String>) apiTrivia.get("options");
-                    int correctOptionIndex = (Integer) apiTrivia.get("correctOptionIndex");
-
                     DailyTrivia newTrivia = DailyTrivia.builder()
-                            .question(question)
-                            .optionsJson(objectMapper.writeValueAsString(options))
-                            .correctOptionIndex(correctOptionIndex)
+                            .question(apiTrivia.question())
+                            .optionsJson(objectMapper.writeValueAsString(apiTrivia.options()))
+                            .correctOptionIndex(apiTrivia.correctOptionIndex())
                             .triviaDate(today)
                             .build();
 
@@ -143,23 +141,30 @@ public class TriviaService {
     }
 
     @Transactional
-    public DailyTrivia createTrivia(DailyTrivia trivia) {
+    public DailyTriviaResponse createTrivia(DailyTriviaRequest request) {
+        DailyTrivia trivia = DailyTrivia.builder()
+                .question(request.getQuestion())
+                .optionsJson(request.getOptionsJson())
+                .correctOptionIndex(request.getCorrectOptionIndex())
+                .triviaDate(request.getTriviaDate())
+                .build();
+
         log.info("Creating new daily trivia: {}", trivia.getQuestion());
-        return dailyTriviaRepository.save(trivia);
+        return mapToResponse(dailyTriviaRepository.save(trivia));
     }
 
     @Transactional
-    public DailyTrivia updateTrivia(Long id, DailyTrivia triviaDetails) {
+    public DailyTriviaResponse updateTrivia(Long id, DailyTriviaRequest request) {
         DailyTrivia trivia = dailyTriviaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Daily trivia not found with id: " + id));
 
-        trivia.setQuestion(triviaDetails.getQuestion());
-        trivia.setOptionsJson(triviaDetails.getOptionsJson());
-        trivia.setCorrectOptionIndex(triviaDetails.getCorrectOptionIndex());
-        trivia.setTriviaDate(triviaDetails.getTriviaDate());
+        trivia.setQuestion(request.getQuestion());
+        trivia.setOptionsJson(request.getOptionsJson());
+        trivia.setCorrectOptionIndex(request.getCorrectOptionIndex());
+        trivia.setTriviaDate(request.getTriviaDate());
 
         log.info("Updating daily trivia id: {}", id);
-        return dailyTriviaRepository.save(trivia);
+        return mapToResponse(dailyTriviaRepository.save(trivia));
     }
 
     @Transactional
@@ -168,6 +173,17 @@ public class TriviaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Daily trivia not found with id: " + id));
         dailyTriviaRepository.delete(trivia);
         log.info("Deleted daily trivia id: {}", id);
+    }
+
+    private DailyTriviaResponse mapToResponse(DailyTrivia trivia) {
+        return DailyTriviaResponse.builder()
+                .id(trivia.getId())
+                .question(trivia.getQuestion())
+                .optionsJson(trivia.getOptionsJson())
+                .correctOptionIndex(trivia.getCorrectOptionIndex())
+                .triviaDate(trivia.getTriviaDate())
+                .createdAt(trivia.getCreatedAt())
+                .build();
     }
 
     private DailyTrivia getFallbackTrivia(LocalDate today) {

@@ -2,6 +2,7 @@ import { ExternalLink, Newspaper } from "lucide-react";
 
 import { CONTENT_ROUTES } from "../../../../lib/constants";
 import type { NewsArticle, NewsCategory } from "../../types/news.types";
+import { formatNewsDate } from "../../utils/newsFormatting";
 import { HubWidgetCard } from "./HubWidgetCard";
 
 const categoryLabels: Record<NewsCategory, string> = {
@@ -9,18 +10,6 @@ const categoryLabels: Record<NewsCategory, string> = {
     HARDWARE: "Donanım",
     PATCH_NOTES: "Yama",
 };
-
-function formatNewsDate(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-
-    return new Intl.DateTimeFormat("tr-TR", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-    }).format(date);
-}
 
 interface HubNewsPreviewProps {
     articles: NewsArticle[];
@@ -56,6 +45,7 @@ export function HubNewsPreview({ articles }: HubNewsPreviewProps) {
                                     <img
                                         src={featured.imageUrl}
                                         alt={featured.title}
+                                        loading="lazy"
                                         className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
@@ -93,6 +83,7 @@ export function HubNewsPreview({ articles }: HubNewsPreviewProps) {
                                 <img
                                     src={article.imageUrl}
                                     alt=""
+                                    loading="lazy"
                                     className="h-14 w-20 shrink-0 rounded-lg object-cover"
                                 />
                             ) : (

@@ -19,6 +19,8 @@ export interface DealCampaign {
     metacriticScore?: number | null;
     steamRatingPercent?: number | null;
     lastUpdated: string;
+    reactions: ReactionSummary;
+    userReaction?: string | null;
 }
 
 export interface DealHistoricalLow {
