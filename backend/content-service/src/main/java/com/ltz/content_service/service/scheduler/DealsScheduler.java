@@ -1,8 +1,10 @@
 package com.ltz.content_service.service.scheduler;
 
 import com.ltz.content_service.entity.DealCampaign;
+import com.ltz.content_service.entity.DealPriceSnapshot;
 import com.ltz.content_service.entity.HistoricalLow;
 import com.ltz.content_service.repository.DealCampaignRepository;
+import com.ltz.content_service.repository.DealPriceSnapshotRepository;
 import com.ltz.content_service.repository.HistoricalLowRepository;
 import com.ltz.content_service.service.client.CheapSharkClient;
 import com.ltz.content_service.service.client.SteamClient;
@@ -27,16 +29,46 @@ public class DealsScheduler {
 
     private final DealCampaignRepository dealCampaignRepository;
     private final HistoricalLowRepository historicalLowRepository;
+    private final DealPriceSnapshotRepository dealPriceSnapshotRepository;
     private final CheapSharkClient cheapSharkClient;
     private final SteamClient steamClient;
 
-    private static final Map<String, String> STORES_MAP = Map.of(
-            "1", "Steam",
-            "2", "GamersGate",
-            "3", "GreenManGaming",
-            "7", "GOG",
-            "11", "Epic Games Store",
-            "25", "Humble Store"
+    private static final Map<String, String> STORES_MAP = Map.ofEntries(
+            Map.entry("1", "Steam"),
+            Map.entry("2", "GamersGate"),
+            Map.entry("3", "GreenManGaming"),
+            Map.entry("4", "Amazon"),
+            Map.entry("5", "GameStop"),
+            Map.entry("6", "Direct2Drive"),
+            Map.entry("7", "GOG"),
+            Map.entry("8", "Origin"),
+            Map.entry("9", "Get Games"),
+            Map.entry("10", "Shiny Loot"),
+            Map.entry("11", "Humble Store"),
+            Map.entry("12", "Desura"),
+            Map.entry("13", "Uplay"),
+            Map.entry("14", "IndieGameStand"),
+            Map.entry("15", "Fanatical"),
+            Map.entry("16", "Gamesrocket"),
+            Map.entry("17", "Games Republic"),
+            Map.entry("18", "SilaGames"),
+            Map.entry("19", "Playfield"),
+            Map.entry("20", "ImperialGames"),
+            Map.entry("21", "WinGameStore"),
+            Map.entry("22", "FunStockDigital"),
+            Map.entry("23", "GameBillet"),
+            Map.entry("24", "Voidu"),
+            Map.entry("25", "Epic Games Store"),
+            Map.entry("26", "Razer Game Store"),
+            Map.entry("27", "Gamesplanet"),
+            Map.entry("28", "Gamesload"),
+            Map.entry("29", "2Game"),
+            Map.entry("30", "IndieGala"),
+            Map.entry("31", "Blizzard Shop"),
+            Map.entry("32", "AllYouPlay"),
+            Map.entry("33", "DLGamer"),
+            Map.entry("34", "Noctre"),
+            Map.entry("35", "DreamGame")
     );
 
     private record DealWithStatus(CheapSharkDeal deal, String steamDeckStatus) {
@@ -174,9 +206,37 @@ public class DealsScheduler {
                     .then()
                     .block();
 
+            captureDailyPriceSnapshots();
+
             log.info("Completed deals fetch job.");
         } catch (Exception e) {
             log.error("Error fetching deals: ", e);
+        }
+    }
+
+    private void captureDailyPriceSnapshots() {
+        try {
+            Map<String, DealCampaign> cheapestPerGame = new java.util.LinkedHashMap<>();
+            for (DealCampaign deal : dealCampaignRepository.findAll()) {
+                DealCampaign current = cheapestPerGame.get(deal.getGameTitle());
+                if (current == null || deal.getDiscountedPrice().compareTo(current.getDiscountedPrice()) < 0) {
+                    cheapestPerGame.put(deal.getGameTitle(), deal);
+                }
+            }
+
+            LocalDateTime now = LocalDateTime.now();
+            for (DealCampaign cheapest : cheapestPerGame.values()) {
+                DealPriceSnapshot snapshot = DealPriceSnapshot.builder()
+                        .gameTitle(cheapest.getGameTitle())
+                        .discountedPrice(cheapest.getDiscountedPrice())
+                        .currency(cheapest.getCurrency())
+                        .recordedAt(now)
+                        .build();
+                dealPriceSnapshotRepository.save(snapshot);
+            }
+            log.info("Captured {} price snapshots.", cheapestPerGame.size());
+        } catch (Exception e) {
+            log.error("Failed to capture price snapshots: ", e);
         }
     }
 }

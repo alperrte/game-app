@@ -57,7 +57,7 @@ export function TriviaPanel({ initialData, onUpdated }: TriviaPanelProps) {
                 </h2>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-3" role="radiogroup" aria-label="Trivia seçenekleri">
                 {initialData.options.map((option, index) => {
                     const isSelected = selectedIndex === index;
                     const isCorrect =
@@ -73,6 +73,8 @@ export function TriviaPanel({ initialData, onUpdated }: TriviaPanelProps) {
                         <button
                             key={option}
                             type="button"
+                            role="radio"
+                            aria-checked={isSelected}
                             disabled={locked}
                             onClick={() => setSelectedIndex(index)}
                             className={cn(

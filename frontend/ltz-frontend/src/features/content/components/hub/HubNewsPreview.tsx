@@ -3,6 +3,7 @@ import { ExternalLink, Newspaper } from "lucide-react";
 import { CONTENT_ROUTES } from "../../../../lib/constants";
 import type { NewsArticle, NewsCategory } from "../../types/news.types";
 import { formatNewsDate } from "../../utils/newsFormatting";
+import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import { HubWidgetCard } from "./HubWidgetCard";
 
 const categoryLabels: Record<NewsCategory, string> = {
@@ -17,11 +18,16 @@ interface HubNewsPreviewProps {
 
 export function HubNewsPreview({ articles }: HubNewsPreviewProps) {
     const [featured, ...rest] = articles;
+    const freshness = featured ? formatRelativeTime(featured.createdAt) : null;
 
     return (
         <HubWidgetCard
             title="Son Haberler"
-            subtitle="RSS kaynaklarından canlı akış"
+            subtitle={
+                freshness
+                    ? `RSS kaynaklarından canlı akış · ${freshness} güncellendi`
+                    : "RSS kaynaklarından canlı akış"
+            }
             icon={Newspaper}
             action={{ label: "Tümünü gör", href: CONTENT_ROUTES.news }}
             contentClassName="space-y-3"

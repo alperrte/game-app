@@ -1,5 +1,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
 
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -8,6 +10,8 @@ import { ContentEmptyState } from "../components/ContentEmptyState";
 import { ContentShell } from "../components/ContentShell";
 import { DealCard } from "../components/deals/DealCard";
 import { DealCompareCard } from "../components/deals/DealCompareCard";
+import { DealComparisonModal } from "../components/deals/DealComparisonModal";
+import { ChipScrollRow } from "../components/shared/ChipScrollRow";
 import { contentService } from "../services/contentService";
 import type { DealCampaign, DealCompareItem } from "../types/deals.types";
 
@@ -19,19 +23,37 @@ const discountFilters = [
 ] as const;
 
 export default function DealsPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = Number(searchParams.get("page") ?? "0") || 0;
+    const minDiscount = Number(searchParams.get("minDiscount") ?? "0") || 0;
+    const deckOnly = searchParams.get("deckOnly") === "1";
+    const activeSearch = searchParams.get("q") ?? "";
+
     const [deals, setDeals] = useState<DealCampaign[]>([]);
     const [comparisons, setComparisons] = useState<DealCompareItem[]>([]);
-    const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
-    const [minDiscount, setMinDiscount] = useState(0);
-    const [deckOnly, setDeckOnly] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [activeSearch, setActiveSearch] = useState("");
+    const [searchQuery, setSearchQuery] = useState(activeSearch);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [compareIds, setCompareIds] = useState<number[]>([]);
+    const [compareOpen, setCompareOpen] = useState(false);
 
     const isSearchMode = activeSearch.trim().length > 0;
+
+    const MAX_COMPARE = 3;
+
+    function handleToggleCompare(dealId: number) {
+        setCompareIds((current) => {
+            if (current.includes(dealId)) {
+                return current.filter((id) => id !== dealId);
+            }
+            if (current.length >= MAX_COMPARE) return current;
+            return [...current, dealId];
+        });
+    }
+
+    const compareDeals = deals.filter((deal) => compareIds.includes(deal.id));
 
     useEffect(() => {
         let active = true;
@@ -113,15 +135,35 @@ export default function DealsPage() {
 
     function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setPage(0);
-        setActiveSearch(searchQuery.trim());
+        const trimmed = searchQuery.trim();
+        setSearchParams((prev) => {
+            const params = new URLSearchParams(prev);
+            params.delete("page");
+            if (trimmed) params.set("q", trimmed);
+            else params.delete("q");
+            return params;
+        });
     }
 
     function handleDiscountChange(value: number) {
-        setMinDiscount(value);
-        setPage(0);
-        setActiveSearch("");
         setSearchQuery("");
+        setSearchParams((prev) => {
+            const params = new URLSearchParams(prev);
+            params.delete("page");
+            params.delete("q");
+            if (value > 0) params.set("minDiscount", String(value));
+            else params.delete("minDiscount");
+            return params;
+        });
+    }
+
+    function handleDeckOnlyToggle() {
+        setSearchParams((prev) => {
+            const params = new URLSearchParams(prev);
+            if (deckOnly) params.delete("deckOnly");
+            else params.set("deckOnly", "1");
+            return params;
+        });
     }
 
     return (
@@ -161,7 +203,7 @@ export default function DealsPage() {
                 </form>
 
                 {!isSearchMode ? (
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <ChipScrollRow className="mt-4">
                         {discountFilters.map((filter) => (
                             <button
                                 key={filter.label}
@@ -181,7 +223,7 @@ export default function DealsPage() {
                         <button
                             type="button"
                             aria-pressed={deckOnly}
-                            onClick={() => setDeckOnly((current) => !current)}
+                            onClick={handleDeckOnlyToggle}
                             className={
                                 deckOnly
                                     ? "rounded-full border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-xs font-semibold text-violet-100"
@@ -190,7 +232,7 @@ export default function DealsPage() {
                         >
                             Sadece Deck Onaylı
                         </button>
-                    </div>
+                    </ChipScrollRow>
                 ) : null}
             </Card>
 
@@ -211,52 +253,118 @@ export default function DealsPage() {
                 </Card>
             ) : null}
 
-            {!loading && !error && isSearchMode ? (
-                comparisons.length === 0 ? (
-                    <ContentEmptyState
-                        title="Sonuç bulunamadı"
-                        description="Farklı bir oyun adıyla tekrar aramayı dene."
-                    />
-                ) : (
-                    <div className="space-y-4">
-                        {comparisons.map((item) => (
-                            <DealCompareCard
-                                key={item.gameTitle}
-                                item={item}
-                            />
-                        ))}
-                    </div>
-                )
+            <AnimatePresence mode="wait">
+                {!loading && !error ? (
+                    <motion.div
+                        key={
+                            isSearchMode
+                                ? `search-${activeSearch}`
+                                : `browse-${minDiscount}-${deckOnly}`
+                        }
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                    >
+                        {isSearchMode ? (
+                            comparisons.length === 0 ? (
+                                <ContentEmptyState
+                                    title="Sonuç bulunamadı"
+                                    description="Farklı bir oyun adıyla tekrar aramayı dene."
+                                />
+                            ) : (
+                                <div className="space-y-4">
+                                    {comparisons.map((item) => (
+                                        <DealCompareCard
+                                            key={item.gameTitle}
+                                            item={item}
+                                        />
+                                    ))}
+                                </div>
+                            )
+                        ) : (
+                            <>
+                                {visibleDeals.length === 0 ? (
+                                    <ContentEmptyState
+                                        title="İndirim bulunamadı"
+                                        description={
+                                            deckOnly && deals.length > 0
+                                                ? "Yüklenen sayfada Deck onaylı indirim yok. Daha fazla yükleyip tekrar dene."
+                                                : "Scheduler henüz kampanya doldurmamış olabilir veya filtreler sonuç döndürmüyor."
+                                        }
+                                    />
+                                ) : (
+                                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                        {visibleDeals.map((deal) => (
+                                            <DealCard
+                                                key={deal.id}
+                                                deal={deal}
+                                                compareSelected={compareIds.includes(deal.id)}
+                                                onToggleCompare={() =>
+                                                    handleToggleCompare(deal.id)
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {page + 1 < totalPages ? (
+                                    <div className="mt-8 flex justify-center">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            isLoading={loadingMore}
+                                            onClick={() =>
+                                                setSearchParams((prev) => {
+                                                    const params = new URLSearchParams(prev);
+                                                    params.set("page", String(page + 1));
+                                                    return params;
+                                                })
+                                            }
+                                        >
+                                            Daha fazla indirim yükle
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
+
+            {compareIds.length > 0 && !compareOpen ? (
+                <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-violet-400/30 bg-slate-950/95 px-5 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
+                    <span className="text-sm font-semibold text-white">
+                        {compareIds.length} oyun seçildi
+                    </span>
+                    <Button
+                        type="button"
+                        onClick={() => setCompareOpen(true)}
+                        disabled={compareIds.length < 2}
+                    >
+                        Karşılaştır
+                    </Button>
+                    <button
+                        type="button"
+                        aria-label="Seçimi temizle"
+                        onClick={() => setCompareIds([])}
+                        className="text-xs font-semibold text-slate-400 hover:text-white"
+                    >
+                        Temizle
+                    </button>
+                </div>
             ) : null}
 
-            {!loading && !error && !isSearchMode ? (
-                visibleDeals.length === 0 ? (
-                    <ContentEmptyState
-                        title="İndirim bulunamadı"
-                        description="Scheduler henüz kampanya doldurmamış olabilir veya filtreler sonuç döndürmüyor."
-                    />
-                ) : (
-                    <>
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            {visibleDeals.map((deal) => (
-                                <DealCard key={deal.id} deal={deal} />
-                            ))}
-                        </div>
-
-                        {page + 1 < totalPages ? (
-                            <div className="mt-8 flex justify-center">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    isLoading={loadingMore}
-                                    onClick={() => setPage((current) => current + 1)}
-                                >
-                                    Daha fazla indirim yükle
-                                </Button>
-                            </div>
-                        ) : null}
-                    </>
-                )
+            {compareOpen && compareDeals.length > 0 ? (
+                <DealComparisonModal
+                    deals={compareDeals}
+                    onClose={() => setCompareOpen(false)}
+                    onRemove={(dealId) =>
+                        setCompareIds((current) =>
+                            current.filter((id) => id !== dealId),
+                        )
+                    }
+                />
             ) : null}
         </ContentShell>
     );

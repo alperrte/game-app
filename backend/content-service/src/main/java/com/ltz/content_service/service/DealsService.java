@@ -2,9 +2,12 @@ package com.ltz.content_service.service;
 
 import com.ltz.content_service.dto.DealCampaignResponse;
 import com.ltz.content_service.dto.DealCompareResponse;
+import com.ltz.content_service.dto.PriceSnapshotResponse;
 import com.ltz.content_service.entity.DealCampaign;
+import com.ltz.content_service.entity.DealPriceSnapshot;
 import com.ltz.content_service.entity.HistoricalLow;
 import com.ltz.content_service.repository.DealCampaignRepository;
+import com.ltz.content_service.repository.DealPriceSnapshotRepository;
 import com.ltz.content_service.repository.HistoricalLowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +26,7 @@ public class DealsService {
 
     private final DealCampaignRepository dealCampaignRepository;
     private final HistoricalLowRepository historicalLowRepository;
+    private final DealPriceSnapshotRepository dealPriceSnapshotRepository;
     private final DealsQueryCache dealsQueryCache;
     private final ReactionsService reactionsService;
 
@@ -54,6 +58,16 @@ public class DealsService {
     }
 
     private DealCampaignResponse mapToResponse(DealCampaign deal, Long currentUserId) {
+        DealCompareResponse.HistoricalLowDTO historicalLowDto = historicalLowRepository
+                .findByGameTitleIgnoreCase(deal.getGameTitle())
+                .map(low -> DealCompareResponse.HistoricalLowDTO.builder()
+                        .lowestPrice(low.getLowestPrice())
+                        .storeName(low.getStoreName())
+                        .currency(low.getCurrency())
+                        .recordedAt(low.getRecordedAt())
+                        .build())
+                .orElse(null);
+
         return DealCampaignResponse.builder()
                 .id(deal.getId())
                 .gameTitle(deal.getGameTitle())
@@ -73,6 +87,7 @@ public class DealsService {
                 .lastUpdated(deal.getLastUpdated())
                 .reactions(reactionsService.getReactionsSummary(deal.getId(), "CAMPAIGN"))
                 .userReaction(reactionsService.getUserReaction(currentUserId, deal.getId(), "CAMPAIGN"))
+                .historicalLow(historicalLowDto)
                 .build();
     }
 
@@ -148,6 +163,20 @@ public class DealsService {
     public List<DealCampaignResponse> getFreeGames(Long currentUserId) {
         return dealsQueryCache.findFreeGames().stream()
                 .map(deal -> mapToResponse(deal, currentUserId))
+                .collect(Collectors.toList());
+    }
+
+    public List<PriceSnapshotResponse> getPriceHistory(String gameTitle) {
+        List<DealPriceSnapshot> snapshots = dealPriceSnapshotRepository
+                .findTop30ByGameTitleIgnoreCaseOrderByRecordedAtDesc(gameTitle);
+
+        return snapshots.stream()
+                .sorted(Comparator.comparing(DealPriceSnapshot::getRecordedAt))
+                .map(snapshot -> PriceSnapshotResponse.builder()
+                        .discountedPrice(snapshot.getDiscountedPrice())
+                        .currency(snapshot.getCurrency())
+                        .recordedAt(snapshot.getRecordedAt())
+                        .build())
                 .collect(Collectors.toList());
     }
 }

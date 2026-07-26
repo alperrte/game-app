@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { Radio, Sparkles, Trophy } from "lucide-react";
 
 import { Card } from "../../../components/ui/Card";
 import { contentService } from "../services/contentService";
@@ -15,6 +17,7 @@ import { FreeGamesStrip } from "../components/hub/FreeGamesStrip";
 import { HubDealsPreview } from "../components/hub/HubDealsPreview";
 import { HubNewsPreview } from "../components/hub/HubNewsPreview";
 import { HubPulseStrip } from "../components/hub/HubPulseStrip";
+import { HubSectionHeader } from "../components/hub/HubSectionHeader";
 import { HubTriviaTeaser } from "../components/hub/HubTriviaTeaser";
 import { PlatformStatusGrid } from "../components/hub/PlatformStatusGrid";
 import { SpeedrunWidget } from "../components/hub/SpeedrunWidget";
@@ -23,6 +26,8 @@ import { SteamCcuWidget } from "../components/hub/SteamCcuWidget";
 import { TwitchCategoriesWidget } from "../components/hub/TwitchCategoriesWidget";
 import { TwitchStreamsWidget } from "../components/hub/TwitchStreamsWidget";
 import { UpcomingReleasesWidget } from "../components/hub/UpcomingReleasesWidget";
+import { WhatYouMissedBanner } from "../components/hub/WhatYouMissedBanner";
+import { getLastHubVisit, setHubVisitNow } from "../utils/lastHubVisit";
 
 function HubSkeleton() {
     return (
@@ -48,6 +53,25 @@ function HubSkeleton() {
     );
 }
 
+function FadeInSection({
+    children,
+    delay = 0,
+}: {
+    children: ReactNode;
+    delay?: number;
+}) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay, ease: "easeOut" }}
+            className="space-y-6"
+        >
+            {children}
+        </motion.div>
+    );
+}
+
 export default function HubPage() {
     const [stats, setStats] = useState<ContentStatsResponse | null>(null);
     const [esportMatches, setEsportMatches] = useState<EsportMatch[]>([]);
@@ -59,6 +83,11 @@ export default function HubPage() {
     const [spotlight, setSpotlight] = useState<SpotlightBanner[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastVisit] = useState(() => getLastHubVisit());
+
+    useEffect(() => {
+        setHubVisitNow();
+    }, []);
 
     const topDealDiscount = useMemo(
         () => deals.reduce((max, deal) => Math.max(max, deal.discountPercent), 0),
@@ -140,61 +169,80 @@ export default function HubPage() {
             ) : null}
 
             {!loading && !error && stats ? (
-                <div className="space-y-6">
-                    <HubPulseStrip
-                        stats={stats}
+                <div className="space-y-10">
+                    <WhatYouMissedBanner
+                        lastVisit={lastVisit}
+                        news={news}
+                        deals={deals}
                         esportMatches={esportMatches}
-                        newsCount={newsTotal}
-                        dealsCount={dealsTotal}
-                        topDealDiscount={topDealDiscount}
                     />
 
-                    <div className="grid gap-6 xl:grid-cols-2">
-                        <HubNewsPreview articles={news} />
-                        <HubDealsPreview deals={deals} />
-                    </div>
+                    <FadeInSection delay={0}>
+                        <HubSectionHeader label="Şu An" icon={Radio} />
 
-                    {stats.platform_status ? (
-                        <PlatformStatusGrid statuses={stats.platform_status} />
-                    ) : null}
+                        <HubPulseStrip
+                            stats={stats}
+                            esportMatches={esportMatches}
+                            newsCount={newsTotal}
+                            dealsCount={dealsTotal}
+                            topDealDiscount={topDealDiscount}
+                        />
 
-                    <EsportLiveStrip matches={esportMatches} />
-
-                    <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                        {stats.steam_top_played ? (
-                            <SteamCcuWidget games={stats.steam_top_played} />
+                        {stats.platform_status ? (
+                            <PlatformStatusGrid statuses={stats.platform_status} />
                         ) : null}
 
-                        {stats.twitch_top_categories ? (
-                            <TwitchCategoriesWidget
-                                categories={stats.twitch_top_categories}
+                        <EsportLiveStrip matches={esportMatches} />
+
+                        {stats.twitch_live_streams ? (
+                            <TwitchStreamsWidget
+                                streams={stats.twitch_live_streams}
                             />
                         ) : null}
-                    </div>
+                    </FadeInSection>
 
-                    <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                        {stats.free_games ? (
-                            <FreeGamesStrip games={stats.free_games} />
-                        ) : null}
+                    <FadeInSection delay={0.08}>
+                        <HubSectionHeader label="İçerik" icon={Sparkles} />
+
+                        <div className="grid gap-6 xl:grid-cols-2">
+                            <HubNewsPreview articles={news} />
+                            <HubDealsPreview deals={deals} />
+                        </div>
+
+                        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                            {stats.free_games ? (
+                                <FreeGamesStrip games={stats.free_games} />
+                            ) : null}
+
+                            {stats.upcoming_releases ? (
+                                <UpcomingReleasesWidget
+                                    releases={stats.upcoming_releases}
+                                />
+                            ) : null}
+                        </div>
+                    </FadeInSection>
+
+                    <FadeInSection delay={0.16}>
+                        <HubSectionHeader label="Topluluk & Rekorlar" icon={Trophy} />
+
+                        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                            {stats.steam_top_played ? (
+                                <SteamCcuWidget games={stats.steam_top_played} />
+                            ) : null}
+
+                            {stats.twitch_top_categories ? (
+                                <TwitchCategoriesWidget
+                                    categories={stats.twitch_top_categories}
+                                />
+                            ) : null}
+                        </div>
 
                         {stats.speedrun_records ? (
                             <SpeedrunWidget records={stats.speedrun_records} />
                         ) : null}
-                    </div>
 
-                    {stats.twitch_live_streams ? (
-                        <TwitchStreamsWidget
-                            streams={stats.twitch_live_streams}
-                        />
-                    ) : null}
-
-                    {stats.upcoming_releases ? (
-                        <UpcomingReleasesWidget
-                            releases={stats.upcoming_releases}
-                        />
-                    ) : null}
-
-                    {trivia ? <HubTriviaTeaser trivia={trivia} /> : null}
+                        {trivia ? <HubTriviaTeaser trivia={trivia} /> : null}
+                    </FadeInSection>
                 </div>
             ) : null}
         </ContentShell>

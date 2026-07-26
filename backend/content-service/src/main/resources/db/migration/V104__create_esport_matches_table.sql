@@ -10,6 +10,7 @@ CREATE TABLE esport_matches (
     status NVARCHAR(20) NOT NULL, 
     match_time DATETIME2 NOT NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    is_simulated BIT NOT NULL DEFAULT 0,
     CONSTRAINT ck_esport_status CHECK (status IN ('LIVE', 'UPCOMING', 'FINISHED')),
     CONSTRAINT ck_esport_scores CHECK (team_a_score >= 0 AND team_b_score >= 0)
 );

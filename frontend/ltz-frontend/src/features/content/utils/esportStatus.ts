@@ -8,7 +8,7 @@ export function esportStatusLabel(status: EsportMatch["status"]): string {
 
 export function esportStatusTone(status: EsportMatch["status"]): string {
     if (status === "LIVE") {
-        return "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200";
+        return "border-rose-400/40 bg-rose-500/15 text-rose-200";
     }
     if (status === "UPCOMING") {
         return "border-violet-400/30 bg-violet-500/10 text-violet-200";

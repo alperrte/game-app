@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -37,6 +38,22 @@ public class TriviaController {
         }
         Map<String, Object> result = triviaService.submitAnswer(principal.userId(), selectedIndex);
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getUserTriviaStats(
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        Long currentUserId = (principal != null) ? principal.userId() : null;
+        return ResponseEntity.ok(triviaService.getUserTriviaStats(currentUserId));
+    }
+
+    @GetMapping("/stats/bulk")
+    public ResponseEntity<Map<Long, Map<String, Object>>> getBulkTriviaStats(
+            @RequestParam List<Long> userIds
+    ) {
+        List<Long> bounded = userIds.stream().distinct().limit(50).toList();
+        return ResponseEntity.ok(triviaService.getBulkTriviaStats(bounded));
     }
 
     @PostMapping("/admin")

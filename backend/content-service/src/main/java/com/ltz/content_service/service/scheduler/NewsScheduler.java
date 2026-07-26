@@ -39,13 +39,22 @@ public class NewsScheduler {
             "patch notes", "update", "hotfix", "patch v", "version", "changelog", "patch-notes",
             "güncelleme", "yama", "guncelleme", "sürüm", "surum", "notları", "notlari");
 
-    private static final Map<String, String> RSS_SOURCES = Map.of(
-            "PC Gamer", "https://www.pcgamer.com/rss/",
-            "IGN", "http://feeds.feedburner.com/ign/news",
-            "GameSpot", "https://www.gamespot.com/feeds/news/",
-            "Eurogamer", "https://www.eurogamer.net/feed/news",
-            "Oyungezer", "https://oyungezer.com.tr/rss",
-            "Merlin'in Kazani", "https://www.merlininkazani.com/feed/");
+    private static final int MAX_ITEMS_PER_SOURCE = 25;
+
+    private static final Map<String, String> RSS_SOURCES = Map.ofEntries(
+            Map.entry("PC Gamer", "https://www.pcgamer.com/rss/"),
+            Map.entry("IGN", "http://feeds.feedburner.com/ign/news"),
+            Map.entry("GameSpot", "https://www.gamespot.com/feeds/news/"),
+            Map.entry("Eurogamer", "https://www.eurogamer.net/feed/news"),
+            Map.entry("Oyungezer", "https://oyungezer.com.tr/rss"),
+            Map.entry("Merlin'in Kazani", "https://www.merlininkazani.com/feed/"),
+            Map.entry("Kotaku", "https://kotaku.com/rss"),
+            Map.entry("Rock Paper Shotgun", "https://www.rockpapershotgun.com/feed"),
+            Map.entry("Polygon", "https://www.polygon.com/rss/index.xml"),
+            Map.entry("VG247", "https://www.vg247.com/feed"),
+            Map.entry("Destructoid", "https://www.destructoid.com/feed/"),
+            Map.entry("ShiftDelete", "https://www.shiftdelete.net/feed"),
+            Map.entry("Donanım Haber", "https://www.donanimhaber.com/rss/tum/"));
 
     @Scheduled(cron = "0 0 * * * *")
     @CacheEvict(value = "news", allEntries = true)
@@ -81,7 +90,7 @@ public class NewsScheduler {
             Document doc = builder.parse(new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8)));
 
             NodeList items = doc.getElementsByTagName("item");
-            for (int i = 0; i < Math.min(items.getLength(), 10); i++) {
+            for (int i = 0; i < Math.min(items.getLength(), MAX_ITEMS_PER_SOURCE); i++) {
                 Element item = (Element) items.item(i);
                 String title = cleanHtml(getTagValue(item, "title"));
                 String description = cleanHtml(getTagValue(item, "description"));
@@ -150,7 +159,7 @@ public class NewsScheduler {
             java.util.regex.Matcher itemMatcher = itemPattern.matcher(xmlContent);
 
             int count = 0;
-            while (itemMatcher.find() && count < 10) {
+            while (itemMatcher.find() && count < MAX_ITEMS_PER_SOURCE) {
                 String itemContent = itemMatcher.group(1);
 
                 String title = extractTagContent(itemContent, "title");

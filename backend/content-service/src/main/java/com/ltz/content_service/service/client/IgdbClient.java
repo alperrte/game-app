@@ -31,7 +31,7 @@ public class IgdbClient {
                 "fields name, first_release_date, platforms.name, cover.url, summary; " +
                 "where first_release_date >= %d & cover != null; " +
                 "sort first_release_date asc; " +
-                "limit 5;", currentTimestamp
+                "limit 30;", currentTimestamp
         );
 
         return twitchClient.getAccessToken()

@@ -27,4 +27,5 @@ public class DealCampaignResponse {
     private LocalDateTime lastUpdated;
     private Map<String, Long> reactions;
     private String userReaction;
+    private DealCompareResponse.HistoricalLowDTO historicalLow;
 }

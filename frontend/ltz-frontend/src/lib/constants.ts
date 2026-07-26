@@ -381,10 +381,13 @@ export const CONTENT_API_ENDPOINTS = {
     deals: "/api/content/deals",
     dealsSearch: "/api/content/deals/search",
     freeGames: "/api/content/deals/free-games",
+    dealPriceHistory: "/api/content/deals/price-history",
     historyToday: "/api/content/history/today",
     historyByDate: "/api/content/history/date",
     triviaToday: "/api/content/trivia/today",
     triviaSubmit: "/api/content/trivia/submit",
+    triviaStats: "/api/content/trivia/stats",
+    triviaStatsBulk: "/api/content/trivia/stats/bulk",
     reactions: "/api/content/reactions",
     spotlight: "/api/content/spotlight",
 } as const;

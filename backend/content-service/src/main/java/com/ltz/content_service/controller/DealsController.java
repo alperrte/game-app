@@ -2,6 +2,7 @@ package com.ltz.content_service.controller;
 
 import com.ltz.content_service.dto.DealCampaignResponse;
 import com.ltz.content_service.dto.DealCompareResponse;
+import com.ltz.content_service.dto.PriceSnapshotResponse;
 import com.ltz.content_service.security.JwtUserPrincipal;
 import com.ltz.content_service.service.DealsService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,13 @@ public class DealsController {
         Long currentUserId = (principal != null) ? principal.userId() : null;
         List<DealCompareResponse> comparisons = dealsService.searchAndCompareDeals(title, currentUserId);
         return ResponseEntity.ok(comparisons);
+    }
+
+    @GetMapping("/price-history")
+    public ResponseEntity<List<PriceSnapshotResponse>> getPriceHistory(
+            @RequestParam String gameTitle
+    ) {
+        return ResponseEntity.ok(dealsService.getPriceHistory(gameTitle));
     }
 
     @GetMapping("/free-games")

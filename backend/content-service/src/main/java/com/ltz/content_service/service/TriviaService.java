@@ -140,6 +140,58 @@ public class TriviaService {
         return result;
     }
 
+    public Map<String, Object> getUserTriviaStats(Long currentUserId) {
+        Map<String, Object> response = new LinkedHashMap<>();
+
+        if (currentUserId == null) {
+            response.put("currentStreak", 0);
+            response.put("totalAnswered", 0);
+            response.put("totalCorrect", 0);
+            response.put("history", Collections.emptyList());
+            return response;
+        }
+
+        List<UserTriviaAnswer> recent = userTriviaAnswerRepository
+                .findTop30ByUserIdOrderByTriviaDateDesc(currentUserId);
+
+        Set<LocalDate> answeredDates = new HashSet<>();
+        for (UserTriviaAnswer answer : recent) {
+            answeredDates.add(answer.getTriviaDate());
+        }
+
+        LocalDate cursor = LocalDate.now();
+        if (!answeredDates.contains(cursor)) {
+            cursor = cursor.minusDays(1);
+        }
+        int streak = 0;
+        while (answeredDates.contains(cursor)) {
+            streak++;
+            cursor = cursor.minusDays(1);
+        }
+
+        List<Map<String, Object>> history = new ArrayList<>();
+        for (UserTriviaAnswer answer : recent) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("date", answer.getTriviaDate());
+            entry.put("correct", answer.isCorrect());
+            history.add(entry);
+        }
+
+        response.put("currentStreak", streak);
+        response.put("totalAnswered", userTriviaAnswerRepository.countByUserId(currentUserId));
+        response.put("totalCorrect", userTriviaAnswerRepository.countByUserIdAndCorrectTrue(currentUserId));
+        response.put("history", history);
+        return response;
+    }
+
+    public Map<Long, Map<String, Object>> getBulkTriviaStats(List<Long> userIds) {
+        Map<Long, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Long userId : userIds) {
+            result.put(userId, getUserTriviaStats(userId));
+        }
+        return result;
+    }
+
     @Transactional
     public DailyTriviaResponse createTrivia(DailyTriviaRequest request) {
         DailyTrivia trivia = DailyTrivia.builder()

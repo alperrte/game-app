@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Radio } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
+import { Radio, Search, Swords } from "lucide-react";
 
 import { Card } from "../../../components/ui/Card";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
@@ -7,6 +9,7 @@ import { cn } from "../../../utils/cn";
 import { ContentEmptyState } from "../components/ContentEmptyState";
 import { ContentShell } from "../components/ContentShell";
 import { EsportMatchCard } from "../components/esports/EsportMatchCard";
+import { ChipScrollRow } from "../components/shared/ChipScrollRow";
 import { contentService } from "../services/contentService";
 import type { EsportMatch, EsportMatchStatus } from "../types/esport.types";
 
@@ -21,37 +24,51 @@ const statusFilters: Array<{
 ];
 
 export default function EsportsPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const status = (searchParams.get("status") as EsportMatchStatus | null) ?? undefined;
+    const gameFilter = searchParams.get("game") ?? undefined;
+    const searchQuery = searchParams.get("q") ?? "";
+
     const [matches, setMatches] = useState<EsportMatch[]>([]);
-    const [status, setStatus] = useState<EsportMatchStatus | undefined>();
-    const [gameFilter, setGameFilter] = useState<string | undefined>();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         let active = true;
 
-        async function loadMatches() {
-            setLoading(true);
-            setError(null);
+        async function loadMatches(showSpinner: boolean) {
+            if (showSpinner) {
+                setLoading(true);
+                setError(null);
+            }
 
             try {
                 const result = await contentService.getEsportMatches(status);
                 if (!active) return;
                 setMatches(result);
+                if (showSpinner) setError(null);
             } catch (loadError) {
                 if (!active) return;
-                setError(
-                    getErrorMessage(loadError, "Espor maçları yüklenemedi."),
-                );
+                if (showSpinner) {
+                    setError(
+                        getErrorMessage(loadError, "Espor maçları yüklenemedi."),
+                    );
+                }
             } finally {
-                if (active) setLoading(false);
+                if (active && showSpinner) setLoading(false);
             }
         }
 
-        void loadMatches();
+        void loadMatches(true);
+
+        // Canlı maç skorları için sayfa açıkken periyodik sessiz yenileme
+        const intervalId = window.setInterval(() => {
+            void loadMatches(false);
+        }, 30000);
 
         return () => {
             active = false;
+            window.clearInterval(intervalId);
         };
     }, [status]);
 
@@ -61,9 +78,31 @@ export default function EsportsPage() {
     }, [matches]);
 
     const visibleMatches = useMemo(() => {
-        if (!gameFilter) return matches;
-        return matches.filter((match) => match.gameName === gameFilter);
-    }, [gameFilter, matches]);
+        let result = gameFilter
+            ? matches.filter((match) => match.gameName === gameFilter)
+            : matches;
+
+        const q = searchQuery.trim().toLowerCase();
+        if (q) {
+            result = result.filter(
+                (match) =>
+                    match.teamAName.toLowerCase().includes(q) ||
+                    match.teamBName.toLowerCase().includes(q) ||
+                    match.tournamentName.toLowerCase().includes(q),
+            );
+        }
+
+        return result;
+    }, [gameFilter, matches, searchQuery]);
+
+    function handleSearchChange(value: string) {
+        setSearchParams((prev) => {
+            const params = new URLSearchParams(prev);
+            if (value.trim()) params.set("q", value);
+            else params.delete("q");
+            return params;
+        });
+    }
 
     const liveCount = useMemo(
         () => matches.filter((match) => match.status === "LIVE").length,
@@ -86,15 +125,28 @@ export default function EsportsPage() {
                     </div>
 
                     {liveCount > 0 ? (
-                        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-fuchsia-400/35 bg-fuchsia-500/15 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-fuchsia-100">
-                            <Radio size={14} className="animate-pulse" />
+                        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-rose-400/35 bg-rose-500/15 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-rose-100">
+                            <Radio size={14} className="animate-pulse motion-reduce:animate-none" />
                             {liveCount} canlı maç
                         </span>
                     ) : null}
                 </div>
             </section>
 
-            <div className="mb-4 flex flex-wrap gap-2">
+            <label className="relative mb-4 block">
+                <Search
+                    size={18}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+                <input
+                    value={searchQuery}
+                    onChange={(event) => handleSearchChange(event.target.value)}
+                    placeholder="Takım veya turnuva adına göre ara..."
+                    className="h-12 w-full rounded-xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400/50"
+                />
+            </label>
+
+            <ChipScrollRow className="mb-4">
                 {statusFilters.map((filter) => {
                     const active = status === filter.value;
 
@@ -103,10 +155,15 @@ export default function EsportsPage() {
                             key={filter.label}
                             type="button"
                             aria-pressed={active}
-                            onClick={() => {
-                                setStatus(filter.value);
-                                setGameFilter(undefined);
-                            }}
+                            onClick={() =>
+                                setSearchParams((prev) => {
+                                    const params = new URLSearchParams(prev);
+                                    if (filter.value) params.set("status", filter.value);
+                                    else params.delete("status");
+                                    params.delete("game");
+                                    return params;
+                                })
+                            }
                             className={cn(
                                 "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                                 active
@@ -118,14 +175,20 @@ export default function EsportsPage() {
                         </button>
                     );
                 })}
-            </div>
+            </ChipScrollRow>
 
             {gameOptions.length > 1 ? (
-                <div className="mb-6 flex flex-wrap gap-2">
+                <ChipScrollRow className="mb-6">
                     <button
                         type="button"
                         aria-pressed={!gameFilter}
-                        onClick={() => setGameFilter(undefined)}
+                        onClick={() =>
+                            setSearchParams((prev) => {
+                                const params = new URLSearchParams(prev);
+                                params.delete("game");
+                                return params;
+                            })
+                        }
                         className={cn(
                             "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                             !gameFilter
@@ -140,7 +203,13 @@ export default function EsportsPage() {
                             key={game}
                             type="button"
                             aria-pressed={gameFilter === game}
-                            onClick={() => setGameFilter(game)}
+                            onClick={() =>
+                                setSearchParams((prev) => {
+                                    const params = new URLSearchParams(prev);
+                                    params.set("game", game);
+                                    return params;
+                                })
+                            }
                             className={cn(
                                 "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                                 gameFilter === game
@@ -151,7 +220,7 @@ export default function EsportsPage() {
                             {game}
                         </button>
                     ))}
-                </div>
+                </ChipScrollRow>
             ) : null}
 
             {loading ? (
@@ -171,20 +240,31 @@ export default function EsportsPage() {
                 </Card>
             ) : null}
 
-            {!loading && !error && visibleMatches.length === 0 ? (
-                <ContentEmptyState
-                    title="Maç bulunamadı"
-                    description="Seçili filtre için şu an listelenecek maç yok."
-                />
-            ) : null}
-
-            {!loading && !error && visibleMatches.length > 0 ? (
-                <div className="grid gap-4 lg:grid-cols-2">
-                    {visibleMatches.map((match) => (
-                        <EsportMatchCard key={match.matchId} match={match} />
-                    ))}
-                </div>
-            ) : null}
+            <AnimatePresence mode="wait">
+                {!loading && !error ? (
+                    <motion.div
+                        key={`${status ?? "all"}-${gameFilter ?? "all"}-${searchQuery}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                    >
+                        {visibleMatches.length === 0 ? (
+                            <ContentEmptyState
+                                icon={Swords}
+                                title="Maç bulunamadı"
+                                description="Seçili filtre için şu an listelenecek maç yok."
+                            />
+                        ) : (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                {visibleMatches.map((match) => (
+                                    <EsportMatchCard key={match.matchId} match={match} />
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
         </ContentShell>
     );
 }

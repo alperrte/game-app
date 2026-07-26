@@ -1,8 +1,11 @@
-import { Radio } from "lucide-react";
+import { Radio, Tag } from "lucide-react";
+import { Link } from "react-router-dom";
 
+import { CONTENT_ROUTES } from "../../../../lib/constants";
 import { cn } from "../../../../utils/cn";
 import type { EsportMatch } from "../../types/esport.types";
 import { esportStatusLabel, esportStatusTone } from "../../utils/esportStatus";
+import { ShareToFeedButton } from "../shared/ShareToFeedButton";
 
 interface EsportMatchCardProps {
     match: EsportMatch;
@@ -33,17 +36,27 @@ export function EsportMatchCard({ match }: EsportMatchCardProps) {
                     </div>
                 </div>
 
-                <span
-                    className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-                        esportStatusTone(match.status),
-                    )}
-                >
-                    {match.status === "LIVE" ? (
-                        <Radio size={12} className="animate-pulse" />
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span
+                        className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
+                            esportStatusTone(match.status),
+                        )}
+                    >
+                        {match.status === "LIVE" ? (
+                            <Radio size={12} className="animate-pulse motion-reduce:animate-none" />
+                        ) : null}
+                        {esportStatusLabel(match.status)}
+                    </span>
+                    {match.isSimulated ? (
+                        <span
+                            title="Canlı veri kaynağı şu an erişilemiyor; bu bir örnek/simüle maçtır."
+                            className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400"
+                        >
+                            Simüle veri
+                        </span>
                     ) : null}
-                    {esportStatusLabel(match.status)}
-                </span>
+                </div>
             </div>
 
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -62,6 +75,22 @@ export function EsportMatchCard({ match }: EsportMatchCardProps) {
                         {match.teamBName}
                     </div>
                 </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Link
+                    to={`${CONTENT_ROUTES.deals}?q=${encodeURIComponent(match.gameName)}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 transition hover:text-fuchsia-200"
+                >
+                    <Tag size={12} />
+                    {match.gameName} indirimlerini ara
+                </Link>
+
+                {match.status === "LIVE" ? (
+                    <ShareToFeedButton
+                        content={`Canlı izliyorum: ${match.teamAName} vs ${match.teamBName} (${match.tournamentName}) — skor ${match.teamAScore}-${match.teamBScore}. Arkadaşlar, gelin birlikte izleyelim!`}
+                    />
+                ) : null}
             </div>
         </article>
     );

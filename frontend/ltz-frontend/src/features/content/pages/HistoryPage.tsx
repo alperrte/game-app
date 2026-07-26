@@ -9,10 +9,18 @@ import { HistoryTimeline } from "../components/history/HistoryTimeline";
 import { contentService } from "../services/contentService";
 import type { GamingHistoryEvent } from "../types/history.types";
 
+function toDateInputValue(date: Date): string {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function HistoryPage() {
     const today = new Date();
     const [month, setMonth] = useState(today.getMonth() + 1);
     const [day, setDay] = useState(today.getDate());
+    const [dateValue, setDateValue] = useState(() => toDateInputValue(today));
     const [events, setEvents] = useState<GamingHistoryEvent[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -52,6 +60,15 @@ export default function HistoryPage() {
         const now = new Date();
         setMonth(now.getMonth() + 1);
         setDay(now.getDate());
+        setDateValue(toDateInputValue(now));
+    }
+
+    function handleDateChange(value: string) {
+        setDateValue(value);
+        const [, mm, dd] = value.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? [];
+        if (!mm || !dd) return;
+        setMonth(Number(mm));
+        setDay(Number(dd));
     }
 
     return (
@@ -66,36 +83,18 @@ export default function HistoryPage() {
             </section>
 
             <Card className="mb-6 border-white/10 bg-slate-950/55 p-5">
-                <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
                     <label className="space-y-2">
                         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            Ay
+                            Tarih
                         </span>
                         <input
-                            type="number"
-                            min={1}
-                            max={12}
-                            value={month}
+                            type="date"
+                            value={dateValue}
                             onChange={(event) =>
-                                setMonth(Number(event.target.value))
+                                handleDateChange(event.target.value)
                             }
-                            className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none focus:border-violet-400/50"
-                        />
-                    </label>
-
-                    <label className="space-y-2">
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            Gün
-                        </span>
-                        <input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={day}
-                            onChange={(event) =>
-                                setDay(Number(event.target.value))
-                            }
-                            className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none focus:border-violet-400/50"
+                            className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none [color-scheme:dark] focus:border-violet-400/50"
                         />
                     </label>
 

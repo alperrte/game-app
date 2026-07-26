@@ -1,4 +1,4 @@
-import { Tv } from "lucide-react";
+import { Radio, Tv } from "lucide-react";
 
 import { formatCompactNumber } from "../../../../utils/formatCompactNumber";
 import type { TwitchLiveStream } from "../../types/contentStats.types";
@@ -43,7 +43,8 @@ export function TwitchStreamsWidget({ streams }: TwitchStreamsWidgetProps) {
                                 </div>
                             )}
 
-                            <span className="absolute left-3 top-3 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/20 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-fuchsia-100">
+                            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-rose-400/40 bg-rose-500/20 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-rose-100">
+                                <Radio size={10} className="animate-pulse motion-reduce:animate-none" />
                                 Canlı
                             </span>
                         </div>

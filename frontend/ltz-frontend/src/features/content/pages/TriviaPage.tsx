@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { getErrorMessage } from "../../../utils/getErrorMessage";
 import { ContentShell } from "../components/ContentShell";
+import { TriviaLeaderboard } from "../components/trivia/TriviaLeaderboard";
 import { TriviaPanel } from "../components/trivia/TriviaPanel";
+import { TriviaStreakPanel } from "../components/trivia/TriviaStreakPanel";
 import { contentService } from "../services/contentService";
-import type { TodayTriviaResponse } from "../types/trivia.types";
+import type { TodayTriviaResponse, TriviaStatsResponse } from "../types/trivia.types";
 
 export default function TriviaPage() {
     const [trivia, setTrivia] = useState<TodayTriviaResponse | null>(null);
+    const [stats, setStats] = useState<TriviaStatsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -20,9 +23,15 @@ export default function TriviaPage() {
             setError(null);
 
             try {
-                const result = await contentService.getTodayTrivia();
+                const [triviaResult, statsResult] = await Promise.all([
+                    contentService.getTodayTrivia(),
+                    contentService
+                        .getTriviaStats()
+                        .catch(() => null as TriviaStatsResponse | null),
+                ]);
                 if (!active) return;
-                setTrivia(result);
+                setTrivia(triviaResult);
+                setStats(statsResult);
             } catch (loadError) {
                 if (!active) return;
                 setError(
@@ -39,6 +48,14 @@ export default function TriviaPage() {
             active = false;
         };
     }, []);
+
+    function handleTriviaUpdated(updated: TodayTriviaResponse) {
+        setTrivia(updated);
+        contentService
+            .getTriviaStats()
+            .then(setStats)
+            .catch(() => undefined);
+    }
 
     return (
         <ContentShell>
@@ -62,8 +79,16 @@ export default function TriviaPage() {
                 </Card>
             ) : null}
 
+            {!loading && !error && stats ? (
+                <TriviaStreakPanel stats={stats} />
+            ) : null}
+
+            {!loading && !error && stats ? (
+                <TriviaLeaderboard myStats={stats} />
+            ) : null}
+
             {!loading && !error && trivia ? (
-                <TriviaPanel initialData={trivia} onUpdated={setTrivia} />
+                <TriviaPanel initialData={trivia} onUpdated={handleTriviaUpdated} />
             ) : null}
         </ContentShell>
     );

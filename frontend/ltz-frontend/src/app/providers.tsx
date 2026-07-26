@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
+import { MotionConfig } from "motion/react";
+import { CommandPalette } from "../components/CommandPalette";
 import { ToastProvider } from "../components/ui/Toast";
 import { CurrentUserProfileProvider, useCurrentUserProfile } from "../features/user/context/CurrentUserProfileContext";
 
@@ -26,13 +28,16 @@ const GlobalThemeSync = () => {
 
 export const AppProviders = ({ children }: AppProvidersProps) => {
   return (
-    <ToastProvider>
-      <BrowserRouter>
-        <CurrentUserProfileProvider>
-          <GlobalThemeSync />
-          {children}
-        </CurrentUserProfileProvider>
-      </BrowserRouter>
-    </ToastProvider>
+    <MotionConfig reducedMotion="user">
+      <ToastProvider>
+        <BrowserRouter>
+          <CurrentUserProfileProvider>
+            <GlobalThemeSync />
+            {children}
+            <CommandPalette />
+          </CurrentUserProfileProvider>
+        </BrowserRouter>
+      </ToastProvider>
+    </MotionConfig>
   );
 };

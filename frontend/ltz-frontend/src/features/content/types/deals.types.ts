@@ -21,6 +21,7 @@ export interface DealCampaign {
     lastUpdated: string;
     reactions: ReactionSummary;
     userReaction?: string | null;
+    historicalLow?: DealHistoricalLow | null;
 }
 
 export interface DealHistoricalLow {
@@ -42,6 +43,12 @@ export interface DealStoreOffer {
     crossPlay: boolean;
     free: boolean;
     endsAt?: string | null;
+}
+
+export interface PriceSnapshot {
+    discountedPrice: number;
+    currency: string;
+    recordedAt: string;
 }
 
 export interface DealCompareItem {

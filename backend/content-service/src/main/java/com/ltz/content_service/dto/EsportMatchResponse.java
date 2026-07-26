@@ -18,4 +18,5 @@ public class EsportMatchResponse {
     private String gameName;
     private MatchStatus status;
     private LocalDateTime matchTime;
+    private boolean isSimulated;
 }

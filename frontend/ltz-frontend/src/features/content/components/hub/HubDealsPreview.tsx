@@ -5,6 +5,8 @@ import { formatCurrency } from "../../../../utils/formatCurrency";
 import { optimizeImageUrl } from "../../../../utils/optimizeImageUrl";
 import { CONTENT_ROUTES } from "../../../../lib/constants";
 import type { DealCampaign } from "../../types/deals.types";
+import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { isWatched } from "../../utils/watchlist";
 import { HubWidgetCard } from "./HubWidgetCard";
 
 interface HubDealsPreviewProps {
@@ -15,13 +17,16 @@ function HubDealCard({ deal }: { deal: DealCampaign }) {
     const [imageFailed, setImageFailed] = useState(false);
     const optimizedUrl = optimizeImageUrl(deal.imageUrl);
     const canShowImage = Boolean(optimizedUrl) && !imageFailed;
+    const watched = isWatched(deal.gameTitle);
 
     return (
         <a
             href={deal.dealUrl}
             target="_blank"
             rel="noreferrer"
-            className="group overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70 transition hover:border-fuchsia-400/30 hover:bg-white/[0.02]"
+            className={`group overflow-hidden rounded-2xl border bg-slate-950/70 transition hover:border-fuchsia-400/30 hover:bg-white/[0.02] ${
+                watched ? "border-violet-400/40" : "border-white/10"
+            }`}
         >
             <div className="relative aspect-[452/283] overflow-hidden bg-violet-500/5">
                 {canShowImage ? (
@@ -42,6 +47,11 @@ function HubDealCard({ deal }: { deal: DealCampaign }) {
                         ? "ÜCRETSİZ"
                         : `-${deal.discountPercent}%`}
                 </span>
+                {watched ? (
+                    <span className="absolute right-2 top-2 rounded-full border border-violet-400/50 bg-violet-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-violet-100">
+                        Takipte
+                    </span>
+                ) : null}
             </div>
 
             <div className="space-y-1 p-3">
@@ -65,10 +75,27 @@ function HubDealCard({ deal }: { deal: DealCampaign }) {
 }
 
 export function HubDealsPreview({ deals }: HubDealsPreviewProps) {
+    const latestUpdate = deals.reduce<string | null>((latest, deal) => {
+        if (!deal.lastUpdated) return latest;
+        if (!latest || deal.lastUpdated > latest) return deal.lastUpdated;
+        return latest;
+    }, null);
+    const freshness = formatRelativeTime(latestUpdate);
+
+    const sortedDeals = [...deals].sort((a, b) => {
+        const aWatched = isWatched(a.gameTitle) ? 1 : 0;
+        const bWatched = isWatched(b.gameTitle) ? 1 : 0;
+        return bWatched - aWatched;
+    });
+
     return (
         <HubWidgetCard
             title="Günün İndirimleri"
-            subtitle="CheapShark üzerinden canlı fiyatlar"
+            subtitle={
+                freshness
+                    ? `CheapShark üzerinden canlı fiyatlar · ${freshness} güncellendi`
+                    : "CheapShark üzerinden canlı fiyatlar"
+            }
             icon={Percent}
             action={{ label: "Tümünü gör", href: CONTENT_ROUTES.deals }}
             contentClassName="grid gap-3 sm:grid-cols-2"
@@ -78,7 +105,7 @@ export function HubDealsPreview({ deals }: HubDealsPreviewProps) {
                     Aktif indirim kampanyası bulunamadı.
                 </p>
             ) : (
-                deals.slice(0, 4).map((deal) => (
+                sortedDeals.slice(0, 4).map((deal) => (
                     <HubDealCard key={deal.id} deal={deal} />
                 ))
             )}

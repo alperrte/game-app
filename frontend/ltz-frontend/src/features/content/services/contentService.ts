@@ -1,7 +1,7 @@
 import { apiClient } from "../../../lib/axios";
 import { CONTENT_API_ENDPOINTS } from "../../../lib/constants";
 import type { ContentStatsResponse } from "../types/contentStats.types";
-import type { DealCampaign, DealCompareItem } from "../types/deals.types";
+import type { DealCampaign, DealCompareItem, PriceSnapshot } from "../types/deals.types";
 import type { EsportMatch, EsportMatchStatus } from "../types/esport.types";
 import type { GamingHistoryEvent } from "../types/history.types";
 import type { NewsArticle, NewsCategory } from "../types/news.types";
@@ -14,6 +14,7 @@ import type {
 import type { SpotlightBanner } from "../types/spotlight.types";
 import type {
     TodayTriviaResponse,
+    TriviaStatsResponse,
     TriviaSubmitResponse,
 } from "../types/trivia.types";
 
@@ -40,6 +41,11 @@ export const contentService = {
 
     getFreeGames: () =>
         apiClient.get<DealCampaign[]>(CONTENT_API_ENDPOINTS.freeGames),
+
+    getDealPriceHistory: (gameTitle: string) =>
+        apiClient.get<PriceSnapshot[]>(CONTENT_API_ENDPOINTS.dealPriceHistory, {
+            gameTitle,
+        }),
 
     getNews: (params: {
         page?: number;
@@ -79,6 +85,15 @@ export const contentService = {
         apiClient.post<TriviaSubmitResponse, Record<string, never>>(
             `${CONTENT_API_ENDPOINTS.triviaSubmit}?selectedIndex=${selectedIndex}`,
             {},
+        ),
+
+    getTriviaStats: () =>
+        apiClient.get<TriviaStatsResponse>(CONTENT_API_ENDPOINTS.triviaStats),
+
+    getBulkTriviaStats: (userIds: Array<number | string>) =>
+        apiClient.get<Record<string, TriviaStatsResponse>>(
+            CONTENT_API_ENDPOINTS.triviaStatsBulk,
+            { userIds: userIds.join(",") },
         ),
 
     getTodayHistory: () =>

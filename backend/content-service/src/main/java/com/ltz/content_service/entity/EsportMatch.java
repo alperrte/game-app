@@ -50,4 +50,8 @@ public class EsportMatch {
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "is_simulated", nullable = false)
+    @Builder.Default
+    private boolean isSimulated = false;
 }

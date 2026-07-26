@@ -59,6 +59,16 @@ public class StatsScheduler {
             steamGamesMap.put("Rust", new Long[] { 252490L, 95000L });
             steamGamesMap.put("Destiny 2", new Long[] { 1085660L, 85000L });
             steamGamesMap.put("Team Fortress 2", new Long[] { 440L, 78000L });
+            steamGamesMap.put("Palworld", new Long[] { 1623730L, 664000L });
+            steamGamesMap.put("Marvel Rivals", new Long[] { 2767030L, 114000L });
+            steamGamesMap.put("Dead by Daylight", new Long[] { 381210L, 84000L });
+            steamGamesMap.put("Baldur's Gate 3", new Long[] { 1086940L, 74000L });
+            steamGamesMap.put("Warframe", new Long[] { 230410L, 67000L });
+            steamGamesMap.put("Cyberpunk 2077", new Long[] { 1091500L, 54000L });
+            steamGamesMap.put("Path of Exile 2", new Long[] { 2694490L, 41000L });
+            steamGamesMap.put("ARK: Survival Ascended", new Long[] { 2399830L, 39000L });
+            steamGamesMap.put("Terraria", new Long[] { 105600L, 33000L });
+            steamGamesMap.put("The Finals", new Long[] { 2073850L, 21000L });
 
             List<SteamTopPlayedStat> topPlayed = new ArrayList<>();
             int rank = 1;
@@ -275,7 +285,13 @@ public class StatsScheduler {
             new SpeedrunConfig("sm64", "120-stars", "Super Mario 64", "120 Stars", "Kaze", "1h 37m 50s",
                     "https://www.youtube.com/watch?v=cI760jR2m04"),
             new SpeedrunConfig("portal", "out-of-bounds", "Portal", "Out of Bounds", "Can't Even", "5m 57s",
-                    "https://www.youtube.com/watch?v=p4vW7w4jN3w"));
+                    "https://www.youtube.com/watch?v=p4vW7w4jN3w"),
+            new SpeedrunConfig("hollowknight", "02q8o4p2", "Hollow Knight", "Any%", "Staxis", "4m 29s",
+                    "https://www.speedrun.com/hollowknight/runs/y9jnp4vm"),
+            new SpeedrunConfig("hades", "zd3xmmvd", "Hades", "Any Heat", "Vorime", "2m 13s",
+                    "https://www.speedrun.com/hades/runs/men4r5qm"),
+            new SpeedrunConfig("cuphead", "9d8lxv62", "Cuphead", "Version 1.1+", "TheMexicanRunner", "17m 2s",
+                    "https://www.speedrun.com/cuphead/runs/yjvj45oy"));
 
     @Scheduled(cron = "0 0 1 * * *")
     public void fetchSpeedrunRecords() {
@@ -358,7 +374,8 @@ public class StatsScheduler {
                             m.getTeamBScore(),
                             m.getGameName(),
                             m.getStatus(),
-                            m.getMatchTime());
+                            m.getMatchTime(),
+                            false);
                 }
                 log.info("Successfully loaded and saved {} live esports matches.", liveMatches.size());
             } else {
@@ -373,17 +390,17 @@ public class StatsScheduler {
 
     private void generateSimulatedMatches() {
         createOrUpdateMatch("m_cs2_01", "PGL Major Copenhagen 2026", "Natus Vincere", "FaZe Clan", 1, 0, "CS2",
-                MatchStatus.LIVE, LocalDateTime.now().minusMinutes(45));
+                MatchStatus.LIVE, LocalDateTime.now().minusMinutes(45), true);
         createOrUpdateMatch("m_val_01", "VCT Champions 2026", "Fnatic", "Sentinels", 2, 1, "VALORANT",
-                MatchStatus.FINISHED, LocalDateTime.now().minusHours(3));
+                MatchStatus.FINISHED, LocalDateTime.now().minusHours(3), true);
         createOrUpdateMatch("m_lol_01", "LCK Summer 2026", "T1", "Gen.G", 0, 0, "LOL", MatchStatus.UPCOMING,
-                LocalDateTime.now().plusHours(2));
+                LocalDateTime.now().plusHours(2), true);
         createOrUpdateMatch("m_dota_01", "The International 2026", "Team Spirit", "Gaimin Gladiators", 0, 0, "DOTA2",
-                MatchStatus.UPCOMING, LocalDateTime.now().plusHours(5));
+                MatchStatus.UPCOMING, LocalDateTime.now().plusHours(5), true);
     }
 
     private void createOrUpdateMatch(String matchId, String tournament, String teamA, String teamB, int scoreA,
-            int scoreB, String game, MatchStatus status, LocalDateTime matchTime) {
+            int scoreB, String game, MatchStatus status, LocalDateTime matchTime, boolean isSimulated) {
         Optional<EsportMatch> existingOpt = esportMatchRepository.findByMatchId(matchId);
         EsportMatch match;
         if (existingOpt.isPresent()) {
@@ -395,6 +412,7 @@ public class StatsScheduler {
             match.setTeamBScore(scoreB);
             match.setStatus(status);
             match.setMatchTime(matchTime);
+            match.setSimulated(isSimulated);
         } else {
             match = EsportMatch.builder()
                     .matchId(matchId)
@@ -407,6 +425,7 @@ public class StatsScheduler {
                     .status(status)
                     .matchTime(matchTime)
                     .createdAt(LocalDateTime.now())
+                    .isSimulated(isSimulated)
                     .build();
         }
         esportMatchRepository.save(match);

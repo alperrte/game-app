@@ -13,9 +13,9 @@ const labels: Record<string, string> = {
 };
 
 const tones: Record<string, string> = {
-    VERIFIED: "border-violet-400/40 bg-violet-500/15 text-violet-100",
-    PLAYABLE: "border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-100",
-    UNSUPPORTED: "border-white/10 bg-white/[0.04] text-slate-400",
+    VERIFIED: "border-emerald-400/40 bg-emerald-500/15 text-emerald-100",
+    PLAYABLE: "border-amber-400/30 bg-amber-500/10 text-amber-100",
+    UNSUPPORTED: "border-red-400/25 bg-red-500/5 text-red-200/80",
 };
 
 export function SteamDeckBadge({ status, className }: SteamDeckBadgeProps) {

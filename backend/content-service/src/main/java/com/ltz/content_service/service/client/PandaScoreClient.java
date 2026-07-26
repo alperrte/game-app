@@ -29,7 +29,7 @@ public class PandaScoreClient {
         }
 
         Mono<List<EsportMatch>> runningMono = webClient.get()
-                .uri("https://api.pandascore.co/matches/running?per_page=20")
+                .uri("https://api.pandascore.co/matches/running?per_page=50")
                 .header("Authorization", "Bearer " + apiKey)
                 .retrieve()
                 .bodyToMono(List.class)

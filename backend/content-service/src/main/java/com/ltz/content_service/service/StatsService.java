@@ -109,6 +109,7 @@ public class StatsService {
                 .gameName(match.getGameName())
                 .status(match.getStatus())
                 .matchTime(match.getMatchTime())
+                .isSimulated(match.isSimulated())
                 .build();
     }
 }

@@ -58,7 +58,7 @@ public class TwitchClient {
     public Mono<List<TwitchCategoryStat>> getTopCategories() {
         return getAccessToken()
                 .flatMap(token -> webClient.get()
-                        .uri("https://api.twitch.tv/helix/games/top?first=5")
+                        .uri("https://api.twitch.tv/helix/games/top?first=20")
                         .header("Client-ID", clientId)
                         .header("Authorization", "Bearer " + token)
                         .retrieve()
@@ -84,7 +84,7 @@ public class TwitchClient {
     public Mono<List<TwitchLiveStreamStat>> getLiveStreams() {
         return getAccessToken()
                 .flatMap(token -> webClient.get()
-                        .uri("https://api.twitch.tv/helix/streams?first=5&language=tr")
+                        .uri("https://api.twitch.tv/helix/streams?first=20&language=tr")
                         .header("Client-ID", clientId)
                         .header("Authorization", "Bearer " + token)
                         .retrieve()
