@@ -1,6 +1,6 @@
 package com.ltz.game_service.exception;
 
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 
 public class ExternalGameServiceUnavailableException extends RuntimeException {
 

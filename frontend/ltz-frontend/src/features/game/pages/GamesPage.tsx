@@ -2,7 +2,8 @@ import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import { Button } from "../../../components/ui/Button";
+import { ArrowUpDown, Layers, LayoutGrid, List, Search } from "lucide-react";
+
 import { Select } from "../../../components/ui/Select";
 import type { SelectOption } from "../../../components/ui/Select";
 import GameCard from "../components/GameCard";
@@ -130,6 +131,19 @@ const getSourceSelectOptions = (
   },
 ];
 
+const SORT_SELECT_OPTIONS: SelectOption[] = [
+  { value: "popularity,desc", label: "Popülerlik" },
+  { value: "title,asc", label: "İsim (A-Z)" },
+  { value: "title,desc", label: "İsim (Z-A)" },
+  { value: "releaseDate,desc", label: "Çıkış (Yeni)" },
+];
+
+const PER_PAGE_SELECT_OPTIONS: SelectOption[] = [
+  { value: "6", label: "Sayfa başına 6" },
+  { value: "12", label: "Sayfa başına 12" },
+  { value: "24", label: "Sayfa başına 24" },
+];
+
 const BLOCKED_ADULT_CONTENT_KEYWORDS = [
   "adult",
   "adults only",
@@ -178,7 +192,6 @@ const initialGameForm: GameRequest = {
   platform: "",
   releaseDate: "",
   developer: "",
-  publisher: "",
   minimumSystemRequirements: "",
   recommendedSystemRequirements: "",
   supportedLanguages: "",
@@ -411,6 +424,42 @@ const getVisiblePageNumbers = (currentPage: number, totalPages: number) => {
   );
 };
 
+const getGamePopularity = (game: Game | ExternalGameSearchResponse) =>
+    "popularityScore" in game ? game.popularityScore ?? 0 : 0;
+
+const getGameReleaseDate = (game: Game | ExternalGameSearchResponse) =>
+    "releaseDate" in game ? game.releaseDate ?? "" : "";
+
+const compareGameListItems = (
+    firstItem: GameListItem,
+    secondItem: GameListItem,
+    sortOption: string
+) => {
+  const [field, direction] = sortOption.split(",");
+  const multiplier = direction === "asc" ? 1 : -1;
+
+  if (field === "title") {
+    return (
+        multiplier *
+        firstItem.game.title.localeCompare(secondItem.game.title, "tr")
+    );
+  }
+
+  if (field === "releaseDate") {
+    return (
+        multiplier *
+        getGameReleaseDate(firstItem.game).localeCompare(
+            getGameReleaseDate(secondItem.game)
+        )
+    );
+  }
+
+  return (
+      multiplier *
+      (getGamePopularity(firstItem.game) - getGamePopularity(secondItem.game))
+  );
+};
+
 const getSearchErrorMessage = (error: unknown, source: GameSource) => {
   if (isAxiosError(error) && error.response?.status === 501) {
     return "Bu oyun kaynağı henüz aktif değil.";
@@ -457,7 +506,6 @@ const normalizeGameRequest = (value: GameRequest): GameRequest => {
     platform: emptyToNull(value.platform),
     releaseDate: emptyToNull(value.releaseDate),
     developer: emptyToNull(value.developer),
-    publisher: emptyToNull(value.publisher),
     minimumSystemRequirements: emptyToNull(value.minimumSystemRequirements),
     recommendedSystemRequirements: emptyToNull(
         value.recommendedSystemRequirements
@@ -490,6 +538,7 @@ const GamesPage = () => {
   const [externalTotalItems, setExternalTotalItems] = useState(0);
   const [externalTotalPages, setExternalTotalPages] = useState(1);
   const [viewMode, setViewMode] = useState<GameCardViewMode>("grid");
+  const [sortOption, setSortOption] = useState<string>("popularity,desc");
   const [loading, setLoading] = useState(false);
   const [manualGamesLoading, setManualGamesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -981,7 +1030,6 @@ const GamesPage = () => {
             game.genre,
             game.platform,
             game.developer,
-            game.publisher,
             game.categoryName,
           ]
               .filter(Boolean)
@@ -1018,7 +1066,10 @@ const GamesPage = () => {
       [games, manualGamesForList]
   );
 
-  const filteredListedGames = listedGames;
+  const filteredListedGames = useMemo(
+      () => [...listedGames].sort((a, b) => compareGameListItems(a, b, sortOption)),
+      [listedGames, sortOption]
+  );
 
   const usesClientPagination = isSearchMode;
 
@@ -1075,7 +1126,7 @@ const GamesPage = () => {
                 className="relative z-[80] rounded-3xl border border-white/10 bg-slate-950/55 p-5 shadow-[0_22px_90px_rgba(0,0,0,0.30)] backdrop-blur-xl"
                 onSubmit={handleSubmit}
             >
-              <div className="grid gap-4 lg:grid-cols-[220px_260px_1fr_auto]">
+              <div className="grid gap-4 lg:grid-cols-[220px_260px_1fr]">
                 <label className="space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                   Kaynak
@@ -1187,20 +1238,21 @@ const GamesPage = () => {
                   Oyun adı
                 </span>
 
-                  <input
-                      className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400/70"
-                      onChange={(event) => handleQueryChange(event.target.value)}
-                      placeholder="Örn. elden ring"
-                      type="search"
-                      value={query}
-                  />
-                </label>
+                  <div className="relative">
+                    <Search
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                    />
 
-                <div className="flex items-end">
-                  <Button className="w-full lg:w-auto" isLoading={loading} type="submit">
-                    Ara
-                  </Button>
-                </div>
+                    <input
+                        className="h-12 w-full rounded-xl border border-white/10 bg-slate-950/80 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400/70"
+                        onChange={(event) => handleQueryChange(event.target.value)}
+                        placeholder="Örn. elden ring"
+                        type="search"
+                        value={query}
+                    />
+                  </div>
+                </label>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -1210,30 +1262,53 @@ const GamesPage = () => {
                       : `${displayedResultCount} ${sourceLabel(source)} oyunu`}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${
-                          viewMode === "grid"
-                              ? "bg-violet-600 text-white"
-                              : "bg-white/5 text-slate-300 hover:bg-white/10"
-                      }`}
-                      onClick={() => setViewMode("grid")}
-                      type="button"
-                  >
-                    Izgara
-                  </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown
+                        aria-hidden="true"
+                        className="h-4 w-4 text-slate-400"
+                    />
 
-                  <button
-                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${
-                          viewMode === "list"
-                              ? "bg-violet-600 text-white"
-                              : "bg-white/5 text-slate-300 hover:bg-white/10"
-                      }`}
-                      onClick={() => setViewMode("list")}
-                      type="button"
-                  >
-                    Liste
-                  </button>
+                    <div className="w-44">
+                      <Select
+                          value={sortOption}
+                          onValueChange={setSortOption}
+                          options={SORT_SELECT_OPTIONS}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/70 p-1">
+                    <button
+                        aria-label="Izgara görünümü"
+                        aria-pressed={viewMode === "grid"}
+                        className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${
+                            viewMode === "grid"
+                                ? "bg-violet-600 text-white"
+                                : "text-slate-300 hover:bg-white/10"
+                        }`}
+                        onClick={() => setViewMode("grid")}
+                        title="Izgara"
+                        type="button"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                    </button>
+
+                    <button
+                        aria-label="Liste görünümü"
+                        aria-pressed={viewMode === "list"}
+                        className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${
+                            viewMode === "list"
+                                ? "bg-violet-600 text-white"
+                                : "text-slate-300 hover:bg-white/10"
+                        }`}
+                        onClick={() => setViewMode("list")}
+                        title="Liste"
+                        type="button"
+                    >
+                      <List className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1381,25 +1456,19 @@ const GamesPage = () => {
                       </button>
                     </div>
 
-                    <label className="rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
-                      <select
-                          className="bg-transparent text-sm text-slate-200 outline-none"
-                          onChange={(event) =>
-                              handlePerPageChange(Number(event.target.value))
-                          }
-                          value={perPage}
-                      >
-                        <option className="bg-slate-950 text-white" value={6}>
-                          Sayfa başına 6
-                        </option>
-                        <option className="bg-slate-950 text-white" value={12}>
-                          Sayfa başına 12
-                        </option>
-                        <option className="bg-slate-950 text-white" value={24}>
-                          Sayfa başına 24
-                        </option>
-                      </select>
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <Layers aria-hidden="true" className="h-4 w-4 text-slate-400" />
+
+                      <div className="w-44">
+                        <Select
+                            value={String(perPage)}
+                            onValueChange={(value) =>
+                                handlePerPageChange(Number(value))
+                            }
+                            options={PER_PAGE_SELECT_OPTIONS}
+                        />
+                      </div>
+                    </div>
                   </footer>
               ) : null}
             </section>
@@ -1594,20 +1663,6 @@ const GamesPage = () => {
                           }
                           placeholder="LTZ Studio"
                           value={gameForm.developer ?? ""}
-                      />
-                    </label>
-
-                    <label className="grid gap-2">
-                      <span className="text-sm font-bold text-white">Yayıncı</span>
-
-                      <input
-                          className="h-12 rounded-xl border border-white/10 bg-slate-950/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/70"
-                          maxLength={150}
-                          onChange={(event) =>
-                              setGameField("publisher", event.target.value)
-                          }
-                          placeholder="LobbyTwoZero"
-                          value={gameForm.publisher ?? ""}
                       />
                     </label>
 

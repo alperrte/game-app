@@ -36,6 +36,12 @@ public class SteamAppDetailsResponse {
         @JsonProperty("steam_appid")
         private Integer steamAppId;
 
+        @JsonProperty("is_free")
+        private boolean isFree;
+
+        @JsonProperty("price_overview")
+        private SteamPriceOverview priceOverview;
+
         @JsonProperty("short_description")
         private String shortDescription;
 
@@ -81,6 +87,22 @@ public class SteamAppDetailsResponse {
 
         public void setSteamAppId(Integer steamAppId) {
             this.steamAppId = steamAppId;
+        }
+
+        public boolean isFree() {
+            return isFree;
+        }
+
+        public void setFree(boolean free) {
+            isFree = free;
+        }
+
+        public SteamPriceOverview getPriceOverview() {
+            return priceOverview;
+        }
+
+        public void setPriceOverview(SteamPriceOverview priceOverview) {
+            this.priceOverview = priceOverview;
         }
 
         public String getShortDescription() {
@@ -161,6 +183,51 @@ public class SteamAppDetailsResponse {
 
         public void setSupportedLanguages(String supportedLanguages) {
             this.supportedLanguages = supportedLanguages;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class SteamPriceOverview {
+
+        private String currency;
+        private Integer initial;
+        private Integer finalPrice;
+
+        @JsonProperty("discount_percent")
+        private Integer discountPercent;
+
+        public String getCurrency() {
+            return currency;
+        }
+
+        public void setCurrency(String currency) {
+            this.currency = currency;
+        }
+
+        public Integer getInitial() {
+            return initial;
+        }
+
+        public void setInitial(Integer initial) {
+            this.initial = initial;
+        }
+
+        @JsonProperty("final")
+        public Integer getFinalPrice() {
+            return finalPrice;
+        }
+
+        @JsonProperty("final")
+        public void setFinalPrice(Integer finalPrice) {
+            this.finalPrice = finalPrice;
+        }
+
+        public Integer getDiscountPercent() {
+            return discountPercent;
+        }
+
+        public void setDiscountPercent(Integer discountPercent) {
+            this.discountPercent = discountPercent;
         }
     }
 

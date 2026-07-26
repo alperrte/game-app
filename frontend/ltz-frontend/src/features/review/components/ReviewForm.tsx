@@ -72,11 +72,11 @@ export function ReviewForm({
         >
             <div className="mb-5">
                 <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
-                    İnceleme yaz
+                    Deneyimini Paylaş
                 </h3>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Oyunu puanla, deneyimini paylaş ve dilersen farklı başlıklarda
-                    detaylı görüşlerini ekle.
+                    Oyunun güçlü ve zayıf yönlerini, oynanış deneyimini ve tavsiye
+                    edip etmediğini kısaca anlat.
                 </p>
             </div>
 
@@ -254,7 +254,7 @@ export function ReviewForm({
 
                 <textarea
                     rows={5}
-                    placeholder="Bu oyun hakkında genel olarak ne düşünüyorsun?"
+                    placeholder="Bu oyun hakkında ne düşünüyorsun?"
                     value={values.reviewText}
                     onChange={(event) =>
                         setValues((current) => ({
@@ -404,7 +404,7 @@ export function ReviewForm({
                     }
                     className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    {submitting ? "Gönderiliyor..." : "İncelemeyi gönder"}
+                    {submitting ? "Yayınlanıyor..." : "İncelemeyi Yayınla"}
                 </button>
             </div>
         </form>

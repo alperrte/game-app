@@ -8,12 +8,6 @@ export type {
   DeveloperRequest as GameDeveloperRequest,
 } from "./developerTypes";
 export type {
-  Publisher,
-  PublisherRequest,
-  Publisher as GamePublisher,
-  PublisherRequest as GamePublisherRequest,
-} from "./publisherTypes";
-export type {
   Platform,
   PlatformRequest,
   Platform as GamePlatform,
@@ -37,11 +31,11 @@ export type Game = {
   platform: string | null;
   releaseDate: string | null;
   developer: string | null;
-  publisher: string | null;
   minimumSystemRequirements: string | null;
   recommendedSystemRequirements: string | null;
   supportedLanguages: string | null;
   coverImageUrl: string | null;
+  storeUrl: string | null;
   earlyAccess: boolean;
   onSale: boolean;
   turkishLanguageSupport: boolean;
@@ -60,7 +54,6 @@ export type GameRequest = {
   platform?: string | null;
   releaseDate?: string | null;
   developer?: string | null;
-  publisher?: string | null;
   minimumSystemRequirements?: string | null;
   recommendedSystemRequirements?: string | null;
   supportedLanguages?: string | null;
@@ -72,15 +65,33 @@ export type GameRequest = {
   systemRequirementOnly?: boolean;
 };
 
+export type GameSortOption =
+  | "popularity,desc"
+  | "popularity,asc"
+  | "releaseDate,desc"
+  | "releaseDate,asc"
+  | "title,asc"
+  | "title,desc"
+  | "createdAt,desc"
+  | "createdAt,asc";
+
 export type GameFilters = {
+  // Yeni /api/games sözleşmesi
+  search?: string;
+  store?: GameSource;
+  category?: number;
+  platform?: string;
+  sort?: string;
+  includeSystemRequirementOnly?: boolean;
+  earlyAccess?: boolean;
+  onSale?: boolean;
+  turkishLanguageSupport?: boolean;
+  // Legacy alanlar (review/profil/social feature'ları için geriye uyumluluk;
+  // gameService içinde yeni sözleşmeye eşlenir)
   source?: GameSource;
   categoryId?: number;
   title?: string;
   genre?: string;
-  platform?: string;
-  earlyAccess?: boolean;
-  onSale?: boolean;
-  turkishLanguageSupport?: boolean;
 };
 
 export type PageRequest = {
@@ -100,9 +111,7 @@ export type PageResponse<T> = {
   totalPages: number;
 };
 
-export type GameListOptions = PageRequest & {
-  includeSystemRequirementOnly?: boolean;
-};
+export type GameListOptions = GameFilters & PageRequest;
 
 export type GameFilterOptions = GameFilters & PageRequest;
 

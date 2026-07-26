@@ -2,7 +2,7 @@ package com.ltz.game_service.controller;
 
 import com.ltz.game_service.dto.request.GameRequest;
 import com.ltz.game_service.dto.response.GameResponse;
-import com.ltz.game_service.enums.GameSource;
+import com.ltz.game_service.entity.enums.GameSource;
 import com.ltz.game_service.service.GameService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -23,37 +23,30 @@ public class GameController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<GameResponse>> getAllGames(
-            @RequestParam(defaultValue = "false") boolean includeSystemRequirementOnly,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return ResponseEntity.ok(gameService.getAllGames(includeSystemRequirementOnly, page, size));
-    }
-
-    @GetMapping("/filter")
-    public ResponseEntity<Page<GameResponse>> filterGames(
-            @RequestParam(required = false) GameSource source,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String title,
-            @RequestParam(required = false) String genre,
+    public ResponseEntity<Page<GameResponse>> getGames(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) GameSource store,
+            @RequestParam(required = false) Long category,
             @RequestParam(required = false) String platform,
             @RequestParam(required = false) Boolean earlyAccess,
             @RequestParam(required = false) Boolean onSale,
             @RequestParam(required = false) Boolean turkishLanguageSupport,
+            @RequestParam(defaultValue = "false") boolean includeSystemRequirementOnly,
+            @RequestParam(defaultValue = "popularity,desc") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         return ResponseEntity.ok(
-                gameService.filterGames(
-                        source,
-                        categoryId,
-                        title,
-                        genre,
+                gameService.getGames(
+                        search,
+                        store,
+                        category,
                         platform,
                         earlyAccess,
                         onSale,
                         turkishLanguageSupport,
+                        includeSystemRequirementOnly,
+                        sort,
                         page,
                         size
                 )
