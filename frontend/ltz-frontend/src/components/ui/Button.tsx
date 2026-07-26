@@ -21,9 +21,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
     primary: cn(
-        "bg-gradient-to-r from-violet-700 via-purple-600 to-fuchsia-600 text-white",
-        "shadow-[0_0_32px_rgba(147,51,234,0.55)]",
-        "hover:shadow-[0_0_44px_rgba(217,70,239,0.65)] hover:scale-[1.02]",
+        "bg-violet-600 text-white hover:bg-violet-500",
+        "shadow-[0_0_32px_rgba(147,51,234,0.35)]",
+        "hover:shadow-[0_0_44px_rgba(217,70,239,0.45)] hover:scale-[1.02]",
         "active:scale-[0.99]",
     ),
     ghost: cn(

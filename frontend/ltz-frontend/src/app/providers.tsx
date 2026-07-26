@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
-import { CurrentUserProfileProvider } from "../features/user/context/CurrentUserProfileContext";
+import { CurrentUserProfileProvider, useCurrentUserProfile } from "../features/user/context/CurrentUserProfileContext";
 
 /*
  * Uygulama genelinde kullanılan sağlayıcıların toplandığı dosya.
@@ -13,11 +13,25 @@ type AppProvidersProps = {
   children: ReactNode;
 };
 
+const GlobalThemeSync = () => {
+  const { profile } = useCurrentUserProfile();
+
+  useEffect(() => {
+    const theme = profile?.profileThemeUrl || "DEFAULT";
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [profile?.profileThemeUrl]);
+
+  return null;
+};
+
 export const AppProviders = ({ children }: AppProvidersProps) => {
   return (
     <ToastProvider>
       <BrowserRouter>
-        <CurrentUserProfileProvider>{children}</CurrentUserProfileProvider>
+        <CurrentUserProfileProvider>
+          <GlobalThemeSync />
+          {children}
+        </CurrentUserProfileProvider>
       </BrowserRouter>
     </ToastProvider>
   );

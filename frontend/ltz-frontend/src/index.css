@@ -10,6 +10,138 @@
     font-family: "Exo 2", ui-sans-serif, system-ui, sans-serif;
 }
 
+:root {
+    --accent-color-100: #ede9fe;
+    --accent-color-200: #ddd6fe;
+    --accent-color-300: #c4b5fd;
+    --accent-color-400: #a78bfa;
+    --accent-color-500: #8b5cf6;
+    --accent-color-600: #7c3aed;
+    --accent-color-800: #5b21b6;
+    --accent-color-900: #4c1d95;
+    --accent-color-950: #2e1065;
+
+    --accent-fuchsia-100: #fdf4ff;
+    --accent-fuchsia-200: #fae8ff;
+    --accent-fuchsia-300: #f5d0fe;
+    --accent-fuchsia-400: #e879f9;
+    --accent-fuchsia-500: #d946ef;
+    --accent-fuchsia-600: #c084fc;
+    --accent-fuchsia-800: #86198f;
+    --accent-fuchsia-900: #701a75;
+    --accent-fuchsia-950: #4a044e;
+}
+
+:root[data-theme="DEFAULT"] {
+    --accent-color-100: #ede9fe;
+    --accent-color-200: #ddd6fe;
+    --accent-color-300: #c4b5fd;
+    --accent-color-400: #a78bfa;
+    --accent-color-500: #8b5cf6;
+    --accent-color-600: #7c3aed;
+    --accent-color-800: #5b21b6;
+    --accent-color-900: #4c1d95;
+    --accent-color-950: #2e1065;
+
+    --accent-fuchsia-100: #fdf4ff;
+    --accent-fuchsia-200: #fae8ff;
+    --accent-fuchsia-300: #f5d0fe;
+    --accent-fuchsia-400: #e879f9;
+    --accent-fuchsia-500: #d946ef;
+    --accent-fuchsia-600: #c084fc;
+    --accent-fuchsia-800: #86198f;
+    --accent-fuchsia-900: #701a75;
+    --accent-fuchsia-950: #4a044e;
+}
+
+:root[data-theme="NEON_PINK"] {
+    --accent-color-100: #fdf2f8;
+    --accent-color-200: #fce7f3;
+    --accent-color-300: #fbcfe8;
+    --accent-color-400: #f472b6;
+    --accent-color-500: #ec4899;
+    --accent-color-600: #db2777;
+    --accent-color-800: #9d174d;
+    --accent-color-900: #831843;
+    --accent-color-950: #500724;
+
+    --accent-fuchsia-100: #fff1f2;
+    --accent-fuchsia-200: #ffe4e6;
+    --accent-fuchsia-300: #fecdd3;
+    --accent-fuchsia-400: #fda4af;
+    --accent-fuchsia-500: #f43f5e;
+    --accent-fuchsia-600: #e11d48;
+    --accent-fuchsia-800: #9f1239;
+    --accent-fuchsia-900: #881337;
+    --accent-fuchsia-950: #4c0519;
+}
+
+:root[data-theme="CYBERPUNK"] {
+    --accent-color-100: #fefbeb;
+    --accent-color-200: #fef3c7;
+    --accent-color-300: #fde68a;
+    --accent-color-400: #facc15;
+    --accent-color-500: #eab308;
+    --accent-color-600: #ca8a04;
+    --accent-color-800: #854d0e;
+    --accent-color-900: #713f12;
+    --accent-color-950: #451a03;
+
+    --accent-fuchsia-100: #fff7ed;
+    --accent-fuchsia-200: #ffedd5;
+    --accent-fuchsia-300: #fed7aa;
+    --accent-fuchsia-400: #fb923c;
+    --accent-fuchsia-500: #f97316;
+    --accent-fuchsia-600: #ea580c;
+    --accent-fuchsia-800: #9a3412;
+    --accent-fuchsia-900: #7c2d12;
+    --accent-fuchsia-950: #431407;
+}
+
+:root[data-theme="MATRIX_GREEN"] {
+    --accent-color-100: #ecfdf5;
+    --accent-color-200: #a7f3d0;
+    --accent-color-300: #6ee7b7;
+    --accent-color-400: #34d399;
+    --accent-color-500: #10b981;
+    --accent-color-600: #059669;
+    --accent-color-800: #065f46;
+    --accent-color-900: #064e3b;
+    --accent-color-950: #022c22;
+
+    --accent-fuchsia-100: #f0fdfa;
+    --accent-fuchsia-200: #ccfbf1;
+    --accent-fuchsia-300: #99f6e4;
+    --accent-fuchsia-400: #2dd4bf;
+    --accent-fuchsia-500: #14b8a6;
+    --accent-fuchsia-600: #0d9488;
+    --accent-fuchsia-800: #115e59;
+    --accent-fuchsia-900: #134e4a;
+    --accent-fuchsia-950: #042f2e;
+}
+
+:root[data-theme="STEALTH"] {
+    --accent-color-100: #f4f4f5;
+    --accent-color-200: #e4e4e7;
+    --accent-color-300: #d4d4d8;
+    --accent-color-400: #a1a1aa;
+    --accent-color-500: #71717a;
+    --accent-color-600: #52525b;
+    --accent-color-800: #27272a;
+    --accent-color-900: #18181b;
+    --accent-color-950: #09090b;
+
+    --accent-fuchsia-100: #f1f5f9;
+    --accent-fuchsia-200: #e2e8f0;
+    --accent-fuchsia-300: #cbd5e1;
+    --accent-fuchsia-400: #94a3b8;
+    --accent-fuchsia-500: #64748b;
+    --accent-fuchsia-600: #475569;
+    --accent-fuchsia-800: #1e293b;
+    --accent-fuchsia-900: #0f172a;
+    --accent-fuchsia-950: #020617;
+}
+
 /*
  * LTZ tasarım tokenları (Tailwind v4 @theme).
  * Bu değerler bg-ltz-bg, text-ltz-muted, animate-float gibi class'lar üretir.
@@ -19,11 +151,41 @@
     --color-ltz-panel: #050816;
     --color-ltz-card: #070818;
 
-    --color-ltz-violet: #7c3aed;
-    --color-ltz-purple: #9333ea;
-    --color-ltz-fuchsia: #d946ef;
+    --color-ltz-violet: var(--accent-color-600);
+    --color-ltz-purple: var(--accent-color-500);
+    --color-ltz-fuchsia: var(--accent-fuchsia-500);
     --color-ltz-cyan: #22d3ee;
     --color-ltz-blue: #2563eb;
+
+    --color-violet-100: var(--accent-color-100);
+    --color-violet-200: var(--accent-color-200);
+    --color-violet-300: var(--accent-color-300);
+    --color-violet-400: var(--accent-color-400);
+    --color-violet-500: var(--accent-color-500);
+    --color-violet-600: var(--accent-color-600);
+    --color-violet-800: var(--accent-color-800);
+    --color-violet-900: var(--accent-color-900);
+    --color-violet-950: var(--accent-color-950);
+
+    --color-purple-100: var(--accent-color-100);
+    --color-purple-200: var(--accent-color-200);
+    --color-purple-300: var(--accent-color-300);
+    --color-purple-400: var(--accent-color-400);
+    --color-purple-500: var(--accent-color-500);
+    --color-purple-600: var(--accent-color-600);
+    --color-purple-800: var(--accent-color-800);
+    --color-purple-900: var(--accent-color-900);
+    --color-purple-950: var(--accent-color-950);
+
+    --color-fuchsia-100: var(--accent-fuchsia-100);
+    --color-fuchsia-200: var(--accent-fuchsia-200);
+    --color-fuchsia-300: var(--accent-fuchsia-300);
+    --color-fuchsia-400: var(--accent-fuchsia-400);
+    --color-fuchsia-500: var(--accent-fuchsia-500);
+    --color-fuchsia-600: var(--accent-fuchsia-600);
+    --color-fuchsia-800: var(--accent-fuchsia-800);
+    --color-fuchsia-900: var(--accent-fuchsia-900);
+    --color-fuchsia-950: var(--accent-fuchsia-950);
 
     --animate-float: float 6s ease-in-out infinite;
     --animate-pulse-slow: pulseSlow 3s ease-in-out infinite;

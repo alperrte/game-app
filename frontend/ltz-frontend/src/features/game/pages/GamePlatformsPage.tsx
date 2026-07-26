@@ -664,7 +664,7 @@ const GamePlatformsPage = () => {
             <section className="mb-7 flex justify-end">
               {isAdmin ? (
                   <button
-                      className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50"
+                      className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-xl bg-violet-600 hover:bg-violet-500 px-7 text-base font-bold text-white shadow-xl shadow-violet-950/50 transition duration-150"
                       onClick={openCreateModal}
                       type="button"
                   >
@@ -1110,7 +1110,7 @@ const GamePlatformsPage = () => {
 
                   <div className="grid gap-3 pt-2 sm:grid-cols-2">
                     <button
-                        className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-xl bg-violet-600 hover:bg-violet-500 px-5 py-4 text-sm font-bold text-white shadow-xl shadow-violet-950/50 transition duration-150 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={saving || !formValue.name.trim()}
                         type="submit"
                     >

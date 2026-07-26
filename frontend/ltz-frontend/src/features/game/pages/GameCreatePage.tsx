@@ -471,7 +471,7 @@ const GameCreatePage = () => {
                 </a>
                 {isAdmin ? (
                   <button
-                    className="inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-8 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
+                    className="inline-flex h-12 items-center justify-center rounded-xl bg-violet-600 hover:bg-violet-500 px-8 text-sm font-bold text-white shadow-xl shadow-violet-950/50 transition duration-150 disabled:opacity-60"
                     disabled={loading}
                     type="submit"
                   >

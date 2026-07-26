@@ -42,6 +42,7 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
   const [coverUrl, setCoverUrl] = useState(profile.coverUrl || "");
   const [profileBackgroundUrl, setProfileBackgroundUrl] = useState(profile.profileBackgroundUrl || "");
   const [profileMusicUrl, setProfileMusicUrl] = useState(profile.profileMusicUrl || "");
+  const [profileTheme, setProfileTheme] = useState(profile.profileThemeUrl || "DEFAULT");
   const [hardwareCpu, setHardwareCpu] = useState(profile.hardwareCpu || "");
   const [hardwareGpu, setHardwareGpu] = useState(profile.hardwareGpu || "");
   const [hardwareRam, setHardwareRam] = useState(profile.hardwareRam || "");
@@ -156,7 +157,7 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
         favoriteCategories: categories.join(","),
         avatarUrl: avatarUrl.trim(),
         coverUrl: coverUrl.trim(),
-        profileThemeUrl: "",
+        profileThemeUrl: profileTheme,
         profileBackgroundUrl: profileBackgroundUrl.trim(),
         profileMusicUrl: profileMusicUrl.trim(),
         hardwareCpu: hardwareCpu.trim(),
@@ -172,7 +173,7 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [displayName, bio, gamerType, categories, avatarUrl, coverUrl, profileBackgroundUrl, profileMusicUrl, hardwareCpu, hardwareGpu, hardwareRam, hardwareOs, showToast, onSaveSuccess, onClose]);
+  }, [displayName, bio, gamerType, categories, avatarUrl, coverUrl, profileTheme, profileBackgroundUrl, profileMusicUrl, hardwareCpu, hardwareGpu, hardwareRam, hardwareOs, showToast, onSaveSuccess, onClose]);
 
   return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -544,6 +545,29 @@ const EditProfileModalComponent: React.FC<EditProfileModalProps> = ({
             <p className="mt-2 text-[10px] text-zinc-500">
               Donanım bilgileriniz yalnızca kendi profilinizde görünür. Gizlilik ayarlarından görünürlüğünü yönetebilirsiniz.
             </p>
+          </div>
+
+          {/* Profile Theme Select */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+              Profil Sayfası Teması
+            </label>
+            <div className="mt-2 p-4 rounded-xl border border-violet-500/20 bg-slate-950/50">
+              <select
+                value={profileTheme}
+                onChange={(e) => setProfileTheme(e.target.value)}
+                className="w-full rounded-lg border border-violet-500/25 bg-slate-950/70 px-3 py-2 text-xs text-zinc-100 focus:border-violet-500/50 focus:outline-none"
+              >
+                <option value="DEFAULT">Klasik Violet (Mor/Mavi)</option>
+                <option value="NEON_PINK">Neon Pink (Pembe/Fuşya)</option>
+                <option value="CYBERPUNK">Cyberpunk Gold (Sarı/Turuncu)</option>
+                <option value="MATRIX_GREEN">Matrix Green (Dijital Yeşil)</option>
+                <option value="STEALTH">Stealth Dark (Mat Gri/Siyah)</option>
+              </select>
+              <p className="mt-2 text-[10px] text-zinc-500">
+                Profil sayfanızdaki vurgu renklerini ve çerçeve degradelerini değiştirecek bir siberpunk renk şeması seçin.
+              </p>
+            </div>
           </div>
 
           {/* YouTube BGM Player URL */}

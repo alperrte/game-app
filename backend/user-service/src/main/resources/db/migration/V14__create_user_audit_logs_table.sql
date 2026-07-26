@@ -8,3 +8,5 @@ CREATE TABLE user_audit_logs (
     ip_address VARCHAR(45) NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE()
 );
+
+CREATE INDEX idx_user_audit_logs_user_id_created_at ON user_audit_logs(user_id, created_at DESC);

@@ -8,10 +8,13 @@ import { formatProfileDate, getGamerTypeLabel } from "../../utils/profileHelpers
 import { getRoleNameClass } from "../../utils/roleStyles";
 import type { ProfileBadge } from "../../utils/badges";
 import { ProfileBadgeChip, RoleBadge } from "./ProfilePrimitives";
+import { cn } from "../../../../utils/cn";
+import type { ProfileThemeClasses } from "../../utils/theme";
 
 const HEX_CLIP = "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)";
 
 type ProfileHeroProps = {
+  theme: ProfileThemeClasses;
   profile: UserProfileResponse;
   role: string | null | undefined;
   badges: ProfileBadge[];
@@ -23,6 +26,7 @@ type ProfileHeroProps = {
 };
 
 export function ProfileHero({
+  theme,
   profile,
   role,
   badges,
@@ -35,7 +39,7 @@ export function ProfileHero({
   const hasCover = isImageValid(profile.coverUrl);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-violet-500/30 bg-zinc-950/80 shadow-lg">
+    <div className={cn("relative overflow-hidden rounded-3xl border bg-zinc-950/80 shadow-lg", theme.border, theme.glow)}>
       <div className="relative h-48 overflow-hidden border-b border-white/5 bg-zinc-950 md:h-64">
         {hasCover ? (
           <img
@@ -53,13 +57,13 @@ export function ProfileHero({
             }}
           />
         )}
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-violet-500 to-transparent" />
+        <div className={cn("absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent to-transparent", theme.text.replace("text-", "via-"))} />
       </div>
 
       <div className="relative flex flex-col items-start justify-between gap-6 px-6 pb-6 pt-16 md:flex-row md:pt-4">
         <div className="absolute -top-16 left-6 z-20 md:left-8">
           <div
-            className="h-28 w-28 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-500 p-[3px] md:h-36 md:w-36"
+            className={cn("h-28 w-28 bg-gradient-to-br p-[3px] md:h-36 md:w-36", theme.gradient)}
             style={{ clipPath: HEX_CLIP }}
           >
             <div
@@ -74,7 +78,7 @@ export function ProfileHero({
                   src={getImageUrl(profile.avatarUrl)}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-zinc-900 font-mono text-3xl font-black uppercase text-violet-400 md:text-4xl">
+                <div className={cn("flex h-full w-full items-center justify-center bg-zinc-900 font-mono text-3xl font-black uppercase md:text-4xl", theme.text)}>
                   {profile.username.substring(0, 2).toUpperCase()}
                 </div>
               )}
@@ -98,7 +102,7 @@ export function ProfileHero({
           </div>
 
           {profile.gamerType ? (
-            <span className="inline-flex rounded border border-violet-500/40 bg-violet-600/20 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-violet-200">
+            <span className={cn("inline-flex rounded border px-3 py-0.5 text-xs font-bold uppercase tracking-wider", theme.border, theme.bg, theme.text.replace("text-", "text-opacity-90 text-"))}>
               {getGamerTypeLabel(profile.gamerType)}
             </span>
           ) : null}
@@ -107,7 +111,8 @@ export function ProfileHero({
             <div className="flex flex-wrap items-center gap-2">
               {badges.map((badge) => (
                 <ProfileBadgeChip
-                  icon={<Award className="h-3.5 w-3.5 text-violet-300" />}
+                  theme={theme}
+                  icon={<Award className={cn("h-3.5 w-3.5", theme.text)} />}
                   key={badge.id}
                   label={badge.label}
                 />
@@ -132,7 +137,7 @@ export function ProfileHero({
 
           <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-zinc-500">
             <span className="flex items-center gap-1.5">
-              <Calendar className="h-4 w-4 text-violet-500" />
+              <Calendar className={cn("h-4 w-4", theme.text)} />
               Kayıt: {formatProfileDate(profile.createdAt)}
             </span>
             {lastSeenLabel ? (
@@ -142,8 +147,8 @@ export function ProfileHero({
               </span>
             ) : null}
             {isOwnProfile ? (
-              <span className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-950/20 px-2 py-0.5 text-xs font-bold uppercase text-fuchsia-400">
-                <Sparkles className="h-3 w-3 text-fuchsia-400" /> Öncü Hesap
+              <span className={cn("flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-bold uppercase", theme.border, theme.bg, theme.text)}>
+                <Sparkles className={cn("h-3 w-3", theme.text)} /> Öncü Hesap
               </span>
             ) : null}
           </div>
@@ -152,14 +157,14 @@ export function ProfileHero({
         {isOwnProfile ? (
           <div className="mt-4 flex flex-row md:flex-col gap-2 shrink-0 self-start md:mt-2 w-full md:w-auto">
             <button
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-5 py-2.5 text-sm font-bold text-violet-300 transition-colors hover:bg-violet-600 hover:text-white"
+              className={cn("flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all duration-200 cursor-pointer", theme.border, theme.bg, theme.text, "hover:bg-white/10 hover:text-white")}
               onClick={onEditClick}
               type="button"
             >
               <Edit3 className="h-4 w-4" /> Profili Düzenle
             </button>
             <button
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-2.5 text-sm font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white cursor-pointer"
               onClick={onSettingsClick}
               type="button"
             >

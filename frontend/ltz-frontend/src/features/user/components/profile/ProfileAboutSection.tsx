@@ -1,13 +1,17 @@
 import type { UserProfileResponse } from "../../types/user";
 import { formatProfileDate, getGamerTypeLabel } from "../../utils/profileHelpers";
 import { InfoRow, SectionPanel } from "./ProfilePrimitives";
+import { ProfileAvailabilitySection } from "./ProfileAvailabilitySection";
+import type { ProfileThemeClasses } from "../../utils/theme";
 
 type ProfileAboutSectionProps = {
   profile: UserProfileResponse;
   categoriesList: string[];
+  theme: ProfileThemeClasses;
+  isOwnProfile: boolean;
 };
 
-export function ProfileAboutSection({ profile, categoriesList }: ProfileAboutSectionProps) {
+export function ProfileAboutSection({ profile, categoriesList, theme, isOwnProfile }: ProfileAboutSectionProps) {
   return (
     <SectionPanel
       description="Favori kategoriler, oyun tarzı ve profil özeti."
@@ -41,6 +45,14 @@ export function ProfileAboutSection({ profile, categoriesList }: ProfileAboutSec
         value={profile.gamerType ? getGamerTypeLabel(profile.gamerType) : "Belirlenmemiş"}
       />
       <InfoRow label="Kayıt Tarihi" value={formatProfileDate(profile.createdAt)} />
+
+      {profile.userId && (
+        <ProfileAvailabilitySection
+          theme={theme}
+          userId={profile.userId}
+          isOwnProfile={isOwnProfile}
+        />
+      )}
     </SectionPanel>
   );
 }

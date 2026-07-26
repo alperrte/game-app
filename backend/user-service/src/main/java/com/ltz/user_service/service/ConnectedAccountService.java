@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import com.ltz.user_service.dto.response.ConnectedAccountResponse;
 import com.ltz.user_service.entity.ConnectedAccount;
 import com.ltz.user_service.entity.AuditAction;
-import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.exception.ResourceNotFoundException;
 import com.ltz.user_service.repository.ConnectedAccountRepository;
 import com.ltz.user_service.util.ClientRequestContext;
@@ -72,7 +71,7 @@ public class ConnectedAccountService {
                 .orElseThrow(() -> new ResourceNotFoundException("Connected account not found"));
 
         if (!account.getUserId().equals(userId)) {
-            throw new BadRequestException("Unauthorized to disconnect this account");
+            throw new org.springframework.security.access.AccessDeniedException("Bu işlemi yapmaya yetkiniz bulunmamaktadır.");
         }
 
         connectedAccountRepository.delete(account);

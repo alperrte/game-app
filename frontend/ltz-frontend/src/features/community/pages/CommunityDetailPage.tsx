@@ -40,8 +40,8 @@ export default function CommunityDetailPage() {
   const { showToast } = useToast();
 
   const [community, setCommunity] = useState<Community | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(() => Number.isFinite(communityId));
+  const [notFound, setNotFound] = useState(() => !Number.isFinite(communityId));
   const [busyId, setBusyId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CommunityUpdateRequest | null>(null);
   const [members, setMembers] = useState<CommunityMember[]>([]);
@@ -57,8 +57,6 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     if (!Number.isFinite(communityId)) {
-      setNotFound(true);
-      setLoading(false);
       return;
     }
 

@@ -3,10 +3,10 @@ package com.ltz.user_service.service;
 import com.ltz.user_service.dto.request.ConnectedAccountRequest;
 import com.ltz.user_service.dto.response.ConnectedAccountResponse;
 import com.ltz.user_service.entity.ConnectedAccount;
-import com.ltz.user_service.exception.BadRequestException;
 import com.ltz.user_service.exception.ResourceNotFoundException;
 import com.ltz.user_service.repository.ConnectedAccountRepository;
 import com.ltz.user_service.util.ClientRequestContext;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -109,7 +109,7 @@ class ConnectedAccountServiceTest {
     void testDisconnectAccount_Unauthorized() {
         when(connectedAccountRepository.findById(1L)).thenReturn(Optional.of(connectedAccount));
 
-        assertThrows(BadRequestException.class, () -> connectedAccountService.disconnectAccount("other_user", 1L, TEST_CONTEXT));
+        assertThrows(AccessDeniedException.class, () -> connectedAccountService.disconnectAccount("other_user", 1L, TEST_CONTEXT));
         verify(connectedAccountRepository, never()).delete(any(ConnectedAccount.class));
     }
 

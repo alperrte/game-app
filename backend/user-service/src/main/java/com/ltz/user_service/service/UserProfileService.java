@@ -45,17 +45,20 @@ public class UserProfileService {
     private final ConnectedAccountRepository connectedAccountRepository;
     private final UserAssignedBadgeRepository userAssignedBadgeRepository;
     private final AuditLogService auditLogService;
+    private final ProfileIntegrationService profileIntegrationService;
 
     public UserProfileService(UserProfileRepository userProfileRepository,
             PrivacySettingsRepository privacySettingsRepository,
             ConnectedAccountRepository connectedAccountRepository,
             UserAssignedBadgeRepository userAssignedBadgeRepository,
-            AuditLogService auditLogService) {
+            AuditLogService auditLogService,
+            ProfileIntegrationService profileIntegrationService) {
         this.userProfileRepository = userProfileRepository;
         this.privacySettingsRepository = privacySettingsRepository;
         this.connectedAccountRepository = connectedAccountRepository;
         this.userAssignedBadgeRepository = userAssignedBadgeRepository;
         this.auditLogService = auditLogService;
+        this.profileIntegrationService = profileIntegrationService;
     }
 
     @Transactional(readOnly = true)
@@ -82,10 +85,28 @@ public class UserProfileService {
 
     private void checkProfilePrivacy(String targetUserId, String currentUserId) {
         PrivacySettings settings = privacySettingsRepository.findByUserId(targetUserId).orElse(null);
-        if (settings != null && (settings.getProfileVisibility() == Visibility.PRIVATE
-                || settings.getProfileVisibility() == Visibility.FRIENDS_ONLY)) {
-            if (currentUserId == null || !currentUserId.equals(targetUserId)) {
+        if (settings != null) {
+            boolean isOwner = currentUserId != null && currentUserId.equals(targetUserId);
+            if (isOwner) {
+                return;
+            }
+            if (settings.getProfileVisibility() == Visibility.PRIVATE) {
                 throw new org.springframework.security.access.AccessDeniedException("Bu profil gizlidir.");
+            }
+            if (settings.getProfileVisibility() == Visibility.FRIENDS_ONLY) {
+                if (currentUserId == null) {
+                    throw new org.springframework.security.access.AccessDeniedException("Bu profil gizlidir.");
+                }
+                boolean isFriend = false;
+                try {
+                    isFriend = profileIntegrationService.getRelationship(
+                            Long.valueOf(currentUserId), Long.valueOf(targetUserId)).isFriend();
+                } catch (Exception e) {
+                    log.error("Failed to fetch friendship status for privacy check: viewer={}, target={}", currentUserId, targetUserId, e);
+                }
+                if (!isFriend) {
+                    throw new org.springframework.security.access.AccessDeniedException("Bu profil gizlidir.");
+                }
             }
         }
     }
@@ -315,13 +336,35 @@ public class UserProfileService {
                 .collect(Collectors.groupingBy(UserAssignedBadge::getUserId));
 
         String currentUserId = getCurrentUserId();
+        java.util.Set<String> friendIds = java.util.Collections.emptySet();
+        if (currentUserId != null) {
+            try {
+                friendIds = profileIntegrationService.getSocialConnections(Long.valueOf(currentUserId))
+                        .getFriends().stream()
+                        .map(friend -> friend.getFriendUserId().toString())
+                        .collect(Collectors.toSet());
+            } catch (Exception e) {
+                log.error("Failed to fetch friends for batch privacy check of user: {}", currentUserId, e);
+            }
+        }
+
+        final java.util.Set<String> finalFriendIds = friendIds;
 
         return profiles.stream()
                 .filter(profile -> {
-                    PrivacySettings settings = settingsMap.get(profile.getUserId());
-                    if (settings != null && (settings.getProfileVisibility() == Visibility.PRIVATE
-                            || settings.getProfileVisibility() == Visibility.FRIENDS_ONLY)) {
-                        return currentUserId != null && currentUserId.equals(profile.getUserId());
+                    String targetId = profile.getUserId();
+                    boolean isOwner = currentUserId != null && currentUserId.equals(targetId);
+                    if (isOwner) {
+                        return true;
+                    }
+                    PrivacySettings settings = settingsMap.get(targetId);
+                    if (settings != null) {
+                        if (settings.getProfileVisibility() == Visibility.PRIVATE) {
+                            return false;
+                        }
+                        if (settings.getProfileVisibility() == Visibility.FRIENDS_ONLY) {
+                            return finalFriendIds.contains(targetId);
+                        }
                     }
                     return true;
                 })

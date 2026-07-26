@@ -11,6 +11,11 @@ import type {
   AssignedBadgeResponse,
   BadgeCatalogItem,
   AssignBadgeRequest,
+  UserProfileReviewResponse,
+  CreateProfileReviewRequest,
+  UserProfileCommendationsSummary,
+  UserProfileClipResponse,
+  AvailabilitySlot,
 } from "../types/user";
 import type { UserAuditLog } from "../types/audit";
 import type { SocialPostResponse } from "../../social/types/social.types";
@@ -89,4 +94,42 @@ export const userService = {
 
   removeAdminBadge: (userId: string, badgeKey: string) =>
     apiClient.delete(USER_API_ENDPOINTS.adminUserBadge(userId, badgeKey)),
+
+  getUserCommendations: (userId: number | string) =>
+    apiClient.get<UserProfileReviewResponse[]>(USER_API_ENDPOINTS.userCommendations(userId)),
+
+  getCommendationsSummary: (userId: number | string) =>
+    apiClient.get<UserProfileCommendationsSummary>(USER_API_ENDPOINTS.userCommendationsSummary(userId)),
+
+  createUserCommendation: (userId: number | string, request: CreateProfileReviewRequest) =>
+    apiClient.post<UserProfileReviewResponse>(USER_API_ENDPOINTS.userCommendations(userId), request),
+
+  deleteUserCommendation: (reviewId: number | string) =>
+    apiClient.delete(USER_API_ENDPOINTS.deleteUserCommendation(reviewId)),
+
+  reportUserProfileReview: (reviewId: number | string, reason: string) =>
+    apiClient.post(USER_API_ENDPOINTS.reportUserCommendation(reviewId), { reason }),
+
+  getReportedReviews: () =>
+    apiClient.get<UserProfileReviewResponse[]>(USER_API_ENDPOINTS.getReportedUserCommendations),
+
+  resolveReportedReview: (reviewId: number | string) =>
+    apiClient.post(USER_API_ENDPOINTS.resolveReportedUserCommendation(reviewId), {}),
+
+  getUserClips: (userId: number | string) =>
+    apiClient.get<UserProfileClipResponse[]>(USER_API_ENDPOINTS.userClips(userId)),
+
+  addUserClip: (request: { title: string; videoUrl: string }) =>
+    apiClient.post<UserProfileClipResponse>(USER_API_ENDPOINTS.addProfileClip, request),
+
+  deleteUserClip: (clipId: number | string) =>
+    apiClient.delete(USER_API_ENDPOINTS.deleteProfileClip(clipId)),
+
+  getUserAvailability: (userId: number | string) =>
+    apiClient.get<AvailabilitySlot[]>(USER_API_ENDPOINTS.userAvailability(userId)),
+
+  updateUserAvailability: (request: { slots: AvailabilitySlot[] }) =>
+    apiClient.put<AvailabilitySlot[]>(USER_API_ENDPOINTS.updateProfileAvailability, request),
 };
+
+

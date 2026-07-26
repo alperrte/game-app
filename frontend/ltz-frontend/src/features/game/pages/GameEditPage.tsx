@@ -605,7 +605,7 @@ const GameEditPage = () => {
                   <h2 className="mb-5 text-xl font-bold text-white">İşlemler</h2>
                   <div className="flex flex-wrap gap-3">
                     <button
-                      className="h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-bold text-white shadow-xl shadow-violet-950/50 disabled:opacity-60"
+                      className="h-12 rounded-xl bg-violet-600 hover:bg-violet-500 px-6 text-sm font-bold text-white shadow-xl shadow-violet-950/50 transition duration-150 disabled:opacity-60"
                       disabled={submitting || deleting}
                       onClick={() => void handleSave()}
                       type="button"

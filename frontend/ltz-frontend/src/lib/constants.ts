@@ -238,7 +238,25 @@ export const USER_API_ENDPOINTS = {
     adminUserBadges: (userId: string) => `/api/users/admin/${userId}/badges`,
     adminUserBadge: (userId: string, badgeKey: string) =>
         `/api/users/admin/${userId}/badges/${badgeKey}`,
+
+    userCommendations: (userId: number | string) =>
+        `/api/users/profile/${userId}/commendations`,
+    userCommendationsSummary: (userId: number | string) =>
+        `/api/users/profile/${userId}/commendations/summary`,
+    deleteUserCommendation: (reviewId: number | string) =>
+        `/api/users/profile/commendations/${reviewId}`,
+    reportUserCommendation: (reviewId: number | string) =>
+        `/api/users/profile/commendations/${reviewId}/report`,
+    getReportedUserCommendations: "/api/users/profile/commendations/reported",
+    resolveReportedUserCommendation: (reviewId: number | string) =>
+        `/api/users/profile/commendations/${reviewId}/resolve`,
+    userClips: (userId: number | string) => `/api/users/${userId}/clips`,
+    addProfileClip: "/api/users/profile/clips",
+    deleteProfileClip: (clipId: number | string) => `/api/users/profile/clips/${clipId}`,
+    userAvailability: (userId: number | string) => `/api/users/${userId}/availability`,
+    updateProfileAvailability: "/api/users/profile/availability",
 } as const;
+
 
 /*
  * Game-service frontend route adresleri.

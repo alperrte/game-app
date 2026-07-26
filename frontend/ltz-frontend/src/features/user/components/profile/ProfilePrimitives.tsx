@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "../../../../utils/cn";
 import { getRoleBadgeClass, getRoleLabel } from "../../utils/roleStyles";
+import type { ProfileThemeClasses } from "../../utils/theme";
 
 export function SectionPanel({
   title,
@@ -19,7 +20,7 @@ export function SectionPanel({
   return (
     <section
       className={cn(
-        "scroll-mt-24 rounded-2xl border border-violet-500/15 bg-zinc-950/60 p-5 md:p-6",
+        "scroll-mt-24 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-5 md:p-6",
         className,
       )}
       id={id}
@@ -38,10 +39,12 @@ export function SectionPanel({
 }
 
 export function StatTile({
+  theme,
   label,
   value,
   onClick,
 }: {
+  theme?: ProfileThemeClasses;
   label: string;
   value: string | number;
   onClick?: () => void;
@@ -52,7 +55,8 @@ export function StatTile({
     <Component
       className={cn(
         "rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-left",
-        onClick && "cursor-pointer transition hover:border-violet-500/40 hover:bg-violet-500/5",
+        onClick && theme && cn("cursor-pointer transition", theme.borderHover, theme.bgHover),
+        onClick && !theme && "cursor-pointer transition hover:border-violet-500/40 hover:bg-violet-500/5",
       )}
       onClick={onClick}
       type={onClick ? "button" : undefined}
@@ -64,6 +68,7 @@ export function StatTile({
 }
 
 export function ProfileStatRibbon({
+  theme,
   followers,
   following,
   friends,
@@ -73,6 +78,7 @@ export function ProfileStatRibbon({
   onFriendsClick,
   onPostsClick,
 }: {
+  theme?: ProfileThemeClasses;
   followers: string | number;
   following: string | number;
   friends: string | number;
@@ -84,10 +90,10 @@ export function ProfileStatRibbon({
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <StatTile label="Takipçi" onClick={onFollowersClick} value={followers} />
-      <StatTile label="Takip" onClick={onFollowingClick} value={following} />
-      <StatTile label="Arkadaş" onClick={onFriendsClick} value={friends} />
-      <StatTile label="Gönderi" onClick={onPostsClick} value={posts} />
+      <StatTile theme={theme} label="Takipçi" onClick={onFollowersClick} value={followers} />
+      <StatTile theme={theme} label="Takip" onClick={onFollowingClick} value={following} />
+      <StatTile theme={theme} label="Arkadaş" onClick={onFriendsClick} value={friends} />
+      <StatTile theme={theme} label="Gönderi" onClick={onPostsClick} value={posts} />
     </div>
   );
 }
@@ -113,14 +119,20 @@ export function InfoRow({
 }
 
 export function ProfileBadgeChip({
+  theme,
   label,
   icon,
 }: {
+  theme?: ProfileThemeClasses;
   label: string;
   icon?: ReactNode;
 }) {
+  const borderClass = theme?.border || "border-violet-500/35";
+  const bgClass = theme?.bg || "bg-violet-500/10";
+  const textClass = theme?.text || "text-violet-100";
+
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-bold text-violet-100">
+    <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-bold", borderClass, bgClass, textClass)}>
       {icon}
       {label}
     </span>

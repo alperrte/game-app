@@ -15,13 +15,11 @@ export default function PostDetailPage() {
   const { showToast } = useToast();
 
   const [post, setPost] = useState<SocialPostResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(() => Number.isFinite(postId));
+  const [notFound, setNotFound] = useState(() => !Number.isFinite(postId));
 
   useEffect(() => {
     if (!Number.isFinite(postId)) {
-      setNotFound(true);
-      setLoading(false);
       return;
     }
 
